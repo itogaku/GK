@@ -578,14 +578,18 @@ const words = [
 const SECTION_SIZE = 20;
 let progress = {};
 let current = null;
-let lastJudge = null;
-let currentSection = 0;
-let currentLayout = localStorage.getItem("keyboardLayout") || "mobile";
+let currentSection = 1; // 0ではなく1から始める
 let currentUser = localStorage.getItem("currentUser");
 let selectedUser = null;
+let currentLayout = localStorage.getItem("keyboardLayout") || "mobile";
 let upper = false;
-let testLog = []; // 出題順の記録用
-let isWrongOnlyMode = false; // 「間違えた問題のみ」モードのフラグ
+
+// テスト状態管理
+let isReviewMode = false;      
+let isWrongOnlyMode = false;   
+let reviewPool = [];           
+let reviewWrongWords = [];     
+let testLog = [];
 
 /* ===== 画面表示制御 ===== */
 window.showPage = function(id) {
@@ -686,26 +690,28 @@ function loadUserData() {
 
 /* ===== 出題ロジック（統合版） ===== */
 function getNextWord() {
-  let pool = words;
-  if (currentSection > 0) {
-    const start = (currentSection - 1) * SECTION_SIZE;
-    pool = words.slice(start, start + SECTION_SIZE);
-  }
+    // A. 復習テストモード（ログイン直後）
+    if (isReviewMode) {
+        return reviewPool.length > 0 ? reviewPool.pop() : null;
+    }
 
-  if (isWrongOnlyMode) {
-    // 間違い直しモード：今のセクションの「wrong」のみをランダムに出す
-    const wrongOnes = pool.filter(w => progress[w.word.toLowerCase()] === "wrong");
-    return wrongOnes.length > 0 ? wrongOnes[Math.floor(Math.random() * wrongOnes.length)] : null;
-  }
+    // B. 通常・間違い直しモードの範囲
+    let pool = words.slice((currentSection - 1) * SECTION_SIZE, currentSection * SECTION_SIZE);
 
-  // 通常モード：未解答(undefined)を優先し、次に不正解(wrong)を出す
-  const unattempted = pool.filter(w => progress[w.word.toLowerCase()] === undefined);
-  if (unattempted.length > 0) return unattempted[Math.floor(Math.random() * unattempted.length)];
-
-  const wrongPool = pool.filter(w => progress[w.word.toLowerCase()] === "wrong");
-  if (wrongPool.length > 0) return wrongPool[Math.floor(Math.random() * wrongPool.length)];
-
-  return null;
+    if (isWrongOnlyMode) {
+        // 間違えた単語のみをランダムに出題
+        const wrongOnes = pool.filter(w => progress[w.word.toLowerCase()] === "wrong");
+        return wrongOnes.length > 0 ? wrongOnes[Math.floor(Math.random() * wrongOnes.length)] : null;
+    } else {
+        // 全問モード：未解答優先 -> 不正解の順
+        const unattempted = pool.filter(w => progress[w.word.toLowerCase()] === undefined);
+        if (unattempted.length > 0) return unattempted[Math.floor(Math.random() * unattempted.length)];
+        
+        const wrongs = pool.filter(w => progress[w.word.toLowerCase()] === "wrong");
+        if (wrongs.length > 0) return wrongs[Math.floor(Math.random() * wrongs.length)];
+        
+        return null; // 全て正解済み
+    }
 }
 
 function renderQuestion() {
@@ -794,12 +800,17 @@ function showTestResult() {
 }
 
 window.exitToListView = function() {
-  isWrongOnlyMode = testLog.some(item => item.status === "wrong");
-  testLog = [];
-  current = null;
-  // 結果表示で壊したDOMを直すため、一覧へ飛ばしてリロード
-  showPage("list");
-  setTimeout(() => location.reload(), 10); 
+    // 1つでもミスがあれば「間違い直しモード」をオンにする
+    isWrongOnlyMode = testLog.some(i => i.status === "wrong");
+    isReviewMode = false;
+    testLog = [];
+    current = null;
+    
+    // 一覧画面へ移動
+    showPage("list");
+    
+    // DOMをリセットするため、少し遅らせてリロード（これが最も確実です）
+    setTimeout(() => location.reload(), 10);
 };
 
 /* ===== 一覧・ボタン生成 ===== */

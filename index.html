@@ -578,18 +578,12 @@ const words = [
 const SECTION_SIZE = 20;
 let progress = {};
 let current = null;
-let currentSection = 1; // 0ではなく1から始める
+let lastJudge = null;
+let currentSection = 0;
+let currentLayout = localStorage.getItem("keyboardLayout") || "mobile";
 let currentUser = localStorage.getItem("currentUser");
 let selectedUser = null;
-let currentLayout = localStorage.getItem("keyboardLayout") || "mobile";
 let upper = false;
-
-// テスト状態管理
-let isReviewMode = false;      
-let isWrongOnlyMode = false;   
-let reviewPool = [];           
-let reviewWrongWords = [];     
-let testLog = [];
 
 /* ===== 画面表示制御 ===== */
 window.showPage = function(id) {
@@ -602,6 +596,7 @@ window.showPage = function(id) {
     controls.classList.add("is-logged-in");
     controls.style.display = "flex";
   } else {
+    controls.classList.remove("is-logged-in");
     controls.style.display = "none";
   }
 
@@ -615,9 +610,7 @@ window.showPage = function(id) {
   else if (id === "sectionPage") renderSectionButtons();
   else if (id === "quiz") {
     updateProgressMini();
-    // 画面切り替え時に問題がなければ出す。結果表示中は何もしない。
-    const card = document.querySelector("#quiz .card");
-    if (!current && !card.querySelector('h3')) renderQuestion();
+    if (!current) renderQuestion();
   }
 };
 
@@ -645,7 +638,6 @@ window.deleteUser = function(name) {
 
 function renderUserList() {
   const container = document.getElementById("userList");
-  if(!container) return;
   container.innerHTML = "";
   let users = JSON.parse(localStorage.getItem("users") || "{}");
   Object.keys(users).forEach(name => {
@@ -688,45 +680,47 @@ function loadUserData() {
   progress = JSON.parse(localStorage.getItem("progress_" + currentUser) || "{}");
 }
 
-/* ===== 出題ロジック（統合版） ===== */
+/* ===== 出題ロジック（一周終わるまで再出題しない） ===== */
 function getNextWord() {
-    // A. 復習テストモード（ログイン直後）
-    if (isReviewMode) {
-        return reviewPool.length > 0 ? reviewPool.pop() : null;
-    }
+  let pool = words;
+  
+  // 1. セクションが選択されている場合は範囲を絞る
+  if (currentSection > 0) {
+    const start = (currentSection - 1) * SECTION_SIZE;
+    pool = words.slice(start, start + SECTION_SIZE);
+  }
 
-    // B. 通常・間違い直しモードの範囲
-    let pool = words.slice((currentSection - 1) * SECTION_SIZE, currentSection * SECTION_SIZE);
+  // 2. 「まだ一度も解いていない単語（未出題）」を抽出
+  const unattempted = pool.filter(w => progress[w.word.toLowerCase()] === undefined);
 
-    if (isWrongOnlyMode) {
-        // 間違えた単語のみをランダムに出題
-        const wrongOnes = pool.filter(w => progress[w.word.toLowerCase()] === "wrong");
-        return wrongOnes.length > 0 ? wrongOnes[Math.floor(Math.random() * wrongOnes.length)] : null;
-    } else {
-        // 全問モード：未解答優先 -> 不正解の順
-        const unattempted = pool.filter(w => progress[w.word.toLowerCase()] === undefined);
-        if (unattempted.length > 0) return unattempted[Math.floor(Math.random() * unattempted.length)];
-        
-        const wrongs = pool.filter(w => progress[w.word.toLowerCase()] === "wrong");
-        if (wrongs.length > 0) return wrongs[Math.floor(Math.random() * wrongs.length)];
-        
-        return null; // 全て正解済み
-    }
+  if (unattempted.length > 0) {
+    // 未出題がある場合は、その中からランダムに出題
+    return unattempted[Math.floor(Math.random() * unattempted.length)];
+  }
+
+  // 3. 全て一度は解いた（未回答がなくなった）場合
+  // 「不正解（wrong）」が残っているか確認
+  const wrongPool = pool.filter(w => progress[w.word.toLowerCase()] === "wrong");
+
+  if (wrongPool.length > 0) {
+    // 不正解が残っていれば、その中から出題（二周目開始）
+    return wrongPool[Math.floor(Math.random() * wrongPool.length)];
+  }
+
+  // 4. 全て正解（correct）になった場合
+  return null;
 }
 
 function renderQuestion() {
   current = getNextWord();
   lastJudge = null;
-  
-  // クイズ画面のHTML構造を元に戻す（結果表示後などの対策）
-  const card = document.querySelector("#quiz .card");
-  if (card.querySelector('h3')) {
-      location.reload(); // 複雑なDOM操作を避けるためリロードが最も安全
-      return;
-  }
+  const input = document.getElementById("answerInput");
+  const resultArea = document.getElementById("resultArea");
 
   if (!current) {
-    showTestResult();
+    document.getElementById("meaning").textContent = "学習完了！";
+    document.getElementById("exampleEn").textContent = "";
+    document.getElementById("exampleJa").textContent = "";
     return;
   }
 
@@ -736,8 +730,8 @@ function renderQuestion() {
   document.getElementById("answerExample").textContent = "";
   document.getElementById("exampleEn").textContent = current.example || "";
   document.getElementById("exampleJa").textContent = current.exampleJa || "";
-  document.getElementById("answerInput").value = "";
-  document.getElementById("resultArea").className = "";
+  input.value = "";
+  resultArea.className = "";
   document.getElementById("checkBtn").classList.remove("hidden");
   document.getElementById("checkBtn").disabled = false;
   document.getElementById("nextBtn").classList.add("hidden");
@@ -748,11 +742,11 @@ document.getElementById("checkBtn").onclick = () => {
   const ok = val === current.word.toLowerCase();
   lastJudge = ok ? "correct" : "wrong";
 
-  testLog.push({ word: current.word, meaning: current.meaning, status: lastJudge });
-  
+  // --- ★ここから追加：判定直後に進捗を保存する ---
   progress[current.word.toLowerCase()] = lastJudge;
   localStorage.setItem("progress_" + currentUser, JSON.stringify(progress));
-  updateProgressMini();
+  updateProgressMini(); // カウント表示も即座に更新
+  // --- ★ここまで追加 ---
 
   const res = document.getElementById("resultArea");
   const j = document.getElementById("judge");
@@ -770,53 +764,35 @@ document.getElementById("checkBtn").onclick = () => {
 };
 
 document.getElementById("nextBtn").onclick = () => {
+  // すでに保存は完了しているので、次の問題を出すだけ
   renderQuestion();
 };
 
-/* ===== 結果表示と終了処理 ===== */
-function showTestResult() {
-  const correctCount = testLog.filter(item => item.status === "correct").length;
-  const totalCount = testLog.length;
-
-  let html = `<h3>テスト結果</h3>`;
-  html += `<p style="font-size:20px; font-weight:bold;">${totalCount}問中 ${correctCount}問 正解！</p>`;
-  html += `<div style="max-height:300px; overflow-y:auto; border:1px solid #ccc; margin:10px 0;">`;
-  html += `<table style="width:100%; border-collapse:collapse;">`;
-  
-  testLog.forEach(item => {
-    const color = item.status === "correct" ? "#e8f5e9" : "#ffebee";
-    const mark = item.status === "correct" ? "〇" : "×";
-    html += `<tr style="background:${color}; border-bottom:1px solid #eee;">
-               <td style="padding:8px;">${mark}</td>
-               <td style="padding:8px;"><strong>${item.word}</strong></td>
-               <td style="padding:8px;">${item.meaning}</td>
-             </tr>`;
-  });
-  html += `</table></div>`;
-  html += `<button onclick="exitToListView()" class="btn-primary">一覧に戻る</button>`;
-
-  const mainArea = document.querySelector("#quiz .card"); 
-  mainArea.innerHTML = html;
-}
-
-window.exitToListView = function() {
-    // 1つでもミスがあれば「間違い直しモード」をオンにする
-    isWrongOnlyMode = testLog.some(i => i.status === "wrong");
-    isReviewMode = false;
-    testLog = [];
-    current = null;
-    
-    // 一覧画面へ移動
-    showPage("list");
-    
-    // DOMをリセットするため、少し遅らせてリロード（これが最も確実です）
-    setTimeout(() => location.reload(), 10);
+window.changeSection = function(val) {
+  currentSection = parseInt(val);
+  showPage("list");
 };
+
+window.changeListSection = function(val) {
+  currentSection = parseInt(val);
+  renderList();
+  updateProgressMini();
+};
+
+window.goToQuizFromList = function() {
+  renderQuestion();
+  showPage("quiz");
+};
+
+function updateProgressMini() {
+  let pool = currentSection > 0 ? words.slice((currentSection-1)*SECTION_SIZE, (currentSection-1)*SECTION_SIZE + SECTION_SIZE) : words;
+  const done = pool.filter(w => progress[w.word.toLowerCase()] === "correct").length;
+  document.getElementById("progressMini").textContent = (currentSection > 0 ? `Section ${currentSection}` : "全範囲") + ` 完了: ${done} / ${pool.length}`;
+}
 
 /* ===== 一覧・ボタン生成 ===== */
 function renderSectionButtons() {
   const container = document.getElementById("sectionContainer");
-  if(!container) return;
   container.innerHTML = "";
   const count = Math.ceil(words.length / SECTION_SIZE);
   for (let i = 1; i <= count; i++) {
@@ -830,60 +806,27 @@ function renderSectionButtons() {
 
 window.renderList = function() {
   const table = document.getElementById("wordTable");
-  if(!table) return;
+  const filter = document.getElementById("filter").value;
   table.innerHTML = "<tr><th>No</th><th>単語</th><th>意味</th><th>状態</th></tr>";
 
-  let offset = (currentSection - 1) * 20;
-  let pool = words.slice(offset, offset + 20);
-
-  if (isWrongOnlyMode) {
-    pool = pool.filter(w => progress[w.word.toLowerCase()] === "wrong");
+  let offset = 0;
+  let pool = words;
+  if (currentSection > 0) {
+    offset = (currentSection - 1) * SECTION_SIZE;
+    pool = words.slice(offset, offset + SECTION_SIZE);
   }
 
-  pool.forEach((w, i) => {
+  pool.forEach((w, index) => {
     const state = progress[w.word.toLowerCase()];
+    if (filter === "correct" && state !== "correct") return;
+    if (filter === "wrong" && state !== "wrong") return;
+    if (filter === "unanswered" && state !== undefined) return;
+
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td>${offset+i+1}</td><td><strong>${w.word}</strong></td><td>${w.meaning}</td><td style="text-align:center;">${state==='correct'?'〇':state==='wrong'?'×':'-'}</td>`;
+    tr.innerHTML = `<td>${offset+index+1}</td><td><strong>${w.word}</strong></td><td>${w.meaning}<br><small style="color:#666">${w.example?w.example.replace(/_+/g,w.word):''}</small></td><td style="text-align:center">${state==='correct'?'〇':state==='wrong'?'×':'-'}</td>`;
     table.appendChild(tr);
   });
-  
-  const normalBtn = document.getElementById("startQuizBtn");
-  const wrongBtn = document.getElementById("startWrongQuizBtn");
-
-  if (isWrongOnlyMode && pool.length > 0) {
-    if(normalBtn) normalBtn.style.display = "inline-block";
-    if(wrongBtn) {
-      wrongBtn.style.display = "inline-block";
-      wrongBtn.textContent = `間違えた${pool.length}問を解き直す`;
-    }
-  } else {
-    if(normalBtn) normalBtn.style.display = "inline-block";
-    if (wrongBtn) wrongBtn.style.display = "none";
-    isWrongOnlyMode = false; 
-  }
 };
-
-window.startWrongOnlyTest = function() {
-  isWrongOnlyMode = true;
-  testLog = [];
-  current = null;
-  showPage("quiz");
-};
-
-window.goToQuizFromList = function() {
-  isWrongOnlyMode = false;
-  testLog = [];
-  current = null;
-  showPage("quiz");
-};
-
-function updateProgressMini() {
-  const el = document.getElementById("progressMini");
-  if(!el) return;
-  let pool = currentSection > 0 ? words.slice((currentSection-1)*SECTION_SIZE, (currentSection-1)*SECTION_SIZE + SECTION_SIZE) : words;
-  const done = pool.filter(w => progress[w.word.toLowerCase()] === "correct").length;
-  el.textContent = (currentSection > 0 ? `Section ${currentSection}` : "全範囲") + ` 完了: ${done} / ${pool.length}`;
-}
 
 /* ===== キーボード ===== */
 const layouts = {
@@ -893,7 +836,6 @@ const layouts = {
 
 function buildKeyboard() {
   const container = document.getElementById("keyboard");
-  if(!container) return;
   container.innerHTML = "";
   layouts[currentLayout].forEach(row => {
     const div = document.createElement("div");
@@ -921,18 +863,21 @@ function buildKeyboard() {
   });
 }
 
+document.getElementById("keyboardSelect").onchange = (e) => {
+  currentLayout = e.target.value;
+  localStorage.setItem("keyboardLayout", currentLayout);
+  buildKeyboard();
+};
+
 /* ===== 初期化 ===== */
 function init() {
   const listSelect = document.getElementById("listSectionSelect");
-  if (listSelect) {
-    listSelect.innerHTML = ""; // 重複防止
-    const sectionCount = Math.ceil(words.length / SECTION_SIZE);
-    for (let i = 1; i <= sectionCount; i++) {
-      const opt = document.createElement("option");
-      opt.value = i;
-      opt.textContent = `Section ${i} (${(i-1)*SECTION_SIZE + 1}～${Math.min(i*SECTION_SIZE, words.length)})`;
-      listSelect.appendChild(opt);
-    }
+  const sectionCount = Math.ceil(words.length / SECTION_SIZE);
+  for (let i = 1; i <= sectionCount; i++) {
+    const opt = document.createElement("option");
+    opt.value = i;
+    opt.textContent = `Section ${i} (${(i-1)*SECTION_SIZE + 1}～${Math.min(i*SECTION_SIZE, words.length)})`;
+    listSelect.appendChild(opt);
   }
   
   renderUserList();
@@ -946,6 +891,9 @@ function init() {
 }
 
 init();
+</script>
+</body>
+</html>
 </script>
 </body>
 </html>

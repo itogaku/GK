@@ -53,6 +53,36 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
 .btn-primary { background: #2196f3; color: white; border: none; font-weight: bold; }
 .btn-delete { color: #d32f2f; border: 1px solid #ffcdd2; font-size: 12px; padding: 4px 8px; }
 .hidden { display: none !important; }
+
+.section-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.section-btn {
+  padding: 15px;
+  background: #f8f9fa;
+  border: 2px solid #e9ecef;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: 0.2s;
+  text-align: center;
+}
+
+.section-btn:hover {
+  background: #e7f1ff;
+  border-color: #007bff;
+  transform: translateY(-2px);
+}
+
+.mini-progress {
+  font-size: 11px;
+  color: #6c757d;
+  margin-top: 5px;
+}
+  
 </style>
 </head>
 <body>
@@ -91,6 +121,19 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
   </div>
 </section>
 
+<!-- ログイン後のホーム画面（セクション選択） -->
+<section id="sectionPage" class="page">
+  <div class="card">
+    <h2 id="welcomeMsg">ようこそ！</h2>
+    <p>学習するセクションを選んでください。</p>
+    <div id="sectionContainer" class="section-grid">
+      <!-- ここにJavaScriptでボタンが自動生成されます -->
+    </div>
+    <hr>
+    <button onclick="logout()" class="btn-secondary">ログアウト</button>
+  </div>
+</section>
+  
 <!-- クイズ画面 -->
 <section id="quiz" class="page">
   <div id="progressMini" style="text-align:center; font-size:13px; color:#666; margin-bottom:5px;"></div>
@@ -586,31 +629,28 @@ let selectedUser = null;
 let upper = false;
 
 /* ===== 画面表示制御 ===== */
+/* ===== 画面表示の基本ルール ===== */
 window.showPage = function(id) {
+  // すべてのページを非表示にする
   document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+  
+  // 指定したIDのページだけ表示する
   const target = document.getElementById(id);
-  if(target) target.classList.add("active");
+  if (target) target.classList.add("active");
 
+  // ログイン中なら、常にクイズ共通メニュー（設定など）を出す
   const controls = document.getElementById("quizControls");
   if (currentUser) {
-    controls.classList.add("is-logged-in");
     controls.style.display = "flex";
   } else {
-    controls.classList.remove("is-logged-in");
     controls.style.display = "none";
   }
 
-  if (id === "list") {
-    const listSelect = document.getElementById("listSectionSelect");
-    if (listSelect) listSelect.value = currentSection;
-    const startBtn = document.getElementById("startQuizBtn");
-    if (startBtn) startBtn.style.display = currentSection > 0 ? "inline-block" : "none";
-    renderList();
-  } 
-  else if (id === "sectionPage") renderSectionButtons();
-  else if (id === "quiz") {
-    updateProgressMini();
-    if (!current) renderQuestion();
+  // ページごとの個別処理
+  if (id === "sectionPage") {
+    renderSectionButtons(); // セクションボタンを並べる
+    const msg = document.getElementById("welcomeMsg");
+    if (msg) msg.textContent = `ようこそ、${currentUser}さん！`;
   }
 };
 
@@ -793,13 +833,34 @@ function updateProgressMini() {
 /* ===== 一覧・ボタン生成 ===== */
 function renderSectionButtons() {
   const container = document.getElementById("sectionContainer");
-  container.innerHTML = "";
-  const count = Math.ceil(words.length / SECTION_SIZE);
-  for (let i = 1; i <= count; i++) {
+  if (!container) return;
+  
+  container.innerHTML = ""; // 一旦中身を空にする
+  
+  // 全体の単語数から、必要なセクション数を計算（1セクション20問）
+  const totalSections = Math.ceil(words.length / SECTION_SIZE);
+  
+  for (let i = 1; i <= totalSections; i++) {
     const btn = document.createElement("button");
-    btn.className = "section-btn";
-    btn.innerHTML = `Section ${i}<br><small>${(i-1)*SECTION_SIZE+1}～${Math.min(i*SECTION_SIZE, words.length)}</small>`;
-    btn.onclick = () => { currentSection = i; showPage("list"); };
+    btn.className = "section-btn"; // CSSでデザイン
+    
+    // 進捗（〇の数）を計算して表示に混ぜる
+    const start = (i - 1) * SECTION_SIZE;
+    const pool = words.slice(start, start + SECTION_SIZE);
+    const done = pool.filter(w => progress[w.word.toLowerCase()] === "correct").length;
+    
+    btn.innerHTML = `
+      <strong>Section ${i}</strong><br>
+      <small>${start + 1}～${Math.min(i * SECTION_SIZE, words.length)}</small><br>
+      <div class="mini-progress">${done} / ${pool.length}</div>
+    `;
+    
+    // クリックした時の動作
+    btn.onclick = () => {
+      currentSection = i;
+      showPage("list"); // 暗記用の一覧画面へ移動
+    };
+    
     container.appendChild(btn);
   }
 }

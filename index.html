@@ -770,29 +770,30 @@ function getNextWord() {
 }
 
 function renderQuestion() {
-  current = getNextWord();
-  lastJudge = null;
-  const input = document.getElementById("answerInput");
-  const resultArea = document.getElementById("resultArea");
+  // 復習モードなら復習プールから、通常ならgetNextWordから取得
+  current = isReviewMode ? (reviewPool.pop() || null) : getNextWord();
 
   if (!current) {
-    document.getElementById("meaning").textContent = "学習完了！";
-    document.getElementById("exampleEn").textContent = "";
-    document.getElementById("exampleJa").textContent = "";
+    // 全ての問題が終わったとき、結果画面を表示
+    showTestResult();
     return;
   }
 
+  // --- 通常の表示リセット ---
   document.getElementById("meaning").textContent = current.meaning;
+  document.getElementById("exampleEn").textContent = current.example || "";
+  document.getElementById("exampleJa").textContent = current.exampleJa || "";
   document.getElementById("judge").textContent = "";
   document.getElementById("correctWord").textContent = "";
   document.getElementById("answerExample").textContent = "";
-  document.getElementById("exampleEn").textContent = current.example || "";
-  document.getElementById("exampleJa").textContent = current.exampleJa || "";
-  input.value = "";
-  resultArea.className = "";
+  document.getElementById("answerInput").value = "";
+  document.getElementById("resultArea").className = "";
   document.getElementById("checkBtn").classList.remove("hidden");
-  document.getElementById("checkBtn").disabled = false;
   document.getElementById("nextBtn").classList.add("hidden");
+  
+  // 入力コントロールとキーボードを表示（結果表示から戻ったとき用）
+  document.getElementById("answerControlArea").classList.remove("hidden");
+  document.getElementById("quizKeyboard").classList.remove("hidden");
 }
 
 document.getElementById("checkBtn").onclick = () => {

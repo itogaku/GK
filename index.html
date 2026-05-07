@@ -53,36 +53,6 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
 .btn-primary { background: #2196f3; color: white; border: none; font-weight: bold; }
 .btn-delete { color: #d32f2f; border: 1px solid #ffcdd2; font-size: 12px; padding: 4px 8px; }
 .hidden { display: none !important; }
-
-.section-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 15px;
-  margin-top: 20px;
-}
-
-.section-btn {
-  padding: 15px;
-  background: #f8f9fa;
-  border: 2px solid #e9ecef;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: 0.2s;
-  text-align: center;
-}
-
-.section-btn:hover {
-  background: #e7f1ff;
-  border-color: #007bff;
-  transform: translateY(-2px);
-}
-
-.mini-progress {
-  font-size: 11px;
-  color: #6c757d;
-  margin-top: 5px;
-}
-  
 </style>
 </head>
 <body>
@@ -112,6 +82,25 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
   </div>
 </section>
 
+<!-- ログイン直後のホーム画面（新設） -->
+<section id="homePage" class="page">
+  <div class="card" style="text-align: center; padding: 40px 20px;">
+    <h2 id="welcomeUser">こんにちは！</h2>
+    <div id="todayStatus" style="margin-bottom: 30px;">
+      <p style="color: #666;">今日の目標：<span id="targetSectionName" style="font-weight:bold; color: #333;">Section 1</span></p>
+    </div>
+    
+    <button onclick="startTodayLesson()" class="btn-primary" style="font-size: 20px; padding: 20px; width: 100%; margin-bottom: 20px;">
+      今日の学習を開始する
+    </button>
+    
+    <div style="display: flex; gap: 10px;">
+      <button onclick="showPage('sectionPage')" style="flex: 1;">別のセクション</button>
+      <button onclick="logout()" style="flex: 1;">ログアウト</button>
+    </div>
+  </div>
+</section>
+  
 <!-- セクション選択画面 -->
 <section id="sectionPage" class="page">
   <h2 style="text-align:center;">学習セクションを選択</h2>
@@ -121,41 +110,23 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
   </div>
 </section>
 
-<section id="homePage" class="page">
-  <div class="card" style="text-align: center; padding: 40px 20px;">
-    <h2 id="welcomeUser">こんにちは！</h2>
-    <div id="todayStatus" style="margin-bottom: 30px;">
-      <p style="color: #666;">今日の目標：<span id="targetSectionName" style="font-weight:bold; color: #333;">Section 1</span></p>
-    </div>
-    
-    <!-- ★メインボタン -->
-    <button onclick="startTodayLesson()" class="btn-primary" style="font-size: 20px; padding: 20px 40px; width: 100%;">
-      今日の学習を開始する
-    </button>
-    
-    <div style="margin-top: 40px; display: flex; justify-content: space-between;">
-      <button onclick="showPage('sectionPage')" class="btn-secondary" style="font-size: 12px;">別のセクションを選ぶ</button>
-      <button onclick="logout()" class="btn-secondary" style="font-size: 12px;">ログアウト</button>
-    </div>
-  </div>
-</section>
-
-  
 <!-- クイズ画面 -->
+<!-- クイズ画面のカード内（結果表示を上書きできるようにしておく） -->
 <section id="quiz" class="page">
   <div id="progressMini" style="text-align:center; font-size:13px; color:#666; margin-bottom:5px;"></div>
-  <div id="quizContent">
-    <div id="meaning"></div>
-    <div id="exampleArea">
-      <div id="exampleEn" style="font-style:italic; color:#444;"></div>
-      <div id="exampleJa" style="font-size:13px; color:#888; margin-top:4px;"></div>
+  <div class="card">
+    <div id="quizMainContent"> <!-- ここを結果画面で書き換える -->
+      <div id="meaning"></div>
+      <div id="exampleArea">
+        <div id="exampleEn" style="font-style:italic; color:#444;"></div>
+        <div id="exampleJa" style="font-size:13px; color:#888; margin-top:4px;"></div>
+      </div>
+      <div id="resultArea">
+        <div id="judge"></div>
+        <div id="correctWord" style="font-weight:bold; margin-top:8px;"></div>
+        <div id="answerExample" style="font-size:14px; color:#555; margin-top:5px;"></div>
+      </div>
     </div>
-  </div>
-
-  <div id="resultArea">
-    <div id="judge"></div>
-    <div id="correctWord" style="font-weight:bold; margin-top:8px;"></div>
-    <div id="answerExample" style="font-size:14px; color:#555; margin-top:5px;"></div>
   </div>
 
   <div id="answerControlArea" style="text-align:center;">
@@ -628,282 +599,371 @@ const SECTION_SIZE = 20;
 let progress = {};
 let current = null;
 let lastJudge = null;
-let currentSection = 1;
+let currentSection = 0;
+let currentLayout = localStorage.getItem("keyboardLayout") || "mobile";
 let currentUser = localStorage.getItem("currentUser");
 let selectedUser = null;
 let upper = false;
 
-// テスト・モード管理
-let isReviewMode = false;      
-let isWrongOnlyMode = false;   
-let testLog = [];              
-let reviewPool = [];           
-let reviewWrongWords = [];     // 復習テストで間違えた単語を一覧で強調するため
-let currentLayout = localStorage.getItem("keyboardLayout") || "mobile";
+// モード管理
+let isReviewMode = false;      // 復習テスト中か
+let testLog = [];              // 正誤の記録用
+let reviewPool = [];           // 復習用問題
+  
+/* ===== 画面表示制御 ===== */
+window.showPage = function(id) {
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+  const target = document.getElementById(id);
+  if(target) target.classList.add("active");
 
-/* ===== 2. 復習テストの精緻な抽出ロジック ===== */
-function startReviewTest() {
-    isReviewMode = true;
-    isWrongOnlyMode = false;
-    testLog = [];
-    reviewPool = [];
-    reviewWrongWords = []; // リセット
+  const controls = document.getElementById("quizControls");
+  if (currentUser) {
+    controls.classList.add("is-logged-in");
+    controls.style.display = "flex";
+  } else {
+    controls.classList.remove("is-logged-in");
+    controls.style.display = "none";
+  }
 
-    // セクション1の場合は復習なしで一覧へ
-    if (currentSection <= 1) {
-        isReviewMode = false;
-        showPage("list");
-        return;
-    }
+  if (id === "list") {
+    const listSelect = document.getElementById("listSectionSelect");
+    if (listSelect) listSelect.value = currentSection;
+    const startBtn = document.getElementById("startQuizBtn");
+    if (startBtn) startBtn.style.display = currentSection > 0 ? "inline-block" : "none";
+    renderList();
+  } 
+  else if (id === "sectionPage") renderSectionButtons();
+  else if (id === "quiz") {
+    updateProgressMini();
+    if (!current) renderQuestion();
+  }
+};
 
-    // 過去のセクションから重み付けして抽出
-    const idxPrev1 = (currentSection - 2) * SECTION_SIZE;
-    const idxPrev2 = (currentSection - 3) * SECTION_SIZE;
-    
-    const poolPrev1 = words.slice(idxPrev1, idxPrev1 + SECTION_SIZE); // 直前
-    const poolPrev2 = words.slice(Math.max(0, idxPrev2), Math.max(0, idxPrev1)); // 前々回
-    const poolOthers = words.slice(0, Math.max(0, idxPrev2)); // それより前
-
-    if (currentSection === 2) {
-        reviewPool = shuffle([...poolPrev1]).slice(0, 10);
-    } else if (currentSection === 3) {
-        reviewPool = [...shuffle([...poolPrev1]).slice(0, 5), ...shuffle([...poolPrev2]).slice(0, 5)];
-    } else {
-        reviewPool = [
-            ...shuffle([...poolPrev1]).slice(0, 5),
-            ...shuffle([...poolPrev2]).slice(0, 3),
-            ...shuffle([...poolOthers]).slice(0, 2)
-        ];
-    }
-
-    // 10問に満たない場合の補填
-    if (reviewPool.length < 10) {
-        const extra = words.slice(0, (currentSection - 1) * SECTION_SIZE).filter(w => !reviewPool.includes(w));
-        reviewPool.push(...shuffle(extra).slice(0, 10 - reviewPool.length));
-    }
-
-    reviewPool = shuffle(reviewPool);
-    alert(`まずは前回の内容から復習テスト（10問）を開始します！`);
-    renderQuestion();
-    showPage("quiz");
+/* ===== 学習ロジック ===== */
+function loadUserData() {
+  progress = JSON.parse(localStorage.getItem("progress_" + currentUser) || "{}");
 }
 
-/* ===== 3. 学習フロー制御 ===== */
-window.startTodayLesson = function() {
-    currentSection = determineTodaySection();
-    startReviewTest(); 
-};
-
-window.login = function() {
-    const pass = document.getElementById("passwordInput").value;
-    let users = JSON.parse(localStorage.getItem("users") || "{}");
-    if(users[selectedUser] === pass) {
-        currentUser = selectedUser;
-        localStorage.setItem("currentUser", currentUser);
-        loadUserData();
-        currentSection = determineTodaySection();
-        
-        // ホーム画面へ
-        const welcome = document.getElementById("welcomeUser");
-        if (welcome) welcome.textContent = `こんにちは、${currentUser}さん！`;
-        const target = document.getElementById("targetSectionName");
-        if (target) target.textContent = `Section ${currentSection}`;
-        showPage("homePage"); 
-    } else { alert("パスワードが違います"); }
-};
-
-/* ===== 4. 出題ロジック ===== */
+/* ===== 出題ロジック（一周終わるまで再出題しない） ===== */
 function getNextWord() {
-    if (isReviewMode) return reviewPool.length > 0 ? reviewPool.pop() : null;
+  let pool = words;
+  
+  // 1. セクションが選択されている場合は範囲を絞る
+  if (currentSection > 0) {
+    const start = (currentSection - 1) * SECTION_SIZE;
+    pool = words.slice(start, start + SECTION_SIZE);
+  }
 
-    let start = (currentSection - 1) * SECTION_SIZE;
-    let pool = words.slice(start, start + SECTION_SIZE);
+  // 2. 「まだ一度も解いていない単語（未出題）」を抽出
+  const unattempted = pool.filter(w => progress[w.word.toLowerCase()] === undefined);
 
-    if (isWrongOnlyMode) {
-        const wrongs = pool.filter(w => progress[w.word.toLowerCase()] === "wrong");
-        return wrongs.length > 0 ? wrongs[Math.floor(Math.random() * wrongs.length)] : null;
-    }
+  if (unattempted.length > 0) {
+    // 未出題がある場合は、その中からランダムに出題
+    return unattempted[Math.floor(Math.random() * unattempted.length)];
+  }
 
-    const unattempted = pool.filter(w => progress[w.word.toLowerCase()] === undefined);
-    if (unattempted.length > 0) return unattempted[Math.floor(Math.random() * unattempted.length)];
+  // 3. 全て一度は解いた（未回答がなくなった）場合
+  // 「不正解（wrong）」が残っているか確認
+  const wrongPool = pool.filter(w => progress[w.word.toLowerCase()] === "wrong");
 
-    const wrongs = pool.filter(w => progress[w.word.toLowerCase()] === "wrong");
-    if (wrongs.length > 0) return wrongs[Math.floor(Math.random() * wrongs.length)];
+  if (wrongPool.length > 0) {
+    // 不正解が残っていれば、その中から出題（二周目開始）
+    return wrongPool[Math.floor(Math.random() * wrongPool.length)];
+  }
 
-    return null;
+  // 4. 全て正解（correct）になった場合
+  return null;
 }
 
 function renderQuestion() {
-    current = getNextWord();
-    if (!current) {
-        if (isReviewMode) showReviewResult();
-        else showTestResult();
-        return;
-    }
-    
-    // 表示リセット
-    const setEl = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
-    setEl("meaning", current.meaning);
-    setEl("exampleEn", current.example || "");
-    setEl("exampleJa", current.exampleJa || "");
-    setEl("judge", "");
-    setEl("correctWord", "");
-    setEl("answerExample", "");
-    
-    const input = document.getElementById("answerInput");
-    if (input) input.value = "";
-    const resArea = document.getElementById("resultArea");
-    if (resArea) resArea.className = "";
+  // 復習モードならプールから、通常ならgetNextWordから取得
+  current = isReviewMode ? (reviewPool.pop() || null) : getNextWord();
 
-    document.getElementById("checkBtn").classList.remove("hidden");
-    document.getElementById("nextBtn").classList.add("hidden");
+  if (!current) {
+    if (isReviewMode) {
+      showReviewResult();
+    } else {
+      document.getElementById("meaning").textContent = "学習完了！";
+    }
+    return;
+  }
+
+  document.getElementById("meaning").textContent = current.meaning;
+  document.getElementById("judge").textContent = "";
+  document.getElementById("correctWord").textContent = "";
+  document.getElementById("answerExample").textContent = "";
+  document.getElementById("exampleEn").textContent = current.example || "";
+  document.getElementById("exampleJa").textContent = current.exampleJa || "";
+  input.value = "";
+  resultArea.className = "";
+  document.getElementById("checkBtn").classList.remove("hidden");
+  document.getElementById("checkBtn").disabled = false;
+  document.getElementById("nextBtn").classList.add("hidden");
 }
 
 document.getElementById("checkBtn").onclick = () => {
-    const val = document.getElementById("answerInput").value.trim().toLowerCase();
-    const ok = val === current.word.toLowerCase();
-    lastJudge = ok ? "correct" : "wrong";
+  const val = document.getElementById("answerInput").value.trim().toLowerCase();
+  const ok = val === current.word.toLowerCase();
+  lastJudge = ok ? "correct" : "wrong";
 
-    testLog.push({ word: current.word, meaning: current.meaning, status: lastJudge });
+  // --- ★ここから追加：判定直後に進捗を保存する ---
+  progress[current.word.toLowerCase()] = lastJudge;
+  localStorage.setItem("progress_" + currentUser, JSON.stringify(progress));
+  updateProgressMini(); // カウント表示も即座に更新
+  // --- ★ここまで追加 ---
 
-    // 復習テストで間違えた単語をリストにストック
-    if (isReviewMode && !ok) {
-        if (!reviewWrongWords.find(w => w.word === current.word)) reviewWrongWords.push(current);
-    }
+  const res = document.getElementById("resultArea");
+  const j = document.getElementById("judge");
+  j.textContent = ok ? "◎" : "✕";
+  j.className = ok ? "correct-text" : "wrong-text";
+  res.className = ok ? "correct" : "wrong";
+  
+  document.getElementById("correctWord").textContent = "答え: " + current.word;
+  if (current.example) {
+    document.getElementById("answerExample").textContent = current.example.replace(/_+/g, current.word);
+  }
 
-    progress[current.word.toLowerCase()] = lastJudge;
-    localStorage.setItem("progress_" + currentUser, JSON.stringify(progress));
-    
-    const j = document.getElementById("judge");
-    if(j) {
-        j.textContent = ok ? "◎" : "✕";
-        j.className = ok ? "correct-text" : "wrong-text";
-    }
-    const res = document.getElementById("resultArea");
-    if(res) res.className = ok ? "correct" : "wrong";
-    setEl("correctWord", "答え: " + current.word);
-    
-    if (current.example) {
-        setEl("answerExample", current.example.replace(/_+/g, current.word));
-    }
-
-    document.getElementById("checkBtn").classList.add("hidden");
-    document.getElementById("nextBtn").classList.remove("hidden");
-    updateProgressMini();
+  document.getElementById("checkBtn").classList.add("hidden");
+  document.getElementById("nextBtn").classList.remove("hidden");
 };
 
-/* ===== 5. 結果表示と遷移 ===== */
+document.getElementById("nextBtn").onclick = () => {
+  // すでに保存は完了しているので、次の問題を出すだけ
+  renderQuestion();
+};
+
+window.changeSection = function(val) {
+  currentSection = parseInt(val);
+  showPage("list");
+};
+
+window.changeListSection = function(val) {
+  currentSection = parseInt(val);
+  renderList();
+  updateProgressMini();
+};
+
+window.goToQuizFromList = function() {
+  renderQuestion();
+  showPage("quiz");
+};
+
+function updateProgressMini() {
+  let pool = currentSection > 0 ? words.slice((currentSection-1)*SECTION_SIZE, (currentSection-1)*SECTION_SIZE + SECTION_SIZE) : words;
+  const done = pool.filter(w => progress[w.word.toLowerCase()] === "correct").length;
+  document.getElementById("progressMini").textContent = (currentSection > 0 ? `Section ${currentSection}` : "全範囲") + ` 完了: ${done} / ${pool.length}`;
+}
+  
+/* ===== ユーザー管理 ===== */
+window.addUser = function() {
+  const name = document.getElementById("newName").value.trim();
+  const pass = document.getElementById("newPass").value.trim();
+  if(!name || !pass) return alert("名前とパスワードを入力してください");
+  let users = JSON.parse(localStorage.getItem("users") || "{}");
+  users[name] = pass;
+  localStorage.setItem("users", JSON.stringify(users));
+  document.getElementById("newName").value = "";
+  document.getElementById("newPass").value = "";
+  renderUserList();
+};
+
+window.deleteUser = function(name) {
+  if(!confirm(`「${name}」のデータを完全に削除しますか？`)) return;
+  let users = JSON.parse(localStorage.getItem("users") || "{}");
+  delete users[name];
+  localStorage.setItem("users", JSON.stringify(users));
+  localStorage.removeItem("progress_" + name);
+  renderUserList();
+};
+
+function renderUserList() {
+  const container = document.getElementById("userList");
+  container.innerHTML = "";
+  let users = JSON.parse(localStorage.getItem("users") || "{}");
+  Object.keys(users).forEach(name => {
+    const div = document.createElement("div");
+    div.className = "user-item";
+    div.innerHTML = `<span>${name}</span><div><button onclick="selectUser('${name}')">選択</button><button class="btn-delete" onclick="deleteUser('${name}')">削除</button></div>`;
+    container.appendChild(div);
+  });
+}
+
+window.selectUser = function(name) {
+  selectedUser = name;
+  document.getElementById("selectedUserName").textContent = name;
+  document.getElementById("loginArea").classList.remove("hidden");
+};
+
+/* ===== ログイン ===== */
+// 次にやるべきセクションを探す
+function determineTodaySection() {
+  for (let i = 1; i <= Math.ceil(words.length / SECTION_SIZE); i++) {
+    const pool = words.slice((i-1)*SECTION_SIZE, i*SECTION_SIZE);
+    const isDone = pool.every(w => progress[w.word.toLowerCase()] === "correct");
+    if (!isDone) return i;
+  }
+  return 1;
+}
+  
+window.login = function() {
+  const pass = document.getElementById("passwordInput").value;
+  let users = JSON.parse(localStorage.getItem("users") || "{}");
+  
+  if(users[selectedUser] === pass) {
+    currentUser = selectedUser;
+    localStorage.setItem("currentUser", currentUser);
+    loadUserData();
+    
+    // セクション自動判定
+    currentSection = determineTodaySection();
+
+    // ホーム画面の表示更新
+    document.getElementById("welcomeUser").textContent = `こんにちは、${currentUser}さん！`;
+    document.getElementById("targetSectionName").textContent = `Section ${currentSection}`;
+    showPage("homePage"); 
+  } else {
+    alert("パスワードが違います");
+  }
+};
+
+/* ===== 今日の学習開始（復習テスト） ===== */
+window.startTodayLesson = function() {
+  isReviewMode = true;
+  testLog = [];
+  
+  // 復習用プール作成（とりあえず全範囲からランダムに10問、未解答除く）
+  const allWords = [...words];
+  reviewPool = allWords.sort(() => Math.random() - 0.5).slice(0, 10);
+  
+  renderQuestion();
+  showPage("quiz");
+};
+
 function showReviewResult() {
-    isReviewMode = false;
-    const correctCount = testLog.filter(i => i.status === "correct").length;
-    let html = `<div class="result-card"><h3>復習テスト結果</h3>`;
-    html += `<p style="font-size:24px;">10問中 ${correctCount}問 正解</p>`;
-    html += `<button onclick="goToLessonList()" class="btn-primary">今日の学習（一覧）へ進む</button></div>`;
-    const card = document.querySelector("#quiz .card");
-    if (card) card.innerHTML = html;
+  const correctCount = testLog.filter(i => i.status === "correct").length;
+  const totalCount = testLog.length;
+
+  let html = `
+    <h3>復習テスト完了！</h3>
+    <p style="font-size: 24px; font-weight: bold;">${totalCount}問中 ${correctCount}問 正解</p>
+    <button onclick="goToLessonList()" class="btn-primary" style="width:100%; padding:15px;">
+      今日の学習（一覧）へ進む
+    </button>
+  `;
+  
+  const content = document.getElementById("quizMainContent");
+  if (content) content.innerHTML = html;
 }
 
 window.goToLessonList = function() {
-    testLog = [];
-    showPage("list");
-    // 画面状態をクリアするため、一覧表示後にリロードするのが塾用では一番安定します
-    setTimeout(() => location.reload(), 10);
+  isReviewMode = false;
+  testLog = [];
+  // 画面をリセットするためにリロードするのが最も確実
+  showPage("list");
+  setTimeout(() => location.reload(), 10);
+};
+  
+window.logout = function() {
+  if(!confirm("ログアウトしますか？")) return;
+  localStorage.removeItem("currentUser");
+  currentUser = null;
+  progress = {};
+  showPage("userPage");
 };
 
-/* ===== 6. 暗記リスト（例文あり・復習ミス強調） ===== */
-window.renderList = function() {
-    const table = document.getElementById("wordTable");
-    if (!table) return;
-    table.innerHTML = "<tr><th>No</th><th>単語</th><th>意味</th><th>状態</th></tr>";
 
-    // 復習テストで間違えた単語を最上部に表示
-    if (reviewWrongWords.length > 0) {
-        table.innerHTML += `<tr><td colspan="4" style="background:#fff3e0; color:#e65100; font-weight:bold; text-align:center;">要復習（先ほどのミス）</td></tr>`;
-        reviewWrongWords.forEach(w => {
-            table.innerHTML += `<tr style="background:#fff9f0"><td>!</td><td><b>${w.word}</b></td><td>${w.meaning}</td><td>×</td></tr>`;
-        });
-    }
 
-    let offset = (currentSection - 1) * SECTION_SIZE;
-    let pool = words.slice(offset, offset + SECTION_SIZE);
-    if (isWrongOnlyMode) pool = pool.filter(w => progress[w.word.toLowerCase()] === "wrong");
+/* ===== 一覧・ボタン生成 ===== */
+function renderSectionButtons() {
+  const container = document.getElementById("sectionContainer");
+  container.innerHTML = "";
+  const count = Math.ceil(words.length / SECTION_SIZE);
+  for (let i = 1; i <= count; i++) {
+    const btn = document.createElement("button");
+    btn.className = "section-btn";
+    btn.innerHTML = `Section ${i}<br><small>${(i-1)*SECTION_SIZE+1}～${Math.min(i*SECTION_SIZE, words.length)}</small>`;
+    btn.onclick = () => { currentSection = i; showPage("list"); };
+    container.appendChild(btn);
+  }
+}
 
-    pool.forEach((w, index) => {
-        const state = progress[w.word.toLowerCase()];
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-            <td>${offset+index+1}</td>
-            <td><strong>${w.word}</strong></td>
-            <td>${w.meaning}<br><small style="color:#666">${w.example ? w.example.replace(/_+/g, w.word) : ''}</small></td>
-            <td style="text-align:center">${state==='correct'?'〇':state==='wrong'?'×':'-'}</td>
-        `;
-        table.appendChild(tr);
-    });
-};
-/* ===== 6. その他・補助関数 ===== */
 window.renderList = function() {
   const table = document.getElementById("wordTable");
-  if (!table) return;
-  // filter要素がない場合の対策
-  const filterEl = document.getElementById("filter");
-  const filter = filterEl ? filterEl.value : "all";
-  
+  const filter = document.getElementById("filter").value;
   table.innerHTML = "<tr><th>No</th><th>単語</th><th>意味</th><th>状態</th></tr>";
 
-  let offset = (currentSection - 1) * SECTION_SIZE;
-  let pool = words.slice(offset, offset + SECTION_SIZE);
+  let offset = 0;
+  let pool = words;
+  if (currentSection > 0) {
+    offset = (currentSection - 1) * SECTION_SIZE;
+    pool = words.slice(offset, offset + SECTION_SIZE);
+  }
 
   pool.forEach((w, index) => {
     const state = progress[w.word.toLowerCase()];
+    if (filter === "correct" && state !== "correct") return;
+    if (filter === "wrong" && state !== "wrong") return;
+    if (filter === "unanswered" && state !== undefined) return;
+
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td>${offset+index+1}</td><td><strong>${w.word}</strong></td><td>${w.meaning}</td><td>${state==='correct'?'〇':state==='wrong'?'×':'-'}</td>`;
+    tr.innerHTML = `<td>${offset+index+1}</td><td><strong>${w.word}</strong></td><td>${w.meaning}<br><small style="color:#666">${w.example?w.example.replace(/_+/g,w.word):''}</small></td><td style="text-align:center">${state==='correct'?'〇':state==='wrong'?'×':'-'}</td>`;
     table.appendChild(tr);
   });
 };
 
-function updateProgressMini() {
-  const el = document.getElementById("progressMini");
-  if (!el) return;
-  let pool = words.slice((currentSection-1)*SECTION_SIZE, (currentSection-1)*SECTION_SIZE + SECTION_SIZE);
-  const done = pool.filter(w => progress[w.word.toLowerCase()] === "correct").length;
-  el.textContent = `Section ${currentSection} 完了: ${done} / ${pool.length}`;
-}
+/* ===== キーボード ===== */
+const layouts = {
+  mobile: [["a","b","c","d","e","f","g","h","i"],["j","k","l","m","n","o","p","q","r"],["shift","s","t","u","v","w","x","y","z","del"]],
+  qwerty: [["q","w","e","r","t","y","u","i","o","p"],["a","s","d","f","g","h","j","k","l"],["shift","z","x","c","v","b","n","m","del"]]
+};
 
 function buildKeyboard() {
   const container = document.getElementById("keyboard");
-  if (!container) return;
   container.innerHTML = "";
-  const layout = layouts[currentLayout];
-  layout.forEach(row => {
+  layouts[currentLayout].forEach(row => {
     const div = document.createElement("div");
     div.className = "key-row";
     row.forEach(key => {
       const btn = document.createElement("button");
-      btn.textContent = key === "del" ? "⌫" : (key === "shift" ? "↑" : (upper ? key.toUpperCase() : key));
-      btn.onclick = () => {
-        const input = document.getElementById("answerInput");
-        if (key === "del") input.value = input.value.slice(0, -1);
-        else if (key === "shift") { upper = !upper; buildKeyboard(); }
-        else { input.value += btn.textContent; if(upper){ upper=false; buildKeyboard(); } }
-      };
+      if (key === "shift") {
+        btn.textContent = "↑";
+        btn.style.background = upper ? "#ddd" : "#fff";
+        btn.onclick = () => { upper = !upper; buildKeyboard(); };
+      } else if (key === "del") {
+        btn.textContent = "⌫";
+        btn.onclick = () => { document.getElementById("answerInput").value = document.getElementById("answerInput").value.slice(0, -1); };
+      } else {
+        const char = upper ? key.toUpperCase() : key;
+        btn.textContent = char;
+        btn.onclick = () => {
+          document.getElementById("answerInput").value += char;
+          if(upper) { upper = false; buildKeyboard(); }
+        };
+      }
       div.appendChild(btn);
     });
     container.appendChild(div);
   });
 }
 
+document.getElementById("keyboardSelect").onchange = (e) => {
+  currentLayout = e.target.value;
+  localStorage.setItem("keyboardLayout", currentLayout);
+  buildKeyboard();
+};
+
+/* ===== 初期化 ===== */
 function init() {
-  renderUserList();
   const listSelect = document.getElementById("listSectionSelect");
-  if (listSelect) {
-    const sectionCount = Math.ceil(words.length / SECTION_SIZE);
-    for (let i = 1; i <= sectionCount; i++) {
-      const opt = document.createElement("option");
-      opt.value = i;
-      opt.textContent = `Section ${i}`;
-      listSelect.appendChild(opt);
-    }
+  const sectionCount = Math.ceil(words.length / SECTION_SIZE);
+  for (let i = 1; i <= sectionCount; i++) {
+    const opt = document.createElement("option");
+    opt.value = i;
+    opt.textContent = `Section ${i} (${(i-1)*SECTION_SIZE + 1}～${Math.min(i*SECTION_SIZE, words.length)})`;
+    listSelect.appendChild(opt);
   }
+  
+  renderUserList();
   if (currentUser) {
     loadUserData();
     showPage("sectionPage");

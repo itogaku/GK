@@ -605,6 +605,11 @@ let currentUser = localStorage.getItem("currentUser");
 let selectedUser = null;
 let upper = false;
 
+// モード管理
+let isReviewMode = false;      // 復習テスト中か
+let testLog = [];              // 正誤の記録用
+let reviewPool = [];           // 復習用問題
+
 /* ===== 画面表示制御 ===== */
 window.showPage = function(id) {
   document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
@@ -674,14 +679,33 @@ window.selectUser = function(name) {
   document.getElementById("loginArea").classList.remove("hidden");
 };
 
+/* ===== ログイン ===== */
+// 次にやるべきセクションを探す
+function determineTodaySection() {
+  for (let i = 1; i <= Math.ceil(words.length / SECTION_SIZE); i++) {
+    const pool = words.slice((i-1)*SECTION_SIZE, i*SECTION_SIZE);
+    const isDone = pool.every(w => progress[w.word.toLowerCase()] === "correct");
+    if (!isDone) return i;
+  }
+  return 1;
+}
+  
 window.login = function() {
   const pass = document.getElementById("passwordInput").value;
   let users = JSON.parse(localStorage.getItem("users") || "{}");
+  
   if(users[selectedUser] === pass) {
     currentUser = selectedUser;
     localStorage.setItem("currentUser", currentUser);
     loadUserData();
-    showPage("sectionPage");
+    
+    // セクション自動判定
+    currentSection = determineTodaySection();
+
+    // ホーム画面の表示更新
+    document.getElementById("welcomeUser").textContent = `こんにちは、${currentUser}さん！`;
+    document.getElementById("targetSectionName").textContent = `Section ${currentSection}`;
+    showPage("homePage"); 
   } else {
     alert("パスワードが違います");
   }

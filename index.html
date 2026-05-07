@@ -121,18 +121,25 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
   </div>
 </section>
 
-<!-- ログイン後のホーム画面（セクション選択） -->
-<section id="sectionPage" class="page">
-  <div class="card">
-    <h2 id="welcomeMsg">ようこそ！</h2>
-    <p>学習するセクションを選んでください。</p>
-    <div id="sectionContainer" class="section-grid">
-      <!-- ここにJavaScriptでボタンが自動生成されます -->
+<section id="homePage" class="page">
+  <div class="card" style="text-align: center; padding: 40px 20px;">
+    <h2 id="welcomeUser">こんにちは！</h2>
+    <div id="todayStatus" style="margin-bottom: 30px;">
+      <p style="color: #666;">今日の目標：<span id="targetSectionName" style="font-weight:bold; color: #333;">Section 1</span></p>
     </div>
-    <hr>
-    <button onclick="logout()" class="btn-secondary">ログアウト</button>
+    
+    <!-- ★メインボタン -->
+    <button onclick="startTodayLesson()" class="btn-primary" style="font-size: 20px; padding: 20px 40px; width: 100%;">
+      今日の学習を開始する
+    </button>
+    
+    <div style="margin-top: 40px; display: flex; justify-content: space-between;">
+      <button onclick="showPage('sectionPage')" class="btn-secondary" style="font-size: 12px;">別のセクションを選ぶ</button>
+      <button onclick="logout()" class="btn-secondary" style="font-size: 12px;">ログアウト</button>
+    </div>
   </div>
 </section>
+
   
 <!-- クイズ画面 -->
 <section id="quiz" class="page">
@@ -694,14 +701,48 @@ window.selectUser = function(name) {
   document.getElementById("loginArea").classList.remove("hidden");
 };
 
+/* ===== 今日の学習を開始するボタンの動作 ===== */
+window.startTodayLesson = function() {
+  // 1. 復習が必要なセクションがあるか判定（例：最後にやったセクションなど）
+  // ※ ここではとりあえず「現在選択されているセクション」で進めます
+  if (!currentSection || currentSection === 0) {
+      currentSection = 1; // デフォルトは1
+  }
+
+  // 2. 復習テスト（10問）を開始する
+  // 前に作った startReviewTest 関数を呼び出す
+  startReviewTest(); 
+};
+
+// どのセクションをやるべきか自動で計算する
+function determineTodaySection() {
+    // 最後に「〇」をつけた単語の次のセクションを探すロジック（簡易版）
+    let lastSectionWithProgress = 1;
+    for (let i = 1; i <= Math.ceil(words.length / SECTION_SIZE); i++) {
+        const start = (i - 1) * SECTION_SIZE;
+        const pool = words.slice(start, start + SECTION_SIZE);
+        const hasDone = pool.some(w => progress[w.word.toLowerCase()] === "correct");
+        if (hasDone) lastSectionWithProgress = i;
+    }
+    currentSection = lastSectionWithProgress;
+}
+  
 window.login = function() {
   const pass = document.getElementById("passwordInput").value;
   let users = JSON.parse(localStorage.getItem("users") || "{}");
+  
   if(users[selectedUser] === pass) {
     currentUser = selectedUser;
     localStorage.setItem("currentUser", currentUser);
     loadUserData();
-    showPage("sectionPage");
+    
+    // 今日のセクションを自動判定（未着手の最初のセクションなど）
+    determineTodaySection();
+
+    // ログイン直後はホーム画面へ誘導
+    document.getElementById("welcomeUser").textContent = `こんにちは、${currentUser}さん！`;
+    document.getElementById("targetSectionName").textContent = `Section ${currentSection}`;
+    showPage("homePage"); 
   } else {
     alert("パスワードが違います");
   }
@@ -751,8 +792,68 @@ function getNextWord() {
   return null;
 }
 
+function showReviewResult() {
+  isReviewMode = false; // モードを解除
+  
+  const correctCount = testLog.filter(i => i.status === "correct").length;
+  const totalCount = testLog.length;
+
+  let html = `
+    <div class="result-card">
+      <h3 style="color: #007bff;">復習テスト完了！</h3>
+      <p style="font-size: 24px; font-weight: bold; margin: 20px 0;">
+        ${totalCount}問中 ${correctCount}問 正解
+      </p>
+      <div style="text-align: left; max-height: 200px; overflow-y: auto; margin-bottom: 20px; border: 1px solid #eee; padding: 10px;">
+  `;
+
+  // 間違えた単語があればリストアップ
+  testLog.forEach(item => {
+    const mark = item.status === "correct" ? "○" : "×";
+    const color = item.status === "correct" ? "#28a745" : "#dc3545";
+    html += `<div style="color: ${color}; border-bottom: 1px solid #f8f8f8; padding: 4px 0;">
+              ${mark} <strong>${item.word}</strong> (${item.meaning})
+             </div>`;
+  });
+
+  html += `
+      </div>
+      <button onclick="goToLessonList()" class="btn-primary" style="width: 100%;">
+        今日の学習（一覧）へ進む
+      </button>
+    </div>
+  `;
+
+  // quiz画面の中身を結果に書き換える
+  const mainArea = document.querySelector("#quiz .card");
+  if (mainArea) mainArea.innerHTML = html;
+}
+
+/* ===== 3. 結果画面から一覧へ移動する関数 ===== */
+window.goToLessonList = function() {
+  testLog = []; // ログをクリア
+  
+  // 画面構成を元に戻すためにリロードするか、showPageで初期化する
+  // ここでは一番確実な方法（リロードして状態復帰）をとります
+  showPage("list");
+  
+  // showPage("list") の中で renderList() が呼ばれるので、
+  // そこで「復習で間違えた単語」を強調表示するように仕込みます
+  setTimeout(() => location.reload(), 10); 
+};
+  
 function renderQuestion() {
   current = getNextWord();
+  if (!current) {
+    // 問題がなくなったとき
+    if (isReviewMode) {
+      showReviewResult(); // ★復習テストの結果画面へ
+    } else {
+      showTestResult();   // 通常テストの結果画面へ
+    }
+    return;
+  }
+  
   lastJudge = null;
   const input = document.getElementById("answerInput");
   const resultArea = document.getElementById("resultArea");

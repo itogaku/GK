@@ -605,11 +605,6 @@ let currentUser = localStorage.getItem("currentUser");
 let selectedUser = null;
 let upper = false;
 
-// モード管理
-let isReviewMode = false;      // 復習テスト中か
-let testLog = [];              // 正誤の記録用
-let reviewPool = [];           // 復習用問題
-  
 /* ===== 画面表示制御 ===== */
 window.showPage = function(id) {
   document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
@@ -637,6 +632,67 @@ window.showPage = function(id) {
     updateProgressMini();
     if (!current) renderQuestion();
   }
+};
+
+/* ===== ユーザー管理 ===== */
+window.addUser = function() {
+  const name = document.getElementById("newName").value.trim();
+  const pass = document.getElementById("newPass").value.trim();
+  if(!name || !pass) return alert("名前とパスワードを入力してください");
+  let users = JSON.parse(localStorage.getItem("users") || "{}");
+  users[name] = pass;
+  localStorage.setItem("users", JSON.stringify(users));
+  document.getElementById("newName").value = "";
+  document.getElementById("newPass").value = "";
+  renderUserList();
+};
+
+window.deleteUser = function(name) {
+  if(!confirm(`「${name}」のデータを完全に削除しますか？`)) return;
+  let users = JSON.parse(localStorage.getItem("users") || "{}");
+  delete users[name];
+  localStorage.setItem("users", JSON.stringify(users));
+  localStorage.removeItem("progress_" + name);
+  renderUserList();
+};
+
+function renderUserList() {
+  const container = document.getElementById("userList");
+  container.innerHTML = "";
+  let users = JSON.parse(localStorage.getItem("users") || "{}");
+  Object.keys(users).forEach(name => {
+    const div = document.createElement("div");
+    div.className = "user-item";
+    div.innerHTML = `<span>${name}</span><div><button onclick="selectUser('${name}')">選択</button><button class="btn-delete" onclick="deleteUser('${name}')">削除</button></div>`;
+    container.appendChild(div);
+  });
+}
+
+window.selectUser = function(name) {
+  selectedUser = name;
+  document.getElementById("selectedUserName").textContent = name;
+  document.getElementById("loginArea").classList.remove("hidden");
+};
+
+window.login = function() {
+  const pass = document.getElementById("passwordInput").value;
+  let users = JSON.parse(localStorage.getItem("users") || "{}");
+  if(users[selectedUser] === pass) {
+    currentUser = selectedUser;
+    localStorage.setItem("currentUser", currentUser);
+    loadUserData();
+    showPage("sectionPage");
+  } else {
+    alert("パスワードが違います");
+  }
+};
+
+window.logout = function() {
+  if(!confirm("ログアウトしますか？")) return;
+  localStorage.removeItem("currentUser");
+  currentUser = null;
+  progress = {};
+  showPage("userPage");
 };
 
 /* ===== 学習ロジック ===== */
@@ -676,15 +732,15 @@ function getNextWord() {
 }
 
 function renderQuestion() {
-  // 復習モードならプールから、通常ならgetNextWordから取得
-  current = isReviewMode ? (reviewPool.pop() || null) : getNextWord();
+  current = getNextWord();
+  lastJudge = null;
+  const input = document.getElementById("answerInput");
+  const resultArea = document.getElementById("resultArea");
 
   if (!current) {
-    if (isReviewMode) {
-      showReviewResult();
-    } else {
-      document.getElementById("meaning").textContent = "学習完了！";
-    }
+    document.getElementById("meaning").textContent = "学習完了！";
+    document.getElementById("exampleEn").textContent = "";
+    document.getElementById("exampleJa").textContent = "";
     return;
   }
 
@@ -753,125 +809,6 @@ function updateProgressMini() {
   const done = pool.filter(w => progress[w.word.toLowerCase()] === "correct").length;
   document.getElementById("progressMini").textContent = (currentSection > 0 ? `Section ${currentSection}` : "全範囲") + ` 完了: ${done} / ${pool.length}`;
 }
-  
-/* ===== ユーザー管理 ===== */
-window.addUser = function() {
-  const name = document.getElementById("newName").value.trim();
-  const pass = document.getElementById("newPass").value.trim();
-  if(!name || !pass) return alert("名前とパスワードを入力してください");
-  let users = JSON.parse(localStorage.getItem("users") || "{}");
-  users[name] = pass;
-  localStorage.setItem("users", JSON.stringify(users));
-  document.getElementById("newName").value = "";
-  document.getElementById("newPass").value = "";
-  renderUserList();
-};
-
-window.deleteUser = function(name) {
-  if(!confirm(`「${name}」のデータを完全に削除しますか？`)) return;
-  let users = JSON.parse(localStorage.getItem("users") || "{}");
-  delete users[name];
-  localStorage.setItem("users", JSON.stringify(users));
-  localStorage.removeItem("progress_" + name);
-  renderUserList();
-};
-
-function renderUserList() {
-  const container = document.getElementById("userList");
-  container.innerHTML = "";
-  let users = JSON.parse(localStorage.getItem("users") || "{}");
-  Object.keys(users).forEach(name => {
-    const div = document.createElement("div");
-    div.className = "user-item";
-    div.innerHTML = `<span>${name}</span><div><button onclick="selectUser('${name}')">選択</button><button class="btn-delete" onclick="deleteUser('${name}')">削除</button></div>`;
-    container.appendChild(div);
-  });
-}
-
-window.selectUser = function(name) {
-  selectedUser = name;
-  document.getElementById("selectedUserName").textContent = name;
-  document.getElementById("loginArea").classList.remove("hidden");
-};
-
-/* ===== ログイン ===== */
-// 次にやるべきセクションを探す
-function determineTodaySection() {
-  for (let i = 1; i <= Math.ceil(words.length / SECTION_SIZE); i++) {
-    const pool = words.slice((i-1)*SECTION_SIZE, i*SECTION_SIZE);
-    const isDone = pool.every(w => progress[w.word.toLowerCase()] === "correct");
-    if (!isDone) return i;
-  }
-  return 1;
-}
-  
-window.login = function() {
-  const pass = document.getElementById("passwordInput").value;
-  let users = JSON.parse(localStorage.getItem("users") || "{}");
-  
-  if(users[selectedUser] === pass) {
-    currentUser = selectedUser;
-    localStorage.setItem("currentUser", currentUser);
-    loadUserData();
-    
-    // セクション自動判定
-    currentSection = determineTodaySection();
-
-    // ホーム画面の表示更新
-    document.getElementById("welcomeUser").textContent = `こんにちは、${currentUser}さん！`;
-    document.getElementById("targetSectionName").textContent = `Section ${currentSection}`;
-    showPage("homePage"); 
-  } else {
-    alert("パスワードが違います");
-  }
-};
-
-/* ===== 今日の学習開始（復習テスト） ===== */
-window.startTodayLesson = function() {
-  isReviewMode = true;
-  testLog = [];
-  
-  // 復習用プール作成（とりあえず全範囲からランダムに10問、未解答除く）
-  const allWords = [...words];
-  reviewPool = allWords.sort(() => Math.random() - 0.5).slice(0, 10);
-  
-  renderQuestion();
-  showPage("quiz");
-};
-
-function showReviewResult() {
-  const correctCount = testLog.filter(i => i.status === "correct").length;
-  const totalCount = testLog.length;
-
-  let html = `
-    <h3>復習テスト完了！</h3>
-    <p style="font-size: 24px; font-weight: bold;">${totalCount}問中 ${correctCount}問 正解</p>
-    <button onclick="goToLessonList()" class="btn-primary" style="width:100%; padding:15px;">
-      今日の学習（一覧）へ進む
-    </button>
-  `;
-  
-  const content = document.getElementById("quizMainContent");
-  if (content) content.innerHTML = html;
-}
-
-window.goToLessonList = function() {
-  isReviewMode = false;
-  testLog = [];
-  // 画面をリセットするためにリロードするのが最も確実
-  showPage("list");
-  setTimeout(() => location.reload(), 10);
-};
-  
-window.logout = function() {
-  if(!confirm("ログアウトしますか？")) return;
-  localStorage.removeItem("currentUser");
-  currentUser = null;
-  progress = {};
-  showPage("userPage");
-};
-
-
 
 /* ===== 一覧・ボタン生成 ===== */
 function renderSectionButtons() {

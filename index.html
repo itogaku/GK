@@ -711,6 +711,19 @@ window.login = function() {
   }
 };
 
+/* ===== 今日の学習開始（復習テスト） ===== */
+window.startTodayLesson = function() {
+  isReviewMode = true;
+  testLog = [];
+  
+  // 復習用プール作成（とりあえず全範囲からランダムに10問、未解答除く）
+  const allWords = [...words];
+  reviewPool = allWords.sort(() => Math.random() - 0.5).slice(0, 10);
+  
+  renderQuestion();
+  showPage("quiz");
+};
+  
 window.logout = function() {
   if(!confirm("ログアウトしますか？")) return;
   localStorage.removeItem("currentUser");

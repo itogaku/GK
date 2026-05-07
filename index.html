@@ -17,7 +17,21 @@ body { margin: 0; font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic Pr
 /* ===== ナビゲーション ===== */
 #quizControls { display: none; gap: 5px; flex-wrap: wrap; margin-bottom: 10px; border-bottom: 1px solid #ccc; padding-bottom: 10px; }
 #quizControls.is-logged-in { display: flex; }
+/* quizControls内のボタンのデザイン調整（例） */
+#quizControls button {
+    padding: 6px 12px;
+    font-size: 13px;
+    border-radius: 4px;
+    white-space: nowrap;
+}
 
+/* ホームボタンだけ少し色を変えて区別する場合 */
+#quizControls button[onclick*="homePage"] {
+    font-weight: bold;
+    border-color: #1a73e8;
+}
+
+  
 /* ===== ログイン・セクション画面 ===== */
 .card { background: #fff; padding: 15px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
 .user-item { display: flex; align-items: center; justify-content: space-between; background: white; margin-bottom: 5px; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; }
@@ -58,6 +72,8 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
 <body>
 
 <div id="quizControls">
+  <!-- ★ホームボタンを追加 -->
+  <button onclick="showPage('homePage')" style="background: #fff; border: 1px solid #2196f3; color: #2196f3;">ホーム</button>
   <button onclick="showPage('sectionPage')">セクション選択</button>
   <button onclick="showPage('list')">一覧</button>
   <button onclick="logout()">ログアウト</button>
@@ -613,17 +629,40 @@ let reviewPool = [];           // 復習用問題
 
 /* ===== 画面表示制御 ===== */
 window.showPage = function(id) {
+  // すべてのページを非表示にする
   document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+  
+  // 指定したIDのページだけ表示する
   const target = document.getElementById(id);
-  if(target) target.classList.add("active");
+  if (target) target.classList.add("active");
 
   const controls = document.getElementById("quizControls");
   if (currentUser) {
     controls.classList.add("is-logged-in");
     controls.style.display = "flex";
   } else {
-    controls.classList.remove("is-logged-in");
     controls.style.display = "none";
+  }
+
+  // --- 追加：ホーム画面に戻る時の処理 ---
+  if (id === "homePage") {
+    // もしテストの途中で戻るなら、状態をリセットする
+    current = null;
+    isReviewMode = false;
+    testLog = [];
+    
+    // ホーム画面の表示を更新
+    const welcome = document.getElementById("welcomeUser");
+    if (welcome) welcome.textContent = `こんにちは、${currentUser}さん！`;
+    const targetSec = document.getElementById("targetSectionName");
+    if (targetSec) targetSec.textContent = `Section ${currentSection}`;
+    
+    // クイズ画面が結果表示などで書き換わっていたら、元の状態に戻すためにリロード
+    // （※これが一番確実です）
+    const quizCard = document.querySelector("#quiz .card");
+    if (quizCard && quizCard.querySelector('h3')) {
+        location.reload();
+    }
   }
 
   if (id === "list") {

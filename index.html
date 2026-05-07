@@ -702,16 +702,39 @@ window.selectUser = function(name) {
 };
 
 /* ===== 今日の学習を開始するボタンの動作 ===== */
+function determineTodaySection() {
+    for (let i = 1; i <= Math.ceil(words.length / SECTION_SIZE); i++) {
+        const start = (i - 1) * SECTION_SIZE;
+        const pool = words.slice(start, start + SECTION_SIZE);
+        // まだ全問正解していない最初のセクションを探す
+        const isCompleted = pool.every(w => progress[w.word.toLowerCase()] === "correct");
+        if (!isCompleted) return i;
+    }
+    return 1;
+}
+  
 window.startTodayLesson = function() {
-  // 1. 復習が必要なセクションがあるか判定（例：最後にやったセクションなど）
-  // ※ ここではとりあえず「現在選択されているセクション」で進めます
-  if (!currentSection || currentSection === 0) {
-      currentSection = 1; // デフォルトは1
-  }
+    console.log("Learning started!"); // 動作確認用
 
-  // 2. 復習テスト（10問）を開始する
-  // 前に作った startReviewTest 関数を呼び出す
-  startReviewTest(); 
+    // 1. セクションが未設定なら自動判定
+    if (!currentSection || currentSection === 0) {
+        // 進捗から次やるべきセクションを探す（無ければ 1）
+        currentSection = determineTodaySection() || 1;
+    }
+
+    // 2. 復習テストモードをONにする
+    isReviewMode = true;
+    isWrongOnlyMode = false;
+    testLog = []; // ログをリセット
+    
+    // 3. 復習テストの準備（以前作った関数を呼び出す）
+    if (typeof startReviewTest === "function") {
+        startReviewTest();
+    } else {
+        // startReviewTestがまだ定義されていない場合の予備処理
+        renderQuestion();
+        showPage("quiz");
+    }
 };
 
 // どのセクションをやるべきか自動で計算する

@@ -644,6 +644,7 @@ window.showPage = function(id) {
     controls.style.display = "none";
   }
 
+
   // --- 追加：ホーム画面に戻る時の処理 ---
   if (id === "homePage") {
     // もしテストの途中で戻るなら、状態をリセットする
@@ -932,17 +933,35 @@ function showTestResult() {
 
 /* ===== 一覧に戻る（状態リセット） ===== */
 window.exitToListView = function() {
-  // 不正解が1つでもあれば「間違い直しモード」をONにする
-  isWrongOnlyMode = testLog.some(i => i.status === "wrong");
-  isReviewMode = false;
-  testLog = []; // ログをクリア
-  current = null;
+    // 1. 不正解がある場合の状態保存
+    isWrongOnlyMode = testLog.some(i => i.status === "wrong");
+    isReviewMode = false;
+    testLog = []; 
+    current = null;
 
-  // showPageで一覧へ
-  showPage("list");
-  
-  // DOMを完全に初期状態に戻すため、少し遅らせてリロードするのが塾運営では最も安全です
-  setTimeout(() => location.reload(), 10);
+    // 2. 書き換えてしまったクイズ画面のHTMLを元の状態に戻す
+    const quizMain = document.getElementById("quizMainContent");
+    if (quizMain) {
+        quizMain.innerHTML = `
+            <div id="meaning"></div>
+            <div id="exampleArea">
+                <div id="exampleEn" style="font-style:italic; color:#444;"></div>
+                <div id="exampleJa" style="font-size:13px; color:#888; margin-top:4px;"></div>
+            </div>
+            <div id="resultArea">
+                <div id="judge"></div>
+                <div id="correctWord" style="font-weight:bold; margin-top:8px;"></div>
+                <div id="answerExample" style="font-size:14px; color:#555; margin-top:5px;"></div>
+            </div>
+        `;
+    }
+
+    // 3. 入力エリアとキーボードを再表示させる
+    document.getElementById("answerControlArea").classList.remove("hidden");
+    document.getElementById("quizKeyboard").classList.remove("hidden");
+
+    // 4. 一覧画面へ移動（リロードしない）
+    showPage("list");
 };
   
 /* ===== 一覧・ボタン生成 ===== */

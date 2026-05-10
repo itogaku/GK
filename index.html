@@ -154,7 +154,8 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
       <option value="wrong">不正解のみ</option>
     </select>
     <select id="listSectionSelect" onchange="changeListSection(this.value)" style="padding:8px;"></select>
-    <button id="startQuizBtn" onclick="goToQuizFromList()" class="btn-primary">この範囲をテスト</button>
+    <button id="startQuizBtn" onclick="goToQuizFromList(true)" class="btn-primary">この範囲をテスト</button>
+    <button onclick="goToQuizFromList(false)" class="btn-primary" style="background: #f44336;">チェックテスト</button>
   </div>
   <table id="wordTable"></table>
 </section>
@@ -869,25 +870,32 @@ window.renderList = function() {
   
 window.changeListSection = (val) => { currentSection = parseInt(val); renderList(); };
   
-window.goToQuizFromList = function() {
+window.goToQuizFromList = function(isPractice) {
     testLog = [];
     isReviewMode = true; 
     isSelfPracticeMode = true; 
 
+    // 現在のセクションの単語を取得
     let offset = (currentSection - 1) * SECTION_SIZE;
     let sectionPool = (currentSection > 0) ? words.slice(offset, offset + SECTION_SIZE) : [...words];
+    
+    // 全体の候補（間違いリスト + セクション単語）
+    let combined = [...new Set([...reviewWrongWords, ...sectionPool])];
 
-    // --- 修正箇所：未習得（正解していない）単語だけを抽出 ---
-    // progress[word] が "correct" ではないものだけを残す
-    const combined = [...new Set([...reviewWrongWords, ...sectionPool])].filter(w => {
-        const state = progress[w.word.toLowerCase()];
-        return state !== "correct";
-    });
-
-    // もし全ての単語に正解していた場合
-    if (combined.length === 0) {
-        alert("このセクションの単語はすべて正解しています！");
-        return;
+    if (isPractice) {
+        // --- 【確認モード】 ---
+        // まだ「〇」になっていない単語だけを抽出
+        combined = combined.filter(w => progress[w.word.toLowerCase()] !== "correct");
+        
+        if (combined.length === 0) {
+            alert("この範囲で未習得の単語はありません！");
+            return;
+        }
+    } else {
+        // --- 【チェックテストモード】 ---
+        // 状態に関わらず、全候補からランダムに5問（または全問）選ぶ
+        // ※ 5問にしていますが、好きな数字に変えてください
+        combined = combined.sort(() => Math.random() - 0.5).slice(0, 5);
     }
 
     reviewPool = combined.sort(() => Math.random() - 0.5);

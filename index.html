@@ -872,14 +872,24 @@ window.changeListSection = (val) => { currentSection = parseInt(val); renderList
 window.goToQuizFromList = function() {
     testLog = [];
     isReviewMode = true; 
-    isSelfPracticeMode = true; // ★自主練習モードをONにする
+    isSelfPracticeMode = true; 
 
     let offset = (currentSection - 1) * SECTION_SIZE;
     let sectionPool = (currentSection > 0) ? words.slice(offset, offset + SECTION_SIZE) : [...words];
 
-    // 出題には「これまでの間違い」を含めるが、
-    // ここで間違えても reviewWrongWords には追加しないように制御します
-    const combined = [...new Set([...reviewWrongWords, ...sectionPool])];
+    // --- 修正箇所：未習得（正解していない）単語だけを抽出 ---
+    // progress[word] が "correct" ではないものだけを残す
+    const combined = [...new Set([...reviewWrongWords, ...sectionPool])].filter(w => {
+        const state = progress[w.word.toLowerCase()];
+        return state !== "correct";
+    });
+
+    // もし全ての単語に正解していた場合
+    if (combined.length === 0) {
+        alert("このセクションの単語はすべて正解しています！");
+        return;
+    }
+
     reviewPool = combined.sort(() => Math.random() - 0.5);
 
     renderQuestion();

@@ -782,22 +782,25 @@ function showTestResult() {
 }
 
 window.exitToListView = function() {
-    // 特訓テストの結果を反映（正解したらリストから消し、また間違えたら残す）
-    testLog.forEach(item => {
-        if (item.status === "correct") {
-            // 正解した単語は「要復習リスト」から削除
-            reviewWrongWords = reviewWrongWords.filter(w => w.word !== item.word);
-        } else {
-            // また間違えた単語は（まだリストになければ）追加
-            const wordObj = words.find(w => w.word === item.word);
-            if (wordObj && !reviewWrongWords.some(w => w.word === wordObj.word)) {
-                reviewWrongWords.push(wordObj);
+    // ★追加：自主練習モード（isSelfPracticeMode）の時は、リストの更新を一切しない
+    if (!isSelfPracticeMode) {
+        testLog.forEach(item => {
+            if (item.status === "correct") {
+                // 正解した単語は「要復習リスト」から削除
+                reviewWrongWords = reviewWrongWords.filter(w => w.word !== item.word);
+            } else {
+                // 間違えた単語をリストに追加
+                const wordObj = words.find(w => w.word === item.word);
+                if (wordObj && !reviewWrongWords.some(w => w.word === wordObj.word)) {
+                    reviewWrongWords.push(wordObj);
+                }
             }
-        }
-    });
+        });
+    }
 
-    isReviewMode = false; // モードを通常に戻す
-  　isSelfPracticeMode = false; // ★フラグをリセット
+    // モードをすべて解除してリセット
+    isReviewMode = false;
+    isSelfPracticeMode = false; 
     resetQuizUI();
     showPage("list");
 };

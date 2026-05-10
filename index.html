@@ -643,7 +643,12 @@ window.showPage = function(id) {
   } else {
     controls.style.display = "none";
   }
-
+   
+   // ★一覧画面を表示する場合の処理
+  if (id === "list") {
+      renderList(); // リストを再描画
+      updateProgressMini(); // 進捗を更新
+  }
 
   // --- 追加：ホーム画面に戻る時の処理 ---
   if (id === "homePage") {

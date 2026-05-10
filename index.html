@@ -600,6 +600,7 @@ let testLog = [];
 let reviewPool = [];
 let currentLayout = localStorage.getItem("keyboardLayout") || "mobile";
 let reviewWrongWords = []; // 復習テストで間違えた単語を一時保存する用
+let isSelfPracticeMode = false; // 自主練習（一覧からのテスト）かどうか
   
 window.showPage = function(id) {
   document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
@@ -689,6 +690,7 @@ function determineTodaySection() {
 
 window.startTodayLesson = function() {
   isReviewMode = true;
+  isSelfPracticeMode = false; // ★正式なテストなので false
   testLog = [];
   reviewWrongWords = []; // ★新しいテストを始める際にクリア
   reviewPool = [...words].sort(() => Math.random() - 0.5).slice(0, 3); // 復習は3問
@@ -731,12 +733,12 @@ document.getElementById("checkBtn").onclick = () => {
   progress[current.word.toLowerCase()] = status;
   localStorage.setItem("progress_" + currentUser, JSON.stringify(progress));
 　// checkBtn.onclick の中にある、testLog.push の前後に追加
-　if (isReviewMode && !ok) {
-    　// 重複して登録されないようにチェック
-    　if (!reviewWrongWords.some(w => w.word === current.word)) {
-        　reviewWrongWords.push(current);
-    　}
-　}
+　// ★修正：復習モードかつ「自主練習ではない」場合のみ、間違いリストに追加
+  if (isReviewMode && !isSelfPracticeMode && !ok) {
+      if (!reviewWrongWords.some(w => w.word === current.word)) {
+          reviewWrongWords.push(current);
+      }
+  }
   
 
   const res = document.getElementById("resultArea");
@@ -795,6 +797,7 @@ window.exitToListView = function() {
     });
 
     isReviewMode = false; // モードを通常に戻す
+  　isSelfPracticeMode = false; // ★フラグをリセット
     resetQuizUI();
     showPage("list");
 };
@@ -845,26 +848,24 @@ window.renderList = function() {
 };
 
 window.changeListSection = (val) => { currentSection = parseInt(val); renderList(); };
+  
 window.goToQuizFromList = function() {
-    // 1. 状態をリセット
     testLog = [];
-    isReviewMode = true; // reviewPool（独自の出題リスト）を使うためにONにする
+    isReviewMode = true; 
+    isSelfPracticeMode = true; // ★自主練習モードをONにする
 
-    // 2. 現在のセクションの単語を取得
     let offset = (currentSection - 1) * SECTION_SIZE;
     let sectionPool = (currentSection > 0) ? words.slice(offset, offset + SECTION_SIZE) : [...words];
 
-    // 3. 「復習で間違えた単語」と「セクション単語」を合体（重複は自動で消去）
-    // Array.from(new Set(...)) を使うと、同じ単語が2回出るのを防げます
+    // 出題には「これまでの間違い」を含めるが、
+    // ここで間違えても reviewWrongWords には追加しないように制御します
     const combined = [...new Set([...reviewWrongWords, ...sectionPool])];
-
-    // 4. シャッフルして出題用プールにセット
     reviewPool = combined.sort(() => Math.random() - 0.5);
 
-    // 5. クイズ開始
     renderQuestion();
     showPage("quiz");
 };
+  
 // キーボード
 function buildKeyboard() {
   const container = document.getElementById("keyboard");

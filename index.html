@@ -834,21 +834,26 @@ window.renderList = function() {
   const table = document.getElementById("wordTable");
   const filter = document.getElementById("filter").value;
   table.innerHTML = "<tr><th>No</th><th>単語</th><th>意味</th><th>状態</th></tr>";
-　
-　// --- ★ここから追加：復習テストでの間違いを最上部に表示 ---
+
+  // --- 修正箇所：復習テストでの間違いを最上部に表示 ---
   if (reviewWrongWords.length > 0 && filter !== "correct") {
-      table.innerHTML += `<tr><td colspan="4" style="background:#fff3e0; color:#e65100; font-weight:bold; text-align:center;">復習テストでの間違い（再確認！）</td></tr>`;
-        
-      reviewWrongWords.forEach(w => {
-          const tr = document.createElement("tr");
-          tr.style.background = "#fff9f0"; // 少し色を変える
-          tr.innerHTML = `<td>!</td><td><strong>${w.word}</strong></td><td>${w.meaning}</td><td style="text-align:center">×</td>`;
-          table.appendChild(tr);
-      });
-        
-      table.innerHTML += `<tr><td colspan="4" style="background:#f0f2f5; height:10px; padding:0;"></td></tr>`; // 区切り線
+    table.innerHTML += `<tr><td colspan="4" style="background:#fff3e0; color:#e65100; font-weight:bold; text-align:center;">復習テストでの間違い（再確認！）</td></tr>`;
+      
+    reviewWrongWords.forEach(w => {
+      // ★ここがポイント：現在の progress 状態（〇 or ×）を取得する
+      const state = progress[w.word.toLowerCase()];
+      const mark = state === 'correct' ? '〇' : '×'; // 正解していれば 〇 にする
+      
+      const tr = document.createElement("tr");
+      tr.style.background = "#fff9f0"; 
+      tr.innerHTML = `<td>!</td><td><strong>${w.word}</strong></td><td>${w.meaning}</td><td style="text-align:center">${mark}</td>`;
+      table.appendChild(tr);
+    });
+      
+    table.innerHTML += `<tr><td colspan="4" style="background:#f0f2f5; height:10px; padding:0;"></td></tr>`; 
   }
   
+  // --- 通常のリスト表示（ここは変更なし） ---
   let offset = (currentSection - 1) * SECTION_SIZE;
   let pool = words.slice(offset, offset + SECTION_SIZE);
 
@@ -861,7 +866,7 @@ window.renderList = function() {
     table.appendChild(tr);
   });
 };
-
+  
 window.changeListSection = (val) => { currentSection = parseInt(val); renderList(); };
   
 window.goToQuizFromList = function() {

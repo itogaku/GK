@@ -724,36 +724,39 @@ function renderQuestion() {
 }
 
 document.getElementById("checkBtn").onclick = () => {
-  const val = document.getElementById("answerInput").value.trim().toLowerCase();
-  const ok = val === current.word.toLowerCase();
-  const status = ok ? "correct" : "wrong";
-  
-  // ログに記録（重要）
-  testLog.push({ word: current.word, meaning: current.meaning, status: status });
-  progress[current.word.toLowerCase()] = status;
-  localStorage.setItem("progress_" + currentUser, JSON.stringify(progress));
-　// checkBtn.onclick の中にある、testLog.push の前後に追加
-　// ★修正：復習モードかつ「自主練習ではない」場合のみ、間違いリストに追加
-  if (isReviewMode && !isSelfPracticeMode && !ok) {
-      if (!reviewWrongWords.some(w => w.word === current.word)) {
-          reviewWrongWords.push(current);
-      }
-  }
-  
+    const val = document.getElementById("answerInput").value.trim().toLowerCase();
+    const ok = val === current.word.toLowerCase();
+    const status = ok ? "correct" : "wrong";
+    
+    // 1. 今回のテストログに記録
+    testLog.push({ word: current.word, meaning: current.meaning, status: status });
 
-  const res = document.getElementById("resultArea");
-  const j = document.getElementById("judge");
-  j.textContent = ok ? "◎" : "✕";
-  j.className = ok ? "correct-text" : "wrong-text";
-  res.className = ok ? "correct" : "wrong";
-  document.getElementById("correctWord").textContent = "答え: " + current.word;
-  if (current.example) {
-    document.getElementById("answerExample").textContent = current.example.replace(/_+/g, current.word);
-  }
-  document.getElementById("checkBtn").classList.add("hidden");
-  document.getElementById("nextBtn").classList.remove("hidden");
+    // 2. ★重要：進捗データ（〇✕の状態）を保存
+    // これにより、自主練習であっても正解すれば「〇」に更新されます
+    progress[current.word.toLowerCase()] = status;
+    localStorage.setItem("progress_" + currentUser, JSON.stringify(progress));
+    
+    // 3. 復習リストへの新規追加（正式な復習テストかつ間違いの時のみ）
+    if (isReviewMode && !isSelfPracticeMode && !ok) {
+        if (!reviewWrongWords.some(w => w.word === current.word)) {
+            reviewWrongWords.push(current);
+        }
+    }
+
+    // --- 表示処理 ---
+    const res = document.getElementById("resultArea");
+    const j = document.getElementById("judge");
+    j.textContent = ok ? "◎" : "✕";
+    j.className = ok ? "correct-text" : "wrong-text";
+    res.className = ok ? "correct" : "wrong";
+    document.getElementById("correctWord").textContent = "答え: " + current.word;
+    if (current.example) {
+        document.getElementById("answerExample").textContent = current.example.replace(/_+/g, current.word);
+    }
+    document.getElementById("checkBtn").classList.add("hidden");
+    document.getElementById("nextBtn").classList.remove("hidden");
+    updateProgressMini(); 
 };
-
 document.getElementById("nextBtn").onclick = () => renderQuestion();
 
 function showTestResult() {
@@ -782,27 +785,24 @@ function showTestResult() {
 }
 
 window.exitToListView = function() {
-    // ★追加：自主練習モード（isSelfPracticeMode）の時は、リストの更新を一切しない
+    // 正解してもリスト（reviewWrongWords）から消さないように修正
     if (!isSelfPracticeMode) {
         testLog.forEach(item => {
-            if (item.status === "correct") {
-                // 正解した単語は「要復習リスト」から削除
-                reviewWrongWords = reviewWrongWords.filter(w => w.word !== item.word);
-            } else {
-                // 間違えた単語をリストに追加
+            if (item.status === "wrong") {
+                // 間違えた単語をリストに追加する処理だけ残す
                 const wordObj = words.find(w => w.word === item.word);
                 if (wordObj && !reviewWrongWords.some(w => w.word === wordObj.word)) {
                     reviewWrongWords.push(wordObj);
                 }
             }
+            // ★「item.status === "correct"」の時の filter 処理を削除しました
         });
     }
 
-    // モードをすべて解除してリセット
     isReviewMode = false;
-    isSelfPracticeMode = false; 
+    isSelfPracticeMode = false;
     resetQuizUI();
-    showPage("list");
+    showPage("list"); // ここで renderList が走り、状態「〇」が反映されます
 };
   
 window.renderSectionButtons = function() {

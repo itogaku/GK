@@ -599,7 +599,8 @@ let isReviewMode = false;
 let testLog = [];
 let reviewPool = [];
 let currentLayout = localStorage.getItem("keyboardLayout") || "mobile";
-
+let reviewWrongWords = []; // 復習テストで間違えた単語を一時保存する用
+  
 window.showPage = function(id) {
   document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
   const target = document.getElementById(id);
@@ -689,6 +690,7 @@ function determineTodaySection() {
 window.startTodayLesson = function() {
   isReviewMode = true;
   testLog = [];
+  reviewWrongWords = []; // ★新しいテストを始める際にクリア
   reviewPool = [...words].sort(() => Math.random() - 0.5).slice(0, 3); // 復習は3問
   renderQuestion();
   showPage("quiz");
@@ -728,6 +730,14 @@ document.getElementById("checkBtn").onclick = () => {
   testLog.push({ word: current.word, meaning: current.meaning, status: status });
   progress[current.word.toLowerCase()] = status;
   localStorage.setItem("progress_" + currentUser, JSON.stringify(progress));
+　// checkBtn.onclick の中にある、testLog.push の前後に追加
+　if (isReviewMode && !ok) {
+    　// 重複して登録されないようにチェック
+    　if (!reviewWrongWords.some(w => w.word === current.word)) {
+        　reviewWrongWords.push(current);
+    　}
+　}
+  
 
   const res = document.getElementById("resultArea");
   const j = document.getElementById("judge");
@@ -785,6 +795,21 @@ window.renderList = function() {
   const table = document.getElementById("wordTable");
   const filter = document.getElementById("filter").value;
   table.innerHTML = "<tr><th>No</th><th>単語</th><th>意味</th><th>状態</th></tr>";
+　
+　// --- ★ここから追加：復習テストでの間違いを最上部に表示 ---
+  if (reviewWrongWords.length > 0 && filter !== "correct") {
+      table.innerHTML += `<tr><td colspan="4" style="background:#fff3e0; color:#e65100; font-weight:bold; text-align:center;">復習テストでの間違い（再確認！）</td></tr>`;
+        
+      reviewWrongWords.forEach(w => {
+          const tr = document.createElement("tr");
+          tr.style.background = "#fff9f0"; // 少し色を変える
+          tr.innerHTML = `<td>!</td><td><strong>${w.word}</strong></td><td>${w.meaning}</td><td style="text-align:center">×</td>`;
+          table.appendChild(tr);
+      });
+        
+      table.innerHTML += `<tr><td colspan="4" style="background:#f0f2f5; height:10px; padding:0;"></td></tr>`; // 区切り線
+  }
+  
   let offset = (currentSection - 1) * SECTION_SIZE;
   let pool = words.slice(offset, offset + SECTION_SIZE);
 

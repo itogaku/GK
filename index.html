@@ -154,8 +154,8 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
       <option value="wrong">不正解のみ</option>
     </select>
     <select id="listSectionSelect" onchange="changeListSection(this.value)" style="padding:8px;"></select>
-    <button id="startQuizBtn" onclick="goToQuizFromList(true)" class="btn-primary">この範囲をテスト</button>
-    <button onclick="goToQuizFromList(false)" class="btn-primary" style="background: #f44336;">チェックテスト</button>
+    <button onclick="goToQuizFromList(true)" class="btn-primary" style="background: #4caf50;">この範囲を確認</button>
+    <button onclick="goToQuizFromList(false)" class="btn-primary" style="background: #f44336; margin-left: 5px;">合格チェックテスト</button>
   </div>
   <table id="wordTable"></table>
 </section>
@@ -602,6 +602,7 @@ let reviewPool = [];
 let currentLayout = localStorage.getItem("keyboardLayout") || "mobile";
 let reviewWrongWords = []; // 復習テストで間違えた単語を一時保存する用
 let isSelfPracticeMode = false; // 自主練習（一覧からのテスト）かどうか
+let isPracticeModeGlobal = false; // グローバル変数として追加
   
 window.showPage = function(id) {
   document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
@@ -774,28 +775,44 @@ document.getElementById("checkBtn").onclick = () => {
 document.getElementById("nextBtn").onclick = () => renderQuestion();
 
 function showTestResult() {
-    document.getElementById("quizQuestionArea").classList.add("hidden");
-    document.getElementById("answerControlArea").classList.add("hidden");
-    document.getElementById("quizKeyboard").classList.add("hidden");
-    document.getElementById("quizResultView").classList.remove("hidden");
+  document.getElementById("quizQuestionArea").classList.add("hidden");
+  document.getElementById("answerControlArea").classList.add("hidden");
+  document.getElementById("quizKeyboard").classList.add("hidden");
+  document.getElementById("quizResultView").classList.remove("hidden");
 
-    const correctCount = testLog.filter(i => i.status === "correct").length;
-    document.getElementById("resultScore").textContent = `${testLog.length}問中 ${correctCount}問 正解`;
+  const correctCount = testLog.filter(i => i.status === "correct").length;
+  const totalCount = testLog.length;
+  const isPerfect = (correctCount === totalCount); // 全問正解判定
+
+  document.getElementById("resultScore").textContent = `${totalCount}問中 ${correctCount}問 正解`;
+
+  // --- 修正箇所：チェックテスト合格時の演出 ---
+  if (!isPracticeModeGlobal && isPerfect) {
+    document.getElementById("resultTitle").textContent = "✨ 学習完了！おめでとう！ ✨";
+    document.getElementById("resultTitle").style.color = "#ff9800";
     
-    // 復習モードの種類によってタイトルを変える
-    if (isReviewMode && reviewWrongWords.length > 0) {
-        document.getElementById("resultTitle").textContent = "集中特訓テスト完了！";
-    } else {
-        document.getElementById("resultTitle").textContent = "セクションテスト完了！";
-    }
+    // ホームに戻るボタンを追加で表示
+    const resultView = document.getElementById("quizResultView");
+    // 既存のボタンを一旦クリアして、ホームボタンと一覧ボタンを並べる
+    resultView.querySelector("button").outerHTML = `
+      <div style="display: flex; gap: 10px;">
+        <button onclick="showPage('homePage')" class="btn-primary" style="flex: 1; height: 50px; background: #ff9800;">ホームに戻る</button>
+        <button onclick="exitToListView()" style="flex: 1; height: 50px;">一覧で確認</button>
+      </div>
+    `;
+  } else {
+    document.getElementById("resultTitle").textContent = isPracticeModeGlobal ? "確認モード完了" : "テスト結果";
+    document.getElementById("resultTitle").style.color = "#1a73e8";
+  }
 
-    let listHtml = "";
-    testLog.forEach(item => {
-        const mark = item.status === "correct" ? "○" : "×";
-        const color = item.status === "correct" ? "#2e7d32" : "#c62828";
-        listHtml += `<div style="color:${color}; border-bottom:1px solid #eee; padding:5px 0;">${mark} ${item.word} (${item.meaning})</div>`;
-    });
-    document.getElementById("resultList").innerHTML = listHtml;
+  // 正誤リストの表示
+  let listHtml = "";
+  testLog.forEach(item => {
+    const mark = item.status === "correct" ? "○" : "×";
+    const color = item.status === "correct" ? "#2e7d32" : "#c62828";
+    listHtml += `<div style="color:${color}; border-bottom:1px solid #eee; padding:5px 0;">${mark} ${item.word} (${item.meaning})</div>`;
+  });
+  document.getElementById("resultList").innerHTML = listHtml;
 }
 
 window.exitToListView = function() {
@@ -874,32 +891,25 @@ window.goToQuizFromList = function(isPractice) {
     testLog = [];
     isReviewMode = true; 
     isSelfPracticeMode = true; 
+    isPracticeModeGlobal = isPractice; // 現在のモードを記憶
 
-    // 現在のセクションの単語を取得
     let offset = (currentSection - 1) * SECTION_SIZE;
     let sectionPool = (currentSection > 0) ? words.slice(offset, offset + SECTION_SIZE) : [...words];
-    
-    // 全体の候補（間違いリスト + セクション単語）
     let combined = [...new Set([...reviewWrongWords, ...sectionPool])];
 
     if (isPractice) {
-        // --- 【確認モード】 ---
-        // まだ「〇」になっていない単語だけを抽出
+        // 【確認モード】未習得のみ
         combined = combined.filter(w => progress[w.word.toLowerCase()] !== "correct");
-        
         if (combined.length === 0) {
             alert("この範囲で未習得の単語はありません！");
             return;
         }
     } else {
-        // --- 【チェックテストモード】 ---
-        // 状態に関わらず、全候補からランダムに5問（または全問）選ぶ
-        // ※ 5問にしていますが、好きな数字に変えてください
+        // 【チェックテストモード】ランダム5問
         combined = combined.sort(() => Math.random() - 0.5).slice(0, 5);
     }
 
     reviewPool = combined.sort(() => Math.random() - 0.5);
-
     renderQuestion();
     showPage("quiz");
 };

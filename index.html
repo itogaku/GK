@@ -130,9 +130,10 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
 <!-- クイズ画面のカード内（結果表示を上書きできるようにしておく） -->
 <section id="quiz" class="page">
   <div id="progressMini" style="text-align:center; font-size:13px; color:#666; margin-bottom:5px;"></div>
+  
   <div class="card">
-    <!-- ★ここをIDで囲むことで、結果画面に書き換え可能にする -->
-    <div id="quizMainContent">
+    <!-- クイズ進行中の表示エリア（IDを1つに統合） -->
+    <div id="quizQuestionArea">
       <div id="meaning"></div>
       <div id="exampleArea">
         <div id="exampleEn" style="font-style:italic; color:#444;"></div>
@@ -144,8 +145,20 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
         <div id="answerExample" style="font-size:14px; color:#555; margin-top:5px;"></div>
       </div>
     </div>
+
+    <!-- 結果表示用のエリア（最初は隠しておく。JSからここにスコアを入れる） -->
+    <div id="quizResultView" class="hidden" style="text-align:center; padding:20px;">
+      <h3 id="resultTitle" style="color:#1a73e8; margin-top:0;">テスト完了！</h3>
+      <p id="resultScore" style="font-size:32px; font-weight:bold; margin:20px 0;"></p>
+      <div id="resultList" style="text-align:left; max-height:180px; overflow-y:auto; border:1px solid #eee; padding:10px; margin-bottom:20px; font-size:14px; background:#fafafa;"></div>
+      
+      <button onclick="exitToListView()" class="btn-primary" style="width:100%; height:50px; font-size:16px;">
+        一覧に戻って暗記を確認
+      </button>
+    </div>
   </div>
 
+  <!-- 回答コントロールエリア（テスト終了時はここごと隠すとスッキリします） -->
   <div id="answerControlArea" style="text-align:center;">
     <input id="answerInput" type="text" readonly placeholder="キーボードで入力">
     <div id="actionButtons" style="margin-bottom:10px;">
@@ -153,7 +166,8 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
       <button id="nextBtn" class="hidden btn-primary" style="width:120px;">次へ</button>
     </div>
   </div>
-  
+
+  <!-- キーボードエリア -->
   <div id="quizKeyboard">
     <div id="keyboard"></div>
     <select id="keyboardSelect" style="width:100%; margin-top:10px; padding:5px; border-radius:5px;">
@@ -161,28 +175,6 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
       <option value="qwerty">QWERTY配列</option>
     </select>
   </div>
-　
-    <!-- クイズ画面のカード内 -->
-　<div id="quizMainContent">
-    　<!-- クイズ進行中の表示エリア -->
-    　<div id="quizQuestionArea">
-        　<div id="meaning"></div>
-        　<div id="exampleArea">
-            　<div id="exampleEn" style="font-style:italic; color:#444;"></div>
-            　<div id="exampleJa" style="font-size:13px; color:#888; margin-top:4px;"></div>
-        　</div>
-        　<div id="resultArea">
-            　<div id="judge"></div>
-            　<div id="correctWord" style="font-weight:bold; margin-top:8px;"></div>
-            　<div id="answerExample" style="font-size:14px; color:#555; margin-top:5px;"></div>
-        　</div>
-    　</div>
-
-    　<!-- ★結果表示用のエリア（最初は隠しておく） -->
-    　<div id="quizResultView" class="hidden">
-        　<!-- ここにJavaScriptで「10問中8問正解」などを流し込む -->
-    　</div>
-　</div>
 </section>
 
 <!-- 一覧画面 -->
@@ -936,60 +928,40 @@ function showReviewResult() {
 }
     
 function showTestResult() {
-  const correctCount = testLog.filter(i => i.status === "correct").length;
-  const totalCount = testLog.length;
-  
-  // 復習テストか通常テストかでタイトルを変える
-  const title = isReviewMode ? "復習テスト完了！" : "セクションテスト完了！";
+    const correctCount = testLog.filter(i => i.status === "correct").length;
+    const totalCount = testLog.length;
 
-  let html = `
-    <div style="text-align:center; padding:20px;">
-      <h3 style="color:#1a73e8;">${title}</h3>
-      <p style="font-size:32px; font-weight:bold; margin:20px 0;">
-        ${totalCount}問中 ${correctCount}問 正解
-      </p>
-      <div style="text-align:left; max-height:200px; overflow-y:auto; border:1px solid #eee; padding:10px; margin-bottom:20px; font-size:14px;">
-  `;
+    // 1. 表示の切り替え
+    document.getElementById("quizQuestionArea").classList.add("hidden");
+    document.getElementById("answerControlArea").classList.add("hidden");
+    document.getElementById("quizKeyboard").classList.add("hidden");
+    document.getElementById("quizResultView").classList.remove("hidden");
 
-  // 正誤履歴をリストアップ
-  testLog.forEach(item => {
-    const mark = item.status === "correct" ? "○" : "×";
-    const color = item.status === "correct" ? "#2e7d32" : "#c62828";
-    html += `<div style="color:${color}; border-bottom:1px solid #f0f0f0; padding:4px 0;">
-               ${mark} <strong>${item.word}</strong> - ${item.meaning}
-             </div>`;
-  });
-
-  html += `
-      </div>
-      <button onclick="exitToListView()" class="btn-primary" style="width:100%; height:50px; font-size:16px;">
-        一覧に戻って暗記を確認
-      </button>
-    </div>
-  `;
-
-  // メインコンテンツを書き換え
-  document.getElementById("quizMainContent").innerHTML = html;
-  
-  // 入力エリアとキーボードを隠す
-  document.getElementById("answerControlArea").classList.add("hidden");
-  document.getElementById("quizKeyboard").classList.add("hidden");
+    // 2. スコアの流し込み
+    document.getElementById("resultScore").textContent = `${totalCount}問中 ${correctCount}問 正解`;
+    
+    // 3. 正誤リストの作成
+    let listHtml = "";
+    testLog.forEach(item => {
+        const mark = item.status === "correct" ? "○" : "×";
+        const color = item.status === "correct" ? "#2e7d32" : "#c62828";
+        listHtml += `<div style="color:${color}; border-bottom:1px solid #eee; padding:5px 0;">${mark} ${item.word} (${item.meaning})</div>`;
+    });
+    document.getElementById("resultList").innerHTML = listHtml;
 }
-
 /* ===== 一覧に戻る（状態リセット） ===== */
 window.exitToListView = function() {
-    isWrongOnlyMode = testLog.some(i => i.status === "wrong");
-    isReviewMode = false;
-    testLog = [];
-    current = null;
+  isWrongOnlyMode = testLog.some(i => i.status === "wrong");
+  isReviewMode = false;
+  testLog = [];
+  current = null;
 
-    // ★ 画面の状態を「クイズ進行中」の形に戻しておく（表示の切り替えだけ）
-    document.getElementById("quizQuestionArea").classList.remove("hidden");
-    document.getElementById("quizResultView").classList.add("hidden");
-    document.getElementById("answerControlArea").classList.remove("hidden");
-    document.getElementById("quizKeyboard").classList.remove("hidden");
+  // 3. 表示状態を「クイズ中」の形に戻しておく
+  document.getElementById("quizQuestionArea").classList.remove("hidden");
+  document.getElementById("quizInputArea").classList.remove("hidden");
+  document.getElementById("quizResultView").classList.add("hidden");
 
-    showPage("list");
+  showPage("list");
 };
   
 /* ===== 一覧・ボタン生成 ===== */

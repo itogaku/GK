@@ -755,29 +755,50 @@ document.getElementById("checkBtn").onclick = () => {
 document.getElementById("nextBtn").onclick = () => renderQuestion();
 
 function showTestResult() {
-  document.getElementById("quizQuestionArea").classList.add("hidden");
-  document.getElementById("answerControlArea").classList.add("hidden");
-  document.getElementById("quizKeyboard").classList.add("hidden");
-  document.getElementById("quizResultView").classList.remove("hidden");
+    document.getElementById("quizQuestionArea").classList.add("hidden");
+    document.getElementById("answerControlArea").classList.add("hidden");
+    document.getElementById("quizKeyboard").classList.add("hidden");
+    document.getElementById("quizResultView").classList.remove("hidden");
 
-  const correctCount = testLog.filter(i => i.status === "correct").length;
-  document.getElementById("resultScore").textContent = `${testLog.length}問中 ${correctCount}問 正解`;
-  document.getElementById("resultTitle").textContent = isReviewMode ? "復習テスト完了！" : "セクションテスト完了！";
+    const correctCount = testLog.filter(i => i.status === "correct").length;
+    document.getElementById("resultScore").textContent = `${testLog.length}問中 ${correctCount}問 正解`;
+    
+    // 復習モードの種類によってタイトルを変える
+    if (isReviewMode && reviewWrongWords.length > 0) {
+        document.getElementById("resultTitle").textContent = "集中特訓テスト完了！";
+    } else {
+        document.getElementById("resultTitle").textContent = "セクションテスト完了！";
+    }
 
-  let listHtml = "";
-  testLog.forEach(item => {
-    const mark = item.status === "correct" ? "○" : "×";
-    const color = item.status === "correct" ? "#2e7d32" : "#c62828";
-    listHtml += `<div style="color:${color}; border-bottom:1px solid #eee; padding:5px 0;">${mark} ${item.word} (${item.meaning})</div>`;
-  });
-  document.getElementById("resultList").innerHTML = listHtml;
+    let listHtml = "";
+    testLog.forEach(item => {
+        const mark = item.status === "correct" ? "○" : "×";
+        const color = item.status === "correct" ? "#2e7d32" : "#c62828";
+        listHtml += `<div style="color:${color}; border-bottom:1px solid #eee; padding:5px 0;">${mark} ${item.word} (${item.meaning})</div>`;
+    });
+    document.getElementById("resultList").innerHTML = listHtml;
 }
 
 window.exitToListView = function() {
-  resetQuizUI();
-  showPage("list");
-};
+    // 特訓テストの結果を反映（正解したらリストから消し、また間違えたら残す）
+    testLog.forEach(item => {
+        if (item.status === "correct") {
+            // 正解した単語は「要復習リスト」から削除
+            reviewWrongWords = reviewWrongWords.filter(w => w.word !== item.word);
+        } else {
+            // また間違えた単語は（まだリストになければ）追加
+            const wordObj = words.find(w => w.word === item.word);
+            if (wordObj && !reviewWrongWords.some(w => w.word === wordObj.word)) {
+                reviewWrongWords.push(wordObj);
+            }
+        }
+    });
 
+    isReviewMode = false; // モードを通常に戻す
+    resetQuizUI();
+    showPage("list");
+};
+  
 window.renderSectionButtons = function() {
   const container = document.getElementById("sectionContainer");
   container.innerHTML = "";
@@ -824,8 +845,26 @@ window.renderList = function() {
 };
 
 window.changeListSection = (val) => { currentSection = parseInt(val); renderList(); };
-window.goToQuizFromList = () => { isReviewMode = false; testLog = []; renderQuestion(); showPage("quiz"); };
+window.goToQuizFromList = function() {
+    // 1. 状態をリセット
+    testLog = [];
+    isReviewMode = true; // reviewPool（独自の出題リスト）を使うためにONにする
 
+    // 2. 現在のセクションの単語を取得
+    let offset = (currentSection - 1) * SECTION_SIZE;
+    let sectionPool = (currentSection > 0) ? words.slice(offset, offset + SECTION_SIZE) : [...words];
+
+    // 3. 「復習で間違えた単語」と「セクション単語」を合体（重複は自動で消去）
+    // Array.from(new Set(...)) を使うと、同じ単語が2回出るのを防げます
+    const combined = [...new Set([...reviewWrongWords, ...sectionPool])];
+
+    // 4. シャッフルして出題用プールにセット
+    reviewPool = combined.sort(() => Math.random() - 0.5);
+
+    // 5. クイズ開始
+    renderQuestion();
+    showPage("quiz");
+};
 // キーボード
 function buildKeyboard() {
   const container = document.getElementById("keyboard");

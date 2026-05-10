@@ -626,6 +626,21 @@ window.showPage = function(id) {
     resetQuizUI();
   }
   if (id === "sectionPage") renderSectionButtons();
+  if (id === "homePage") {
+    　isReviewMode = false;
+    　testLog = [];
+    
+    　// progressデータに基づいて、まだ終わっていない最新のセクションを自動取得
+    　currentSection = determineTodaySection(); 
+
+    　if (document.getElementById("welcomeUser")) {
+        　document.getElementById("welcomeUser").textContent = `こんにちは、${currentUser}さん！`;
+    　}
+    　if (document.getElementById("targetSectionName")) {
+        　document.getElementById("targetSectionName").textContent = `Section ${currentSection}`;
+    }
+    resetQuizUI();
+　}
 };
 
 function resetQuizUI() {
@@ -775,46 +790,57 @@ document.getElementById("checkBtn").onclick = () => {
 document.getElementById("nextBtn").onclick = () => renderQuestion();
 
 function showTestResult() {
-  document.getElementById("quizQuestionArea").classList.add("hidden");
-  document.getElementById("answerControlArea").classList.add("hidden");
-  document.getElementById("quizKeyboard").classList.add("hidden");
-  document.getElementById("quizResultView").classList.remove("hidden");
+    document.getElementById("quizQuestionArea").classList.add("hidden");
+    document.getElementById("answerControlArea").classList.add("hidden");
+    document.getElementById("quizKeyboard").classList.add("hidden");
+    document.getElementById("quizResultView").classList.remove("hidden");
 
-  const correctCount = testLog.filter(i => i.status === "correct").length;
-  const totalCount = testLog.length;
-  const isPerfect = (correctCount === totalCount); // 全問正解判定
+    const correctCount = testLog.filter(i => i.status === "correct").length;
+    const totalCount = testLog.length;
+    const isPerfect = (correctCount === totalCount); 
 
-  document.getElementById("resultScore").textContent = `${totalCount}問中 ${correctCount}問 正解`;
+    document.getElementById("resultScore").textContent = `${totalCount}問中 ${correctCount}問 正解`;
 
-  // --- 修正箇所：チェックテスト合格時の演出 ---
-  if (!isPracticeModeGlobal && isPerfect) {
-    document.getElementById("resultTitle").textContent = "✨ 学習完了！おめでとう！ ✨";
-    document.getElementById("resultTitle").style.color = "#ff9800";
-    
-    // ホームに戻るボタンを追加で表示
-    const resultView = document.getElementById("quizResultView");
-    // 既存のボタンを一旦クリアして、ホームボタンと一覧ボタンを並べる
-    resultView.querySelector("button").outerHTML = `
-      <div style="display: flex; gap: 10px;">
-        <button onclick="showPage('homePage')" class="btn-primary" style="flex: 1; height: 50px; background: #ff9800;">ホームに戻る</button>
-        <button onclick="exitToListView()" style="flex: 1; height: 50px;">一覧で確認</button>
-      </div>
-    `;
-  } else {
-    document.getElementById("resultTitle").textContent = isPracticeModeGlobal ? "確認モード完了" : "テスト結果";
-    document.getElementById("resultTitle").style.color = "#1a73e8";
-  }
+    // --- チェックテストで全問正解（合格）した場合 ---
+    if (!isPracticeModeGlobal && isPerfect) {
+        document.getElementById("resultTitle").textContent = "✨ 学習完了！ ✨";
+        document.getElementById("resultTitle").style.color = "#ff9800";
+        
+        // ★次回のセクションを更新する
+        const maxSection = Math.ceil(words.length / SECTION_SIZE);
+        if (currentSection < maxSection) {
+            currentSection++; // セクションを1つ進める
+            // ホーム画面の目標表示を即座に更新しておく
+            if(document.getElementById("targetSectionName")) {
+                document.getElementById("targetSectionName").textContent = `Section ${currentSection}`;
+            }
+        }
 
-  // 正誤リストの表示
-  let listHtml = "";
-  testLog.forEach(item => {
-    const mark = item.status === "correct" ? "○" : "×";
-    const color = item.status === "correct" ? "#2e7d32" : "#c62828";
-    listHtml += `<div style="color:${color}; border-bottom:1px solid #eee; padding:5px 0;">${mark} ${item.word} (${item.meaning})</div>`;
-  });
-  document.getElementById("resultList").innerHTML = listHtml;
+        const resultView = document.getElementById("quizResultView");
+        resultView.innerHTML = `
+            <h3 id="resultTitle" style="color:#ff9800;">✨ 学習完了！ ✨</h3>
+            <p id="resultScore" style="font-size:32px; font-weight:bold; margin:15px 0;">全問正解！合格です！</p>
+            <p style="margin-bottom:20px; color:#666;">次は Section ${currentSection} を学びましょう。</p>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="showPage('homePage')" class="btn-primary" style="flex: 1; height: 50px; background: #ff9800;">ホームに戻る</button>
+                <button onclick="exitToListView()" style="flex: 1; height: 50px; border:1px solid #ccc;">一覧を確認</button>
+            </div>
+        `;
+    } else {
+        // --- 不合格または確認モードの場合 ---
+        document.getElementById("resultTitle").textContent = isPracticeModeGlobal ? "確認モード完了" : "チェックテスト結果";
+        document.getElementById("resultTitle").style.color = "#1a73e8";
+        
+        // 通常の結果リストを表示（既存の処理）
+        let listHtml = "";
+        testLog.forEach(item => {
+            const mark = item.status === "correct" ? "○" : "×";
+            const color = item.status === "correct" ? "#2e7d32" : "#c62828";
+            listHtml += `<div style="color:${color}; border-bottom:1px solid #eee; padding:5px 0;">${mark} ${item.word} (${item.meaning})</div>`;
+        });
+        document.getElementById("resultList").innerHTML = listHtml;
+    }
 }
-
 window.exitToListView = function() {
     // 正解しても reviewWrongWords からは filter（削除）しない
     if (!isSelfPracticeMode) {

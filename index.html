@@ -629,10 +629,7 @@ let reviewPool = [];           // 復習用問題
 
 /* ===== 画面表示制御 ===== */
 window.showPage = function(id) {
-  // すべてのページを非表示にする
   document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
-  
-  // 指定したIDのページだけ表示する
   const target = document.getElementById(id);
   if (target) target.classList.add("active");
 
@@ -643,48 +640,49 @@ window.showPage = function(id) {
   } else {
     controls.style.display = "none";
   }
-   
-   // ★一覧画面を表示する場合の処理
+
+  // 一覧画面の処理
   if (id === "list") {
-      renderList(); // リストを再描画
-      updateProgressMini(); // 進捗を更新
+    renderList(); 
+    updateProgressMini();
   }
 
-  // --- 追加：ホーム画面に戻る時の処理 ---
+  // ホーム画面の処理
   if (id === "homePage") {
-    // もしテストの途中で戻るなら、状態をリセットする
     current = null;
     isReviewMode = false;
     testLog = [];
-    
-    // ホーム画面の表示を更新
-    const welcome = document.getElementById("welcomeUser");
-    if (welcome) welcome.textContent = `こんにちは、${currentUser}さん！`;
-    const targetSec = document.getElementById("targetSectionName");
-    if (targetSec) targetSec.textContent = `Section ${currentSection}`;
-    
-    // クイズ画面が結果表示などで書き換わっていたら、元の状態に戻すためにリロード
-    // （※これが一番確実です）
-    const quizCard = document.querySelector("#quiz .card");
-    if (quizCard && quizCard.querySelector('h3')) {
-        location.reload();
+    if (document.getElementById("welcomeUser")) {
+        document.getElementById("welcomeUser").textContent = `こんにちは、${currentUser}さん！`;
     }
-  }
-
-  if (id === "list") {
-    const listSelect = document.getElementById("listSectionSelect");
-    if (listSelect) listSelect.value = currentSection;
-    const startBtn = document.getElementById("startQuizBtn");
-    if (startBtn) startBtn.style.display = currentSection > 0 ? "inline-block" : "none";
-    renderList();
-  } 
-  else if (id === "sectionPage") renderSectionButtons();
-  else if (id === "quiz") {
-    updateProgressMini();
-    if (!current) renderQuestion();
+    if (document.getElementById("targetSectionName")) {
+        document.getElementById("targetSectionName").textContent = `Section ${currentSection}`;
+    }
+    
+    // ★重要：リロードではなく、クイズ画面の中身をリセットする関数を呼ぶ
+    resetQuizDOM(); 
   }
 };
 
+function resetQuizDOM() {
+    const main = document.getElementById("quizMainContent");
+    if (main && main.querySelector('h3')) { // 結果画面になっていたら
+        main.innerHTML = `
+            <div id="meaning"></div>
+            <div id="exampleArea">
+                <div id="exampleEn" style="font-style:italic; color:#444;"></div>
+                <div id="exampleJa" style="font-size:13px; color:#888; margin-top:4px;"></div>
+            </div>
+            <div id="resultArea">
+                <div id="judge"></div>
+                <div id="correctWord" style="font-weight:bold; margin-top:8px;"></div>
+                <div id="answerExample" style="font-size:14px; color:#555; margin-top:5px;"></div>
+            </div>`;
+        // 非表示にしていた入力欄などを復活
+        document.getElementById("answerControlArea").classList.remove("hidden");
+        document.getElementById("quizKeyboard").classList.remove("hidden");
+    }
+}
 /* ===== ユーザー管理 ===== */
 window.addUser = function() {
   const name = document.getElementById("newName").value.trim();
@@ -938,13 +936,13 @@ function showTestResult() {
 
 /* ===== 一覧に戻る（状態リセット） ===== */
 window.exitToListView = function() {
-    // 1. 不正解がある場合の状態保存
+    // 1. 状態保存
     isWrongOnlyMode = testLog.some(i => i.status === "wrong");
     isReviewMode = false;
     testLog = []; 
     current = null;
 
-    // 2. 書き換えてしまったクイズ画面のHTMLを元の状態に戻す
+    // 2. クイズ画面をリセット（innerHTMLの書き戻し）
     const quizMain = document.getElementById("quizMainContent");
     if (quizMain) {
         quizMain.innerHTML = `
@@ -961,12 +959,19 @@ window.exitToListView = function() {
         `;
     }
 
-    // 3. 入力エリアとキーボードを再表示させる
-    document.getElementById("answerControlArea").classList.remove("hidden");
-    document.getElementById("quizKeyboard").classList.remove("hidden");
+    // 3. 非表示にしていた要素を復活
+    const controlArea = document.getElementById("answerControlArea");
+    const keyboardArea = document.getElementById("quizKeyboard");
+    if (controlArea) controlArea.classList.remove("hidden");
+    if (keyboardArea) keyboardArea.classList.remove("hidden");
 
-    // 4. 一覧画面へ移動（リロードしない）
+    // 4. 一覧画面へ移動
     showPage("list");
+
+    // ★ 念押し：一覧を最新の状態（間違い直しモードなど）で描画
+    if (typeof renderList === "function") {
+        renderList();
+    }
 };
   
 /* ===== 一覧・ボタン生成 ===== */

@@ -624,6 +624,33 @@ let isSelfPracticeMode = false;
 let isPracticeModeGlobal = false;
 let currentLayout = "mobile";
 
+function updateHomeDashboard() {
+    // Firebaseから読み込んだ progress オブジェクトを使って計算
+    const totalWords = words.length;
+    const correctWords = words.filter(w => progress[w.word.toLowerCase()] === "correct").length;
+    const learnedWords = words.filter(w => progress[w.word.toLowerCase()] !== undefined).length;
+
+    // 学習回数の更新
+    if (document.getElementById("studyCountText")) {
+        document.getElementById("studyCountText").textContent = studyCount;
+    }
+
+    // セクションの進捗計算
+    const totalSections = Math.ceil(totalWords / SECTION_SIZE);
+    let completedSections = 0;
+    for (let i = 1; i <= totalSections; i++) {
+        const pool = words.slice((i-1)*SECTION_SIZE, i*SECTION_SIZE);
+        if (pool.length > 0 && pool.every(w => progress[w.word.toLowerCase()] === "correct")) {
+            completedSections++;
+        }
+    }
+
+    // 目標セクションの表示更新
+    if (document.getElementById("targetSectionName")) {
+        document.getElementById("targetSectionName").textContent = `Section ${currentSection}`;
+    }
+}
+  
 // --- Firebase連携用関数 ---
 async function saveProgress() {
     if (!currentUser) return;
@@ -668,6 +695,7 @@ window.showPage = function(id) {
     document.getElementById("welcomeUser").textContent = `こんにちは、${currentUser}さん！`;
     document.getElementById("targetSectionName").textContent = `Section ${currentSection}`;
     document.getElementById("studyCountText").textContent = studyCount;
+    updateHomeDashboard();
   }
 };
 
@@ -726,14 +754,17 @@ window.selectUser = function(name) {
 };
 
 window.login = async function() {
-  const pass = document.getElementById("passwordInput").value;
-  const snapshot = await get(child(ref(db), `users/${selectedUser}`));
-  if(snapshot.exists() && snapshot.val().password === pass) {
-    currentUser = selectedUser;
-    localStorage.setItem("currentUser", currentUser);
-    const data = await loadUserData(currentUser);
-    showPage("homePage");
-  } else { alert("パスワードが違います"); }
+    const pass = document.getElementById("passwordInput").value;
+    const snapshot = await get(child(ref(db), `users/${selectedUser}`));
+    if(snapshot.exists() && snapshot.val().password === pass) {
+        currentUser = selectedUser;
+        localStorage.setItem("currentUser", currentUser);
+        await loadUserData(currentUser); // データを読み込む
+        
+        // 追加：ログイン直後にダッシュボードを更新
+        updateHomeDashboard(); 
+        showPage("homePage");
+    } else { alert("パスワードが違います"); }
 };
 
 window.logout = function() {
@@ -746,6 +777,7 @@ window.logout = function() {
 window.startTodayLesson = async function() {
   studyCount++;
   await saveProgress();
+  updateHomeDashboard();
   isReviewMode = true;
   isSelfPracticeMode = false;
   testLog = [];

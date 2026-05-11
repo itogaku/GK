@@ -621,8 +621,8 @@ const words = [
 
 ];
 
-/* ===== 1. 定数・変数定義（全機能分） ===== */
-const SECTION_SIZE = 2; // テスト用に小さく設定
+/* ===== 1. 定数・変数定義 ===== */
+const SECTION_SIZE = 2; 
 let progress = {};
 let current = null;
 let currentSection = 1;
@@ -633,23 +633,17 @@ let isReviewMode = false;
 let testLog = [];
 let reviewPool = [];
 let currentLayout = localStorage.getItem("keyboardLayout") || "mobile";
-let reviewWrongWords = []; // 復習テストで間違えた単語を一時保存する用
-let isSelfPracticeMode = false; // 自主練習（一覧からのテスト）かどうか
-let isPracticeModeGlobal = false; // グローバル変数として追加
+let reviewWrongWords = []; 
+let isSelfPracticeMode = false; 
+let isPracticeModeGlobal = false; 
 
-// 既存の import は消して、これに差し替える
+/* ===== 2. Firebase設定・初期化 ===== */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-// (firebaseConfig は上に書いたもの)
-
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app); // これで「db」という変数を通してネットに保存できるようになります
-// 2. Firebaseの設定
 const firebaseConfig = {
   apiKey: "AIzaSyAVc0-URnaEl4Oj9tjMqtD7VrtmDLwGuVc",
   authDomain: "words-gk.firebaseapp.com",
-  // ★以下の1行を追加
   databaseURL: "https://words-gk-default-rtdb.asia-northeast1.firebasedatabase.app", 
   projectId: "words-gk",
   storageBucket: "words-gk.firebasestorage.app",
@@ -658,37 +652,28 @@ const firebaseConfig = {
   measurementId: "G-RSLS7ZH77M"
 };
 
-// 3. 初期化
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// --- ここから下に、既存の変数や関数を記述 ---
-  
-let currentUser = "";
-let progress = {};
-// ... (wordsデータなど) ...
+/* ===== 3. クラウド同期関数 ===== */
 
-// 4. Firebaseへの保存関数を作成（モジュール内で定義）
-// クラウドへ保存する関数
+// 保存
 async function saveUserData() {
     if (!currentUser) return;
-    
-    // 今の学習回数を取得
     const studyCount = localStorage.getItem("studyCount_" + currentUser) || 0;
-
     try {
         await set(ref(db, 'users/' + currentUser), {
             progress: progress,
             studyCount: studyCount,
             lastUpdated: new Date().toISOString()
         });
-        console.log("クラウドに保存しました");
+        console.log("Cloud Saved");
     } catch (e) {
-        console.error("保存失敗:", e);
+        console.error("Cloud Save Error:", e);
     }
 }
 
-// クラウドから読み込む関数
+// 読み込み
 async function loadUserData(username) {
     const dbRef = ref(db);
     try {
@@ -696,16 +681,18 @@ async function loadUserData(username) {
         if (snapshot.exists()) {
             const data = snapshot.val();
             progress = data.progress || {};
-            // 学習回数も同期
+            localStorage.setItem("progress_" + username, JSON.stringify(progress));
             localStorage.setItem("studyCount_" + username, data.studyCount || 0);
             return true;
         }
     } catch (e) {
-        console.error("読込失敗:", e);
+        console.error("Cloud Load Error:", e);
     }
     return false;
 }
-  
+
+/* ===== 4. UI・ダッシュボード制御 ===== */
+
 function updateHomeDashboard() {
     if (!currentUser) return;
 
@@ -728,12 +715,11 @@ function updateHomeDashboard() {
     // 3. 今日の学習内容（円の上）
     document.getElementById("targetSectionDisplay").textContent = `Section ${currentSection}`;
 
-    // 4. ★残りセクション数の計算（円の中）
+    // 4. 残りセクション数の計算
     const totalSections = Math.ceil(totalWords / SECTION_SIZE);
     let completedSections = 0;
     for (let i = 1; i <= totalSections; i++) {
         const pool = words.slice((i - 1) * SECTION_SIZE, i * SECTION_SIZE);
-        // そのセクションの単語がすべて正解なら「完了」とみなす
         if (pool.length > 0 && pool.every(w => progress[w.word.toLowerCase()] === "correct")) {
             completedSections++;
         }
@@ -745,14 +731,12 @@ function updateHomeDashboard() {
     document.getElementById("statCorrect").textContent = correctWords;
     document.getElementById("statLearned").textContent = words.filter(w => progress[w.word.toLowerCase()] !== undefined).length;
 }
-  
+
 window.showPage = function(id) {
-  // 1. ページの切り替え
   document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
   const target = document.getElementById(id);
   if (target) target.classList.add("active");
 
-  // 2. 下部メニュー（ナビゲーション）の表示制御
   const controls = document.getElementById("quizControls");
   if (currentUser) {
     controls.style.display = "flex";
@@ -761,175 +745,83 @@ window.showPage = function(id) {
     controls.style.display = "none";
   }
 
-  // 3. 各ページごとの初期化処理
-  if (id === "list") {
-    renderList();
-  }
-  
-  if (id === "sectionPage") {
-    renderSectionButtons();
-  }
+  if (id === "list") renderList();
+  if (id === "sectionPage") renderSectionButtons();
 
   if (id === "homePage") {
-    // 状態のリセット
     isReviewMode = false;
     testLog = [];
     resetQuizUI();
-
-    // ★重要：まず最新の目標セクションを判定
     currentSection = determineTodaySection(); 
 
-    // UIのテキスト更新
     if (document.getElementById("welcomeUser")) {
       document.getElementById("welcomeUser").textContent = `こんにちは、${currentUser}さん！`;
     }
-    if (document.getElementById("targetSectionName")) {
-      document.getElementById("targetSectionName").textContent = `Section ${currentSection}`;
-    }
-
-    // ★最後：確定したcurrentSectionを元にダッシュボードを描画
     updateHomeDashboard(); 
   }
 };
 
-function resetQuizUI() {
-  document.getElementById("quizQuestionArea").classList.remove("hidden");
-  document.getElementById("quizResultView").classList.add("hidden");
-  document.getElementById("answerControlArea").classList.remove("hidden");
-  document.getElementById("quizKeyboard").classList.remove("hidden");
-  current = null;
-}
+/* ===== 5. ユーザー・ログイン管理 ===== */
 
-window.addUser = function() {
-  const name = document.getElementById("newName").value.trim();
-  const pass = document.getElementById("newPass").value.trim();
-  if(!name || !pass) return alert("名前とパスワードを入力してください");
-  let users = JSON.parse(localStorage.getItem("users") || "{}");
-  users[name] = pass;
-  localStorage.setItem("users", JSON.stringify(users));
-  renderUserList();
-};
-
-function renderUserList() {
-  const container = document.getElementById("userList");
-  container.innerHTML = "";
-  let users = JSON.parse(localStorage.getItem("users") || "{}");
-  Object.keys(users).forEach(name => {
-    const div = document.createElement("div");
-    div.className = "user-item";
-    div.innerHTML = `<span>${name}</span><button onclick="selectUser('${name}')">選択</button>`;
-    container.appendChild(div);
-  });
-}
-
-window.selectUser = function(name) {
-  selectedUser = name;
-  document.getElementById("selectedUserName").textContent = name;
-  document.getElementById("loginArea").classList.remove("hidden");
-};
-
-window.login = function() {
+window.login = async function() {
   const pass = document.getElementById("passwordInput").value;
   let users = JSON.parse(localStorage.getItem("users") || "{}");
+  
   if(users[selectedUser] === pass) {
     currentUser = selectedUser;
     localStorage.setItem("currentUser", currentUser);
-    progress = JSON.parse(localStorage.getItem("progress_" + currentUser) || "{}");
+    
+    // クラウドからデータを同期
+    await loadUserData(currentUser);
+    
     currentSection = determineTodaySection();
     showPage("homePage");
-    updateHomeDashboard(); // ここで回数やグラフを計算して表示！
-  } else { alert("パスワードが違います"); }
-};
-
-window.logout = function() {
-  localStorage.removeItem("currentUser");
-  currentUser = null;
-  showPage("userPage");
-};
-
-function determineTodaySection() {
-  for (let i = 1; i <= Math.ceil(words.length / SECTION_SIZE); i++) {
-    const pool = words.slice((i-1)*SECTION_SIZE, i*SECTION_SIZE);
-    if (!pool.every(w => progress[w.word.toLowerCase()] === "correct")) return i;
+  } else { 
+    alert("パスワードが違います"); 
   }
-  return 1;
-}
+};
 
-const originalStartTodayLesson = window.startTodayLesson;
-window.startTodayLesson = function() {
-  // --- ★追加：学習回数のカウントアップ ---
+/* ===== 6. 学習メインロジック ===== */
+
+window.startTodayLesson = async function() {
   if (currentUser) {
     let studyCount = parseInt(localStorage.getItem("studyCount_" + currentUser) || 0);
     studyCount++;
     localStorage.setItem("studyCount_" + currentUser, studyCount);
+    // 回数増分を保存
+    await saveUserData();
   }
 
-  // --- 既存の処理 ---
   isReviewMode = true;
   isSelfPracticeMode = false; 
   testLog = [];
   reviewWrongWords = []; 
-  
-  // 復習は全単語からランダムに3問
   reviewPool = [...words].sort(() => Math.random() - 0.5).slice(0, 3); 
   
   renderQuestion();
   showPage("quiz");
 };
 
-function getNextWord() {
-  let start = (currentSection - 1) * SECTION_SIZE;
-  let pool = words.slice(start, start + SECTION_SIZE);
-  const unattempted = pool.filter(w => progress[w.word.toLowerCase()] === undefined);
-  if (unattempted.length > 0) return unattempted[Math.floor(Math.random() * unattempted.length)];
-  const wrongs = pool.filter(w => progress[w.word.toLowerCase()] === "wrong");
-  return wrongs.length > 0 ? wrongs[Math.floor(Math.random() * wrongs.length)] : null;
-}
-
-function renderQuestion() {
-  current = isReviewMode ? (reviewPool.pop() || null) : getNextWord();
-  if (!current) { showTestResult(); return; }
-
-  document.getElementById("meaning").textContent = current.meaning;
-  document.getElementById("exampleEn").textContent = current.example || "";
-  document.getElementById("exampleJa").textContent = current.exampleJa || "";
-  document.getElementById("judge").textContent = "";
-  document.getElementById("correctWord").textContent = "";
-  document.getElementById("answerExample").textContent = "";
-  document.getElementById("answerInput").value = "";
-  document.getElementById("resultArea").className = "";
-  document.getElementById("checkBtn").classList.remove("hidden");
-  document.getElementById("nextBtn").classList.add("hidden");
-}
-
-document.getElementById("checkBtn").onclick = () => {
-    // 入力値の取得
+document.getElementById("checkBtn").onclick = async () => {
     const val = document.getElementById("answerInput").value.trim().toLowerCase();
     const ok = val === current.word.toLowerCase();
     const status = ok ? "correct" : "wrong";
     
-    // --- 重要：ここから保存処理 ---
-    
-    // 1. 今回のテスト結果ログに記録（結果画面用）
     testLog.push({ word: current.word, meaning: current.meaning, status: status });
-
-    // 2. ★「状態」を〇にするための進捗保存（モードに関わらず常に実行）
-    // current.word.toLowerCase() をキーにして progress オブジェクトを更新
     progress[current.word.toLowerCase()] = status;
     
-    // 3. ローカルストレージに即時保存
+    // 保存処理（ローカルとクラウド両方）
     if (currentUser) {
         localStorage.setItem("progress_" + currentUser, JSON.stringify(progress));
+        await saveUserData();
     }
 
-    // 4. 復習リストへの新規追加（正式な復習テストかつ間違いの時のみ）
     if (isReviewMode && !isSelfPracticeMode && !ok) {
         if (!reviewWrongWords.some(w => w.word === current.word)) {
             reviewWrongWords.push(current);
         }
     }
 
-    // --- 表示処理 ---
     const res = document.getElementById("resultArea");
     const j = document.getElementById("judge");
     j.textContent = ok ? "◎" : "✕";
@@ -941,12 +833,8 @@ document.getElementById("checkBtn").onclick = () => {
         document.getElementById("answerExample").textContent = current.example.replace(/_+/g, current.word);
     }
 
-    // ボタンの切り替え
     document.getElementById("checkBtn").classList.add("hidden");
     document.getElementById("nextBtn").classList.remove("hidden");
-    
-    // ミニ進捗表示（完了: 5/20 など）も即座に更新
-    if (typeof updateProgressMini === "function") updateProgressMini();
 };
   
 document.getElementById("nextBtn").onclick = () => renderQuestion();

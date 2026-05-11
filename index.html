@@ -622,23 +622,56 @@ const words = [
 ];
 
 /* ===== 1. Firebase初期設定 ===== */
+/* ===== Firebase（そのままでOK） ===== */
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+import { getFirestore, addDoc, collection } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAVc0-URnaEl4Oj9tjMqtD7VrtmDLwGuVc",
+
+  apiKey: "AIzaSy...",
+
   authDomain: "words-gk.firebaseapp.com",
-  databaseURL: "https://words-gk-default-rtdb.asia-northeast1.firebasedatabase.app", 
-  projectId: "words-gk",
-  storageBucket: "words-gk.firebasestorage.app",
-  messagingSenderId: "668548972436",
-  appId: "1:668548972436:web:8ee9047b3022619b261981",
-  measurementId: "G-RSLS7ZH77M"
+
+  projectId: "words-gk"
+
 };
 
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
 
+
+const app = initializeApp(firebaseConfig);
+
+const db = getFirestore();
+
+/* ===== Firebase送信 ===== */
+
+async function sendLog(word,correct){
+
+  try{
+
+    await addDoc(collection(db,"logs"),{
+
+      user:currentUser,
+
+      word,
+
+      correct,
+
+      time:Date.now()
+
+    });
+
+  }catch{
+
+    console.log("オフライン");
+
+  }
+
+}
+  
 /* ===== 2. 定数・変数定義 ===== */
 const SECTION_SIZE = 2; 
 let progress = {};

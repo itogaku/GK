@@ -78,52 +78,53 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
 <!-- 2. ホーム画面 -->
 <section id="homePage" class="page">
   <div class="card" style="text-align: center; padding: 20px;">
-    <h2 id="welcomeUser">こんにちは！</h2>
+    <h2 id="welcomeUser" style="margin-bottom: 5px;">こんにちは！</h2>
 
-    <!-- 2. 今日の学習内容（円の上、挨拶の下） -->
+    <!-- 今日の学習内容（円の上） -->
     <div style="margin-bottom: 20px; background: #e3f2fd; padding: 10px; border-radius: 8px; border: 1px dashed #2196f3;">
       <p style="margin: 0; font-size: 12px; color: #1a73e8; font-weight: bold;">今日の学習内容</p>
       <p id="targetSectionDisplay" style="margin: 0; font-size: 18px; font-weight: bold; color: #333;">Section -</p>
     </div>
-    
-    <!-- ドーナツ型進捗グラフエリア -->
-    <div style="position: relative; width: 200px; height: 200px; margin: 20px auto;">
+
+    <!-- ドーナツ型進捗グラフ -->
+    <div style="position: relative; width: 200px; height: 200px; margin: 0 auto 20px;">
       <svg width="200" height="200" viewBox="0 0 200 200">
-        <!-- 背景の円 -->
-        <circle cx="100" cy="100" r="85" fill="none" stroke="#eee" stroke-width="15" />
-        <!-- 進捗の円（JavaScriptで制御） -->
+        <circle cx="100" cy="100" r="85" fill="none" stroke="#eee" stroke-width="14" />
         <circle id="progressCircle" cx="100" cy="100" r="85" fill="none" stroke="#4caf50" 
-          stroke-width="15" stroke-dasharray="534" stroke-dashoffset="534" 
+          stroke-width="14" stroke-dasharray="534" stroke-dashoffset="534" 
           stroke-linecap="round" transform="rotate(-90 100 100)" style="transition: stroke-dashoffset 0.8s ease-out;" />
       </svg>
       
-      <!-- 円の中心のテキスト -->
+      <!-- 円の中心：学習回数と残りセクション -->
       <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100%;">
-        <p style="margin: 0; font-size: 12px; color: #888;">学習回数</p>
-        <p id="studyCountText" style="margin: 0; font-size: 28px; font-weight: bold; color: #333;">0</p>
-        <div style="border-top: 1px solid #ddd; margin: 5px 20px;"></div>
+        <p style="margin: 0; font-size: 11px; color: #888;">学習回数</p>
+        <p id="studyCountText" style="margin: 0; font-size: 36px; font-weight: bold; color: #333; line-height: 1.1;">0</p>
+        
+        <div style="border-top: 1px solid #eee; margin: 5px 35px;"></div>
+        
         <p style="margin: 0; font-size: 11px; color: #888;">残り</p>
-        <p id="remainingSectionsText" style="margin: 0; font-size: 16px; font-weight: bold; color: #1a73e8;">- Sec</p>
+        <p id="remainingSectionsText" style="margin: 0; font-size: 15px; font-weight: bold; color: #f44336;">- Sec</p>
       </div>
     </div>
 
-    <!-- 進捗詳細 -->
+    <!-- 下部詳細 -->
     <div id="statDetail" style="margin-bottom: 25px; display: flex; justify-content: space-around;">
       <div>
-        <p style="font-size: 12px; color: #999; margin-bottom: 0;">正解済み</p>
-        <p id="statCorrect" style="font-size: 18px; font-weight: bold; margin: 0; color: #4caf50;"></p>
+        <p style="font-size: 11px; color: #999; margin-bottom: 0;">正解済み</p>
+        <p id="statCorrect" style="font-size: 16px; font-weight: bold; margin: 0; color: #4caf50;"></p>
       </div>
       <div>
-        <p style="font-size: 12px; color: #999; margin-bottom: 0;">学習済み</p>
-        <p id="statLearned" style="font-size: 18px; font-weight: bold; margin: 0; color: #1a73e8;"></p>
+        <p style="font-size: 11px; color: #999; margin-bottom: 0;">学習済み</p>
+        <p id="statLearned" style="font-size: 16px; font-weight: bold; margin: 0; color: #1a73e8;"></p>
       </div>
     </div>
 
-    <button onclick="startTodayLesson()" class="btn-primary" style="font-size: 20px; padding: 20px; width: 100%;">
+    <button onclick="startTodayLesson()" class="btn-primary" style="font-size: 20px; padding: 18px; width: 100%;">
       学習を開始する
     </button>
   </div>
 </section>
+  
 <!-- 3. セクション選択画面 -->
 <section id="sectionPage" class="page">
   <h2 style="text-align:center;">学習セクションを選択</h2>
@@ -651,14 +652,27 @@ function updateHomeDashboard() {
         circle.style.strokeDashoffset = circumference - (progressPercent * circumference);
     }
 
-    // 2. 学習回数の更新
+    // 2. 学習回数の表示
     const studyCount = localStorage.getItem("studyCount_" + currentUser) || 0;
     document.getElementById("studyCountText").textContent = studyCount;
 
-    // 3. 今日の学習内容（円の上）の更新
+    // 3. 今日の学習内容（円の上）
     document.getElementById("targetSectionDisplay").textContent = `Section ${currentSection}`;
 
-    // 4. 下部詳細
+    // 4. ★残りセクション数の計算（円の中）
+    const totalSections = Math.ceil(totalWords / SECTION_SIZE);
+    let completedSections = 0;
+    for (let i = 1; i <= totalSections; i++) {
+        const pool = words.slice((i - 1) * SECTION_SIZE, i * SECTION_SIZE);
+        // そのセクションの単語がすべて正解なら「完了」とみなす
+        if (pool.length > 0 && pool.every(w => progress[w.word.toLowerCase()] === "correct")) {
+            completedSections++;
+        }
+    }
+    const remainingSections = totalSections - completedSections;
+    document.getElementById("remainingSectionsText").textContent = remainingSections + " Sec";
+
+    // 5. 下部詳細
     document.getElementById("statCorrect").textContent = correctWords;
     document.getElementById("statLearned").textContent = words.filter(w => progress[w.word.toLowerCase()] !== undefined).length;
 }

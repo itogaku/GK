@@ -650,8 +650,9 @@ let testLog = [];
 let reviewPool = [];
 let isPracticeModeGlobal = false;
 let isSelfPracticeMode = false;
+let currentLayout = "mobile"; // キーボード配列
 
-/* ===== 3. クラウド同期関数 ===== */
+/* ===== 3. 同期関数群 ===== */
 
 async function saveUserData() {
     if (!currentUser) return;
@@ -678,7 +679,7 @@ async function loadUserData(username) {
     return false;
 }
 
-/* ===== 4. グローバル関数（HTMLから呼ぶ用） ===== */
+/* ===== 4. グローバル関数（window登録） ===== */
 
 window.addUser = async function() {
   const name = document.getElementById("newName").value.trim();
@@ -707,7 +708,7 @@ window.renderUserList = async function() {
         container.appendChild(div);
       });
     }
-  } catch (e) { container.innerHTML = "エラーが発生しました"; }
+  } catch (e) { container.innerHTML = "ユーザーがいません"; }
 };
 
 window.selectUser = function(name) {
@@ -729,12 +730,9 @@ window.login = async function() {
   } catch (e) { alert("ログイン失敗"); }
 };
 
-// 【修正：不完全だったログアウト】
 window.logout = function() {
   localStorage.removeItem("currentUser");
-  currentUser = null;
-  progress = {};
-  location.reload(); // 確実に初期状態に戻すためリロード
+  location.reload();
 };
 
 window.showPage = function(id) {
@@ -757,13 +755,11 @@ window.showPage = function(id) {
   }
 };
 
-// 【修正：未定義だったchangeListSection】
 window.changeListSection = function(val) {
   currentSection = parseInt(val);
   window.renderList();
 };
 
-// 【修正：未定義だったgoToQuizFromList】
 window.goToQuizFromList = function(isPractice) {
   isSelfPracticeMode = true;
   isPracticeModeGlobal = isPractice;
@@ -773,10 +769,8 @@ window.goToQuizFromList = function(isPractice) {
   let pool = words.slice(offset, offset + SECTION_SIZE);
   
   if (isPractice) {
-    // 確認モード：未習得のみ
     reviewPool = pool.filter(w => progress[w.word.toLowerCase()] !== "correct").sort(() => Math.random() - 0.5);
   } else {
-    // 合格テスト：セクション全単語
     reviewPool = [...pool].sort(() => Math.random() - 0.5);
   }
   
@@ -794,23 +788,26 @@ window.startTodayLesson = async function() {
   }
   isSelfPracticeMode = false;
   testLog = [];
+  // 「今日の学習」は全単語からランダム3問
   reviewPool = [...words].sort(() => Math.random() - 0.5).slice(0, 3); 
   renderQuestion();
   window.showPage("quiz");
 };
 
-/* ===== 5. UI制御関数群 ===== */
+/* ===== 5. 内部ロジック関数群 ===== */
 
 function updateHomeDashboard() {
     if (!currentUser) return;
     const totalWords = words.length;
     const correctWords = words.filter(w => progress[w.word.toLowerCase()] === "correct").length;
     
-    const radius = 85;
-    const circumference = 2 * Math.PI * radius;
-    const progressPercent = totalWords > 0 ? correctWords / totalWords : 0;
     const circle = document.getElementById("progressCircle");
-    if (circle) { circle.style.strokeDashoffset = circumference - (progressPercent * circumference); }
+    if (circle) {
+        const radius = 85;
+        const circumference = 2 * Math.PI * radius;
+        const progressPercent = totalWords > 0 ? correctWords / totalWords : 0;
+        circle.style.strokeDashoffset = circumference - (progressPercent * circumference);
+    }
 
     document.getElementById("studyCountText").textContent = localStorage.getItem("studyCount_" + currentUser) || 0;
     const totalSections = Math.ceil(totalWords / SECTION_SIZE);
@@ -833,10 +830,22 @@ function determineTodaySection() {
   return 1;
 }
 
+function updateProgressMini() {
+  const area = document.getElementById("progressMini");
+  if (area) {
+    const total = testLog.length + reviewPool.length;
+    area.textContent = `進捗: ${testLog.length + 1} / ${total}`;
+  }
+}
+
 function renderQuestion() {
   current = reviewPool.pop() || null;
   if (!current) { showTestResult(); return; }
+  
+  updateProgressMini();
   document.getElementById("meaning").textContent = current.meaning;
+  document.getElementById("exampleEn").textContent = current.example || "";
+  document.getElementById("exampleJa").textContent = current.exampleJa || "";
   document.getElementById("answerInput").value = "";
   document.getElementById("quizQuestionArea").classList.remove("hidden");
   document.getElementById("quizResultView").classList.add("hidden");
@@ -845,19 +854,24 @@ function renderQuestion() {
   document.getElementById("judge").textContent = "";
   document.getElementById("correctWord").textContent = "";
   document.getElementById("answerExample").textContent = "";
+  document.getElementById("resultArea").className = "";
 }
 
 document.getElementById("checkBtn").onclick = async () => {
     const val = document.getElementById("answerInput").value.trim().toLowerCase();
     const ok = val === current.word.toLowerCase();
     const status = ok ? "correct" : "wrong";
-    testLog.push({ word: current.word, status: status });
+    testLog.push({ word: current.word, meaning: current.meaning, status: status });
     progress[current.word.toLowerCase()] = status;
+    
     if (currentUser) { await saveUserData(); }
+    
     const j = document.getElementById("judge");
     j.textContent = ok ? "◎" : "✕";
     j.className = ok ? "correct-text" : "wrong-text";
+    document.getElementById("resultArea").className = ok ? "correct" : "wrong";
     document.getElementById("correctWord").textContent = "答え: " + current.word;
+    
     document.getElementById("checkBtn").classList.add("hidden");
     document.getElementById("nextBtn").classList.remove("hidden");
 };
@@ -869,6 +883,14 @@ function showTestResult() {
   document.getElementById("quizResultView").classList.remove("hidden");
   const correctCount = testLog.filter(i => i.status === "correct").length;
   document.getElementById("resultScore").textContent = `${testLog.length}問中 ${correctCount}問 正解`;
+  
+  let listHtml = "";
+  testLog.forEach(item => {
+    const mark = item.status === "correct" ? "○" : "×";
+    const color = item.status === "correct" ? "#2e7d32" : "#c62828";
+    listHtml += `<div style="color:${color}; border-bottom:1px solid #eee; padding:5px 0;">${mark} ${item.word} (${item.meaning})</div>`;
+  });
+  document.getElementById("resultList").innerHTML = listHtml;
 }
 
 window.exitToListView = function() {
@@ -900,23 +922,36 @@ window.renderList = function() {
   });
 };
 
+/* ===== 6. キーボード関連 ===== */
+const layouts = {
+  mobile: [["a","b","c","d","e","f","g","h","i"],["j","k","l","m","n","o","p","q","r"],["s","t","u","v","w","x","y","z","del"]],
+  qwerty: [["q","w","e","r","t","y","u","i","o","p"],["a","s","d","f","g","h","j","k","l"],["z","x","c","v","b","n","m","del"]]
+};
+
 function buildKeyboard() {
   const container = document.getElementById("keyboard"); container.innerHTML = "";
-  const keys = ["a","b","c","d","e","f","g","h","i","j","k","l","m","n","o","p","q","r","s","t","u","v","w","x","y","z","del"];
-  let row;
-  keys.forEach((key, i) => {
-    if (i % 9 === 0) { row = document.createElement("div"); row.className = "key-row"; container.appendChild(row); }
-    const btn = document.createElement("button"); btn.textContent = key;
-    btn.onclick = () => { 
-      if(key==="del") document.getElementById("answerInput").value = document.getElementById("answerInput").value.slice(0,-1); 
-      else document.getElementById("answerInput").value += key; 
-    };
-    row.appendChild(btn);
+  layouts[currentLayout].forEach(row => {
+    const div = document.createElement("div"); div.className = "key-row";
+    row.forEach(key => {
+      const btn = document.createElement("button"); btn.textContent = key;
+      btn.onclick = () => { 
+        if(key==="del") document.getElementById("answerInput").value = document.getElementById("answerInput").value.slice(0,-1); 
+        else document.getElementById("answerInput").value += key; 
+      };
+      div.appendChild(btn);
+    });
+    container.appendChild(div);
   });
 }
 
+document.getElementById("keyboardSelect").onchange = function() {
+  currentLayout = this.value;
+  buildKeyboard();
+};
+
+/* ===== 7. 初期化 ===== */
 async function init() { 
-  // セレクトボックスの初期化
+  // セレクトボックス初期化
   const listSelect = document.getElementById("listSectionSelect");
   const count = Math.ceil(words.length / SECTION_SIZE);
   for (let i = 1; i <= count; i++) {
@@ -924,6 +959,7 @@ async function init() {
     opt.value = i; opt.textContent = `Section ${i}`;
     listSelect.appendChild(opt);
   }
+  
   buildKeyboard(); 
   await window.renderUserList(); 
   if (currentUser) {

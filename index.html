@@ -80,6 +80,12 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
   <div class="card" style="text-align: center; padding: 20px;">
     <h2 id="welcomeUser">こんにちは！</h2>
 
+    <!-- 2. 今日の学習内容（円の上、挨拶の下） -->
+    <div style="margin-bottom: 20px; background: #e3f2fd; padding: 10px; border-radius: 8px; border: 1px dashed #2196f3;">
+      <p style="margin: 0; font-size: 12px; color: #1a73e8; font-weight: bold;">今日の学習内容</p>
+      <p id="targetSectionDisplay" style="margin: 0; font-size: 18px; font-weight: bold; color: #333;">Section -</p>
+    </div>
+    
     <!-- ドーナツ型進捗グラフエリア -->
     <div style="position: relative; width: 200px; height: 200px; margin: 20px auto;">
       <svg width="200" height="200" viewBox="0 0 200 200">
@@ -631,38 +637,30 @@ let isSelfPracticeMode = false; // 自主練習（一覧からのテスト）か
 let isPracticeModeGlobal = false; // グローバル変数として追加
   
 function updateHomeDashboard() {
+    if (!currentUser) return;
+
     const totalWords = words.length;
     const correctWords = words.filter(w => progress[w.word.toLowerCase()] === "correct").length;
-    const learnedWords = words.filter(w => progress[w.word.toLowerCase()] !== undefined).length;
 
     // 1. 円グラフの更新
     const radius = 85;
-    const circumference = 2 * Math.PI * radius; // 約534
+    const circumference = 2 * Math.PI * radius;
     const progressPercent = correctWords / totalWords;
-    const offset = circumference - (progressPercent * circumference);
-    
     const circle = document.getElementById("progressCircle");
-    circle.style.strokeDashoffset = offset;
+    if (circle) {
+        circle.style.strokeDashoffset = circumference - (progressPercent * circumference);
+    }
 
-    // 2. 学習回数の表示
-    let studyCount = localStorage.getItem("studyCount_" + currentUser) || 0;
+    // 2. 学習回数の更新
+    const studyCount = localStorage.getItem("studyCount_" + currentUser) || 0;
     document.getElementById("studyCountText").textContent = studyCount;
 
-    // 3. 残りセクション数の計算
-    const totalSections = Math.ceil(totalWords / SECTION_SIZE);
-    let completedSections = 0;
-    for (let i = 1; i <= totalSections; i++) {
-        const pool = words.slice((i-1)*SECTION_SIZE, i*SECTION_SIZE);
-        if (pool.every(w => progress[w.word.toLowerCase()] === "correct")) {
-            completedSections++;
-        }
-    }
-    const remainingSections = totalSections - completedSections;
-    document.getElementById("remainingSectionsText").textContent = remainingSections + " Sec";
+    // 3. 今日の学習内容（円の上）の更新
+    document.getElementById("targetSectionDisplay").textContent = `Section ${currentSection}`;
 
-    // 4. 下部詳細の表示
+    // 4. 下部詳細
     document.getElementById("statCorrect").textContent = correctWords;
-    document.getElementById("statLearned").textContent = learnedWords;
+    document.getElementById("statLearned").textContent = words.filter(w => progress[w.word.toLowerCase()] !== undefined).length;
 }
   
 window.showPage = function(id) {

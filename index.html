@@ -628,7 +628,6 @@ import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/fireb
 const firebaseConfig = {
   apiKey: "AIzaSyAVc0-URnaEl4Oj9tjMqtD7VrtmDLwGuVc",
   authDomain: "words-gk.firebaseapp.com",
-  // ★重要：この1行を必ず追加してください
   databaseURL: "https://words-gk-default-rtdb.asia-northeast1.firebasedatabase.app", 
   projectId: "words-gk",
   storageBucket: "words-gk.firebasestorage.app",
@@ -649,9 +648,10 @@ let currentUser = localStorage.getItem("currentUser");
 let selectedUser = null;
 let testLog = [];
 let reviewPool = [];
-let reviewWrongWords = []; 
+let isPracticeModeGlobal = false;
+let isSelfPracticeMode = false;
 
-/* ===== 3. 同期関数群 ===== */
+/* ===== 3. クラウド同期関数 ===== */
 
 async function saveUserData() {
     if (!currentUser) return;
@@ -678,7 +678,7 @@ async function loadUserData(username) {
     return false;
 }
 
-/* ===== 4. グローバル関数（windowに登録してHTMLから呼べるようにする） ===== */
+/* ===== 4. グローバル関数（HTMLから呼ぶ用） ===== */
 
 window.addUser = async function() {
   const name = document.getElementById("newName").value.trim();
@@ -687,7 +687,7 @@ window.addUser = async function() {
   try {
     await set(ref(db, 'users/' + name + '/auth'), { password: pass });
     alert("アカウントを作成しました");
-    renderUserList();
+    window.renderUserList();
   } catch (e) { alert("作成に失敗しました"); }
 };
 
@@ -707,7 +707,7 @@ window.renderUserList = async function() {
         container.appendChild(div);
       });
     }
-  } catch (e) { container.innerHTML = "ユーザーがいません"; }
+  } catch (e) { container.innerHTML = "エラーが発生しました"; }
 };
 
 window.selectUser = function(name) {
@@ -724,15 +724,17 @@ window.login = async function() {
       currentUser = selectedUser;
       localStorage.setItem("currentUser", currentUser);
       await loadUserData(currentUser);
-      showPage("homePage");
+      window.showPage("homePage");
     } else { alert("パスワードが違います"); }
   } catch (e) { alert("ログイン失敗"); }
 };
 
+// 【修正：不完全だったログアウト】
 window.logout = function() {
   localStorage.removeItem("currentUser");
   currentUser = null;
-  showPage("userPage");
+  progress = {};
+  location.reload(); // 確実に初期状態に戻すためリロード
 };
 
 window.showPage = function(id) {
@@ -746,13 +748,41 @@ window.showPage = function(id) {
     controls.classList.add("is-logged-in");
   } else { controls.style.display = "none"; }
 
-  if (id === "list") renderList();
-  if (id === "sectionPage") renderSectionButtons();
+  if (id === "list") window.renderList();
+  if (id === "sectionPage") window.renderSectionButtons();
   if (id === "homePage") {
     currentSection = determineTodaySection(); 
     document.getElementById("welcomeUser").textContent = `こんにちは、${currentUser}さん！`;
     updateHomeDashboard(); 
   }
+};
+
+// 【修正：未定義だったchangeListSection】
+window.changeListSection = function(val) {
+  currentSection = parseInt(val);
+  window.renderList();
+};
+
+// 【修正：未定義だったgoToQuizFromList】
+window.goToQuizFromList = function(isPractice) {
+  isSelfPracticeMode = true;
+  isPracticeModeGlobal = isPractice;
+  testLog = [];
+  
+  let offset = (currentSection - 1) * SECTION_SIZE;
+  let pool = words.slice(offset, offset + SECTION_SIZE);
+  
+  if (isPractice) {
+    // 確認モード：未習得のみ
+    reviewPool = pool.filter(w => progress[w.word.toLowerCase()] !== "correct").sort(() => Math.random() - 0.5);
+  } else {
+    // 合格テスト：セクション全単語
+    reviewPool = [...pool].sort(() => Math.random() - 0.5);
+  }
+  
+  if (reviewPool.length === 0) return alert("対象の単語がありません");
+  renderQuestion();
+  window.showPage("quiz");
 };
 
 window.startTodayLesson = async function() {
@@ -762,18 +792,20 @@ window.startTodayLesson = async function() {
     localStorage.setItem("studyCount_" + currentUser, studyCount);
     await saveUserData();
   }
+  isSelfPracticeMode = false;
   testLog = [];
   reviewPool = [...words].sort(() => Math.random() - 0.5).slice(0, 3); 
   renderQuestion();
-  showPage("quiz");
+  window.showPage("quiz");
 };
 
-/* ===== 5. クイズ・UI制御（内部関数） ===== */
+/* ===== 5. UI制御関数群 ===== */
 
 function updateHomeDashboard() {
     if (!currentUser) return;
     const totalWords = words.length;
     const correctWords = words.filter(w => progress[w.word.toLowerCase()] === "correct").length;
+    
     const radius = 85;
     const circumference = 2 * Math.PI * radius;
     const progressPercent = totalWords > 0 ? correctWords / totalWords : 0;
@@ -812,6 +844,7 @@ function renderQuestion() {
   document.getElementById("nextBtn").classList.add("hidden");
   document.getElementById("judge").textContent = "";
   document.getElementById("correctWord").textContent = "";
+  document.getElementById("answerExample").textContent = "";
 }
 
 document.getElementById("checkBtn").onclick = async () => {
@@ -839,7 +872,7 @@ function showTestResult() {
 }
 
 window.exitToListView = function() {
-  showPage("homePage");
+  window.showPage("homePage");
 };
 
 window.renderSectionButtons = function() {
@@ -847,17 +880,20 @@ window.renderSectionButtons = function() {
   const count = Math.ceil(words.length / SECTION_SIZE);
   for (let i = 1; i <= count; i++) {
     const btn = document.createElement("button"); btn.className = "section-btn";
-    btn.innerHTML = `Section ${i}`; btn.onclick = () => { currentSection = i; showPage("list"); };
+    btn.innerHTML = `Section ${i}`; btn.onclick = () => { currentSection = i; window.showPage("list"); };
     container.appendChild(btn);
   }
 };
 
 window.renderList = function() {
   const table = document.getElementById("wordTable");
+  const filter = document.getElementById("filter").value;
   table.innerHTML = "<tr><th>No</th><th>単語</th><th>意味</th><th>状態</th></tr>";
   let offset = (currentSection - 1) * SECTION_SIZE;
   words.slice(offset, offset + SECTION_SIZE).forEach((w, i) => {
     const st = progress[w.word.toLowerCase()];
+    if (filter === "correct" && st !== "correct") return;
+    if (filter === "wrong" && st !== "wrong") return;
     const tr = document.createElement("tr");
     tr.innerHTML = `<td>${offset+i+1}</td><td><strong>${w.word}</strong></td><td>${w.meaning}</td><td>${st==='correct'?'〇':st==='wrong'?'×':'-'}</td>`;
     table.appendChild(tr);
@@ -880,13 +916,21 @@ function buildKeyboard() {
 }
 
 async function init() { 
+  // セレクトボックスの初期化
+  const listSelect = document.getElementById("listSectionSelect");
+  const count = Math.ceil(words.length / SECTION_SIZE);
+  for (let i = 1; i <= count; i++) {
+    const opt = document.createElement("option");
+    opt.value = i; opt.textContent = `Section ${i}`;
+    listSelect.appendChild(opt);
+  }
   buildKeyboard(); 
-  await renderUserList(); 
+  await window.renderUserList(); 
   if (currentUser) {
     await loadUserData(currentUser);
-    showPage("homePage");
+    window.showPage("homePage");
   } else { 
-    showPage("userPage"); 
+    window.showPage("userPage"); 
   } 
 }
 init();

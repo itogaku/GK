@@ -686,14 +686,20 @@ window.addUser = async function() {
   const pass = document.getElementById("newPass").value.trim();
   if(!name || !pass) return alert("名前とパスワードを入力してください");
   
-  await set(ref(db, 'users/' + name), {
-    password: pass,
-    progress: {},
-    studyCount: 0
-  });
-  document.getElementById("newName").value = "";
-  document.getElementById("newPass").value = "";
-  renderUserList();
+  try {
+    await set(ref(db, 'users/' + name), {
+      password: pass,
+      progress: {},
+      studyCount: 0
+    });
+    alert(name + "さんを追加しました！");
+    document.getElementById("newName").value = "";
+    document.getElementById("newPass").value = "";
+    renderUserList(); // リストを更新
+  } catch (error) {
+    console.error(error);
+    alert("保存に失敗しました: " + error.message);
+  }
 };
 
 window.renderUserList = async function() {

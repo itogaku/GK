@@ -46,6 +46,59 @@ body { margin: 0; font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic Pr
 button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px solid #ccc; background: white; }
 .btn-primary { background: #2196f3; color: white; border: none; font-weight: bold; }
 .hidden { display: none !important; }
+
+/* ドーナツグラフのスタイル */
+.progress-container {
+    position: relative;
+    width: 200px;
+    height: 200px;
+    margin: 20px auto;
+}
+
+.progress-circle {
+    transform: rotate(-90deg);
+    width: 100%;
+    height: 100%;
+}
+
+.progress-circle circle {
+    fill: none;
+    stroke-width: 12;
+    stroke-linecap: round;
+}
+
+.progress-circle .bg {
+    stroke: #eee;
+}
+
+.progress-circle .bar {
+    stroke: #2196f3;
+    stroke-dasharray: 565; /* 2 * PI * radius(90) */
+    stroke-dashoffset: 565;
+    transition: stroke-dashoffset 1s ease-out;
+}
+
+.progress-info {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+}
+
+.progress-info .count-main {
+    font-size: 28px;
+    font-weight: bold;
+    display: block;
+    color: #333;
+}
+
+.progress-info .label-sub {
+    font-size: 12px;
+    color: #888;
+    display: block;
+    margin-top: 4px;
+}
 </style>
 </head>
 <body>
@@ -76,18 +129,35 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
 
 <!-- ホーム画面 -->
 <section id="homePage" class="page">
-  <div class="card" style="text-align: center; padding: 40px 20px;">
-    <h2 id="welcomeUser">こんにちは！</h2>
-    <div style="margin-bottom: 30px;">
-      <p style="color: #666;">今日の目標：<span id="targetSectionName" style="font-weight:bold; color: #333;">Section 1</span></p>
-      <p>学習回数: <span id="studyCountText">0</span>回</p>
+  <div class="card" style="text-align: center; padding: 20px;">
+    <h2 id="welcomeUser" style="margin-top:0;">こんにちは！</h2>
+    
+    <!-- ドーナツグラフエリア -->
+    <div class="progress-container">
+      <svg class="progress-circle" viewBox="0 0 200 200">
+        <circle class="bg" cx="100" cy="100" r="90"></circle>
+        <circle id="progressBar" class="bar" cx="100" cy="100" r="90"></circle>
+      </svg>
+      <div class="progress-info">
+        <span class="label-sub">学習回数</span>
+        <span id="studyCountText" class="count-main">0</span>
+        <div style="border-top: 1px solid #eee; margin: 5px 0;"></div>
+        <span id="remainingSectionsText" class="count-main" style="font-size: 20px;">-</span>
+        <span class="label-sub">残りセクション</span>
+      </div>
     </div>
-    <button onclick="startTodayLesson()" class="btn-primary" style="font-size: 20px; padding: 20px; width: 100%; margin-bottom: 20px;">
+
+    <div style="margin-bottom: 20px;">
+      <p style="color: #666; font-size: 14px;">現在の目標：<span id="targetSectionName" style="font-weight:bold; color: #1a73e8;">Section 1</span></p>
+    </div>
+
+    <button onclick="startTodayLesson()" class="btn-primary" style="font-size: 18px; padding: 15px; width: 100%; margin-bottom: 20px; border-radius: 50px; box-shadow: 0 4px 12px rgba(33,150,243,0.3);">
       今日の学習を開始する
     </button>
+    
     <div style="display: flex; gap: 10px;">
-      <button onclick="showPage('sectionPage')" style="flex: 1;">別のセクション</button>
-      <button onclick="logout()" style="flex: 1;">ログアウト</button>
+      <button onclick="showPage('sectionPage')" style="flex: 1; border-radius: 8px;">別のセクション</button>
+      <button onclick="logout()" style="flex: 1; border-radius: 8px;">ログアウト</button>
     </div>
   </div>
 </section>
@@ -625,17 +695,14 @@ let isPracticeModeGlobal = false;
 let currentLayout = "mobile";
 
 function updateHomeDashboard() {
-    // Firebaseから読み込んだ progress オブジェクトを使って計算
     const totalWords = words.length;
+    // 「覚えた（正解した）」単語をカウント
     const correctWords = words.filter(w => progress[w.word.toLowerCase()] === "correct").length;
-    const learnedWords = words.filter(w => progress[w.word.toLowerCase()] !== undefined).length;
+    
+    // 1. 学習回数の更新
+    document.getElementById("studyCountText").textContent = studyCount;
 
-    // 学習回数の更新
-    if (document.getElementById("studyCountText")) {
-        document.getElementById("studyCountText").textContent = studyCount;
-    }
-
-    // セクションの進捗計算
+    // 2. 残りセクション数の計算
     const totalSections = Math.ceil(totalWords / SECTION_SIZE);
     let completedSections = 0;
     for (let i = 1; i <= totalSections; i++) {
@@ -644,8 +711,19 @@ function updateHomeDashboard() {
             completedSections++;
         }
     }
+    const remainingSections = totalSections - completedSections;
+    document.getElementById("remainingSectionsText").textContent = remainingSections;
 
-    // 目標セクションの表示更新
+    // 3. ドーナツグラフのアニメーション
+    const progressPercent = totalWords > 0 ? (correctWords / totalWords) : 0;
+    const circumference = 2 * Math.PI * 90; // 約565
+    const offset = circumference - (progressPercent * circumference);
+    const progressBar = document.getElementById("progressBar");
+    if (progressBar) {
+        progressBar.style.strokeDashoffset = offset;
+    }
+
+    // 4. 目標セクション名の更新
     if (document.getElementById("targetSectionName")) {
         document.getElementById("targetSectionName").textContent = `Section ${currentSection}`;
     }

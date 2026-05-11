@@ -159,21 +159,24 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
 </section>
 
 <script type="module">
-// Firebase SDK のインポート
+// 1. まずインポート部分（使う機能をFirebaseから読み込む）
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getDatabase, ref, set, get, update, child } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-// 【設定】Firebaseの設定値をここに貼り付けてください
+// 2. ここを表示された内容にそっくり入れ替える
 const firebaseConfig = {
   apiKey: "AIzaSyAVc0-URnaEl4Oj9tjMqtD7VrtmDLwGuVc",
   authDomain: "words-gk.firebaseapp.com",
   projectId: "words-gk",
   storageBucket: "words-gk.firebasestorage.app",
   messagingSenderId: "668548972436",
-  appId: "1:668548972436:web:8ee9047b3022619b261981",
-  measurementId: "G-RSLS7ZH77M"
+  appId: "1:668548972436:web:535e50b7d373122b261981",
+  measurementId: "G-6FFL3WY8Q4",
+  // Realtime Databaseを使うために、以下の1行を自分で追加してください
+  databaseURL: "https://words-gk-default-rtdb.firebaseio.com" 
 };
 
+// 3. 初期化
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 // ===== 単語データ（words.js） =====

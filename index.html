@@ -107,6 +107,7 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
   <button onclick="showPage('homePage')" style="background: #fff; border: 1px solid #2196f3; color: #2196f3;">ホーム</button>
   <button onclick="showPage('sectionPage')">セクション選択</button>
   <button onclick="showPage('list')">一覧</button>
+  <button onclick="showPage('settingsPage')">設定</button>
   <button onclick="logout()">ログアウト</button>
 </div>
 
@@ -228,6 +229,31 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
   <table id="wordTable"></table>
 </section>
 
+<!-- 設定画面 -->
+<section id="settingsPage" class="page">
+  <div class="card">
+    <h3>学習設定</h3>
+    <div style="margin-bottom:15px;">
+      <label>1セクションの単語数:</label><br>
+      <select id="setSectionSize" style="width:100%; padding:10px; margin-top:5px; border-radius:6px; border:1px solid #ddd;">
+        <option value="5">5語</option>
+        <option value="10">10語</option>
+        <option value="20">20語</option>
+        <option value="50">50語</option>
+      </select>
+    </div>
+    <div style="margin-bottom:15px;">
+      <label>チェックテストの問題数:</label><br>
+      <select id="setTestCount" style="width:100%; padding:10px; margin-top:5px; border-radius:6px; border:1px solid #ddd;">
+        <option value="5">5問</option>
+        <option value="10">10問</option>
+        <option value="20">20問</option>
+      </select>
+    </div>
+    <button onclick="saveSettings()" class="btn-primary" style="width:100%; padding:12px;">設定を保存して適用</button>
+  </div>
+</section>
+    
 <script type="module">
 // 1. まずインポート部分（使う機能をFirebaseから読み込む）
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -678,7 +704,8 @@ const words = [
 ];
 
 /* ===== 定数・変数定義 ===== */
-const SECTION_SIZE = 2;
+let SECTION_SIZE = 10; // constからletへ。初期値
+let TEST_QUESTION_COUNT = 10; // 追加
 let progress = {};
 let current = null;
 let currentSection = 1;
@@ -734,7 +761,10 @@ async function saveProgress() {
     if (!currentUser) return;
     await update(ref(db, 'users/' + currentUser), {
         progress: progress,
-        studyCount: studyCount
+        studyCount: studyCount,
+        reviewWrongWords: reviewWrongWords, // これを忘れない
+        SECTION_SIZE: SECTION_SIZE,
+        TEST_QUESTION_COUNT: TEST_QUESTION_COUNT
     });
 }
 
@@ -744,11 +774,21 @@ async function loadUserData(userName) {
         const data = snapshot.val();
         progress = data.progress || {};
         studyCount = data.studyCount || 0;
+        // 設定値をクラウドから復元
+        SECTION_SIZE = data.SECTION_SIZE || 10;
+        TEST_QUESTION_COUNT = data.TEST_QUESTION_COUNT || 10;
+        reviewWrongWords = data.reviewWrongWords || [];
+        
+        // 設定画面のUIに数値を反映
+        document.getElementById("setSectionSize").value = SECTION_SIZE;
+        document.getElementById("setTestCount").value = TEST_QUESTION_COUNT;
         return data;
     }
     return null;
 }
 
+
+    
 // --- ページ制御 ---
 window.showPage = function(id) {
   document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
@@ -777,6 +817,22 @@ window.showPage = function(id) {
   }
 };
 
+/* --- 設定保存関数の追加 --- */
+window.saveSettings = async function() {
+    SECTION_SIZE = parseInt(document.getElementById("setSectionSize").value);
+    TEST_QUESTION_COUNT = parseInt(document.getElementById("setTestCount").value);
+    
+    // クラウドに保存
+    if (currentUser) {
+        await update(ref(db, 'users/' + currentUser), {
+            SECTION_SIZE: SECTION_SIZE,
+            TEST_QUESTION_COUNT: TEST_QUESTION_COUNT
+        });
+    }
+    alert("設定を保存しました。");
+    showPage("homePage");
+};
+    
 function determineTodaySection() {
   const totalSections = Math.ceil(words.length / SECTION_SIZE);
   for (let i = 1; i <= totalSections; i++) {
@@ -853,16 +909,39 @@ window.logout = function() {
 
 // --- クイズロジック ---
 window.startTodayLesson = async function() {
-  studyCount++;
-  await saveProgress();
-  updateHomeDashboard();
-  isReviewMode = true;
-  isSelfPracticeMode = false;
-  testLog = [];
-  reviewWrongWords = [];
-  reviewPool = [...words].sort(() => Math.random() - 0.5).slice(0, 3);
-  renderQuestion();
-  showPage("quiz");
+    studyCount++;
+    await saveProgress();
+    updateHomeDashboard();
+    
+    isReviewMode = true;
+    isSelfPracticeMode = false;
+    testLog = [];
+    
+    // 出題プールの作成
+    let pool = [];
+    
+    // 1. 前回のチェックテストで間違えた単語 (優先)
+    pool.push(...reviewWrongWords);
+    
+    // 2. 現在のセクションの単語
+    let start = (currentSection - 1) * SECTION_SIZE;
+    let sectionWords = words.slice(start, start + SECTION_SIZE);
+    pool.push(...sectionWords);
+    
+    // 重複を削除
+    pool = [...new Set(pool)];
+    
+    // 3. 問題数が足りない場合、全単語からランダムに補充
+    if (pool.length < TEST_QUESTION_COUNT) {
+        let others = words.filter(w => !pool.includes(w)).sort(() => 0.5 - Math.random());
+        pool.push(...others.slice(0, TEST_QUESTION_COUNT - pool.length));
+    }
+    
+    // 最終的に指定された「問題数」でシャッフルしてセット
+    reviewPool = pool.sort(() => 0.5 - Math.random()).slice(0, TEST_QUESTION_COUNT);
+    
+    renderQuestion();
+    showPage("quiz");
 };
 
 function getNextWord() {
@@ -917,6 +996,18 @@ document.getElementById("checkBtn").onclick = async () => {
     }
     document.getElementById("checkBtn").classList.add("hidden");
     document.getElementById("nextBtn").classList.remove("hidden");
+
+    // checkBtn.onclick 内の判定処理の最後の方
+    if (ok) {
+        // 正解したら間違いリストから削除
+        reviewWrongWords = reviewWrongWords.filter(w => w.word !== current.word);
+    } else {
+        // 間違えたらリストに追加（重複なし）
+        if (!reviewWrongWords.some(w => w.word === current.word)) {
+            reviewWrongWords.push(current);
+        }
+    }
+    await saveProgress(); // クラウドに現在のリストを保存
 };
 
 document.getElementById("nextBtn").onclick = () => renderQuestion();

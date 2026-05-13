@@ -99,6 +99,18 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
     display: block;
     margin-top: 4px;
 }
+
+/* 合格済みセクションのスタイル */
+.section-btn.completed {
+    background: #e8f5e9;    /* 薄い緑 */
+    border-color: #4caf50;  /* 緑 */
+    color: #2e7d32;
+}
+
+.section-btn.completed::after {
+    content: " ✓";          /* チェックマークを表示 */
+    font-size: 14px;
+}
 </style>
 </head>
 <body>
@@ -1056,12 +1068,30 @@ function resetQuizUI() {
 window.renderSectionButtons = function() {
   const container = document.getElementById("sectionContainer");
   container.innerHTML = "";
+  
+  // 現在の設定（SECTION_SIZE）に基づいてセクション数を計算
   const count = Math.ceil(words.length / SECTION_SIZE);
+  
   for (let i = 1; i <= count; i++) {
     const btn = document.createElement("button");
     btn.className = "section-btn";
+    
+    // このセクションに含まれる単語を抽出
+    let start = (i - 1) * SECTION_SIZE;
+    let pool = words.slice(start, start + SECTION_SIZE);
+    
+    // セクション内のすべての単語が progress で "correct" になっているか判定
+    const isCompleted = pool.length > 0 && pool.every(w => progress[w.word.toLowerCase()] === "correct");
+    
+    if (isCompleted) {
+      btn.classList.add("completed"); // 合格済みのスタイルを適用
+    }
+    
     btn.innerHTML = `Section ${i}`;
-    btn.onclick = () => { currentSection = i; showPage("list"); };
+    btn.onclick = () => { 
+      currentSection = i; 
+      showPage("list"); 
+    };
     container.appendChild(btn);
   }
 };

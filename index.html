@@ -236,10 +236,10 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
     <div style="margin-bottom:15px;">
       <label>1セクションの単語数:</label><br>
       <select id="setSectionSize" style="width:100%; padding:10px; margin-top:5px; border-radius:6px; border:1px solid #ddd;">
-        <option value="5">5語</option>
         <option value="10">10語</option>
         <option value="20">20語</option>
-        <option value="50">50語</option>
+        <option value="30">30語</option>
+        <option value="40">40語</option>
       </select>
     </div>
     <div style="margin-bottom:15px;">
@@ -780,8 +780,8 @@ async function loadUserData(userName) {
         reviewWrongWords = data.reviewWrongWords || [];
         
         // 設定画面のUIに数値を反映
-        document.getElementById("setSectionSize").value = SECTION_SIZE;
-        document.getElementById("setTestCount").value = TEST_QUESTION_COUNT;
+        if(document.getElementById("setSectionSize")) document.getElementById("setSectionSize").value = SECTION_SIZE;
+        if(document.getElementById("setTestCount")) document.getElementById("setTestCount").value = TEST_QUESTION_COUNT;
         return data;
     }
     return null;

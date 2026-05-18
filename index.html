@@ -1020,7 +1020,7 @@ window.startTodayLesson = async function() {
             });
         }
         
-        // 【第2優先】★【大変更】選択セクションではなく「合格して学習完了したセクション」から出題！
+        // 【第2優先】手動選択を完全に無視し、「合格して学習完了したセクション」の単語のみを抽出
         if (typeof lastCompletedSection !== 'undefined' && lastCompletedSection > 0) {
             let start = (lastCompletedSection - 1) * SECTION_SIZE; 
             let priority2 = words.slice(start, start + SECTION_SIZE);
@@ -1031,23 +1031,28 @@ window.startTodayLesson = async function() {
             });
         }
         
-        // 【第3優先】それ以前（既習）に学んだ単語
-        // 現在の目標セクション未満のすべての過去単語からランダムに補填
-        let maxIndex = (currentSection - 1) * SECTION_SIZE;
-        if (uniquePool.length < TEST_QUESTION_COUNT && maxIndex > 0) {
-            let pastWords = words.slice(0, maxIndex).sort(() => 0.5 - Math.random());
-            for (let w of pastWords) {
+        // 【第3優先】★【大修正】引き算を完全撤去！
+        // 「一度でも解いた形跡がある（〇か×の状態がついている）既習単語」だけを progress から集める
+        if (uniquePool.length < TEST_QUESTION_COUNT) {
+            // 全単語の中から、一度でも解いたことがあり、かつ、まだ今回の復習プールに入っていない単語を抽出
+            let learnedWords = words.filter(w => {
+                const hasProgress = progress[w.word.toLowerCase()] !== undefined;
+                const isNotDuplicate = !uniquePool.some(p => p.word.toLowerCase() === w.word.toLowerCase());
+                return hasProgress && isNotDuplicate;
+            });
+            
+            // ランダムにシャッフルして必要な分だけ補填
+            learnedWords.sort(() => 0.5 - Math.random());
+            for (let w of learnedWords) {
                 if (uniquePool.length >= TEST_QUESTION_COUNT) break;
-                if (w && w.word && !uniquePool.some(p => p.word.toLowerCase() === w.word.toLowerCase())) {
-                    uniquePool.push(w);
-                }
+                uniquePool.push(w);
             }
         }
     }
     
-    // 💡 【条件判定】単語が足りないときの対応（ご提示通り）
+    // 💡 【条件判定】上記すべての復習・既習データを集めても「設定された問題数」を満たせない場合
     if (uniquePool.length < TEST_QUESTION_COUNT) {
-        alert(`英単語クイズProへようこそ！🎉\n\n「今日の学習」では、前回合格したセクションの復習テストからスタートしますが、まだテストを行えるだけの合格データ（学習完了データ）が溜まっていません。\n\nまずは今日の目標である「Section ${currentSection}」の単語を一覧で覚えることから始めましょう！`);
+        alert(`英単語クイズProへようこそ！🎉\n\n「今日の学習」では、前回合格したセクションや過去の既習単語から復習テストを自動作成しますが、まだアプリ全体でテストを行えるだけの学習データ（解いたことのある単語）が溜まっていません。\n\nまずは今日の目標である「Section ${currentSection}」の単語を一覧画面で見て、覚えることから始めましょう！`);
         
         const listSelect = document.getElementById("listSectionSelect");
         if (listSelect) {
@@ -1061,7 +1066,7 @@ window.startTodayLesson = async function() {
         return; 
     }
     
-    // 問題数を確定させ、ランダムにシャッフルして確定（機能維持）
+    // 問題数を確定させ、ランダムにシャッフルして最終決定
     reviewPool = uniquePool.sort(() => 0.5 - Math.random()).slice(0, TEST_QUESTION_COUNT);
     
     await saveProgress(); 

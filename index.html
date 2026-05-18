@@ -242,9 +242,8 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
 </section>
 
 <!-- 一覧画面 -->
-<section id="list" class="page" style="display: flex; flex-direction: column; min-height: 80vh;">
-  <!-- 上部コントロールエリア -->
-  <div class="card" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom: 15px;">
+<section id="list" class="page">
+  <div class="card" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
     <select id="filter" onchange="renderList()" style="padding:8px;">
       <option value="all">全て表示</option>
       <option value="correct">正解のみ</option>
@@ -252,24 +251,18 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
     </select>
     <select id="listSectionSelect" onchange="changeListSection(this.value)" style="padding:8px;"></select>
     
-    <!-- テストボタン群（ホームから来たときは隠れるエリア） -->
+    <!-- 1. セクション画面から来たときだけ表示されるテストボタンエリア -->
     <div id="listQuizNav" style="display: flex; gap: 8px;">
       <button onclick="goToQuizFromList(true)" class="btn-primary">この範囲をテスト</button>
       <button onclick="goToQuizFromList(false)" class="btn-primary" style="background: #f44336;">チェックテスト</button>
     </div>
-  </div>
 
-  <!-- 単語テーブル表示エリア -->
-  <div style="flex: 1;">
-    <table id="wordTable"></table>
-  </div>
-
-  <!-- 💡 追加：一覧画面専用の「ホームに戻る」固定ボタン -->
-  <div class="list-nav-footer" style="margin-top: 25px; padding: 10px 0;">
-    <button onclick="window.showPage('homePage')" class="btn-nav" style="padding: 12px 24px; background: #555; color: #fff; border: none; border-radius: 8px; font-weight: bold; width: 100%; font-size: 16px; box-shadow: 0 2px 6px rgba(0,0,0,0.15);">
+    <!-- 2. ★引っ越し完了：ホーム画面から直接来たときだけ、テストボタンの代わりにここに出現する「ホームに戻る」ボタン -->
+    <button id="listHomeBackBtn" onclick="window.showPage('homePage')" style="padding: 8px 16px; background: #555; color: #fff; border: none; border-radius: 4px; font-weight: bold; display: none;">
       🏠 ホームに戻る
     </button>
   </div>
+  <table id="wordTable"></table>
 </section>
 
 <!-- 設定画面 -->
@@ -850,7 +843,7 @@ window.showPage = function(id) {
   const target = document.getElementById(id);
   if (target) target.classList.add("active");
 
-  // 2. 「学習中（quiz）」の画面の時だけ、共通のホームに戻るナビを出す
+  // 2. 「学習中（quiz）」の画面の時だけ、クイズ用の共通操作ナビを出す（既存維持）
   const controls = document.getElementById("quizControls");
   if (controls) {
     if (currentUser && id === "quiz") {
@@ -860,21 +853,30 @@ window.showPage = function(id) {
     }
   }
 
-  // 3. 各画面を開いたときの初期化処理
+  // 3. ★【超重要変更】一覧画面（list）の状態をどこから開かれても一元管理する
+  const listQuizNav = document.getElementById("listQuizNav");
+  const listHomeBackBtn = document.getElementById("listHomeBackBtn");
+  
   if (id === "list") {
     if (typeof window.renderList === 'function') window.renderList();
     
-    // ★重要：ホーム画面から直接「一覧」に来た場合のみ、テストボタン（listQuizNav）を隠す
-    const listQuizNav = document.getElementById("listQuizNav");
-    if (listQuizNav) {
-        listQuizNav.style.display = "none"; 
-    }
+    // ➔ もし「ホーム画面から直接」一覧に来た場合の処理
+    // テストボタンを絶対に隠し、代わりに同じ場所にホームに戻るボタンを出す
+    if (listQuizNav) listQuizNav.style.display = "none";
+    if (listHomeBackBtn) listHomeBackBtn.style.display = "block";
+  } else {
+    // ➔ 一覧画面以外の画面（ホーム、ログイン、設定など）にいるときは、
+    // 次回のために一覧画面のテストボタンをデフォルト（none）にリセットしておくことで、浮き上がりバグを完全封鎖
+    if (listQuizNav) listQuizNav.style.display = "none";
+    if (listHomeBackBtn) listHomeBackBtn.style.display = "none";
   }
   
+  // 4. セクションページを開いたとき
   if (id === "sectionPage") {
     if (typeof window.renderSectionButtons === 'function') window.renderSectionButtons();
   }
   
+  // 5. ホームページを開いたとき
   if (id === "homePage") {
     isReviewMode = false;
     testLog = [];

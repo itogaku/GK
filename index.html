@@ -817,29 +817,41 @@ async function loadUserData(userName) {
     
 // --- ページ制御 ---
 window.showPage = function(id) {
+  // 1. 全てのページのactiveクラスを外す
   document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+  
+  // 2. 指定されたページを表示する
   const target = document.getElementById(id);
   if (target) target.classList.add("active");
 
+  // 3. ナビゲーションコントロールの表示制御
   const controls = document.getElementById("quizControls");
   if (currentUser) {
     controls.style.display = "flex";
     controls.classList.add("is-logged-in");
-  } else {
-    controls.style.display = "none";
+  } else { 
+    controls.style.display = "none"; 
   }
 
-  if (id === "list") renderList();
-  if (id === "sectionPage") renderSectionButtons();
+  // 4. 各画面を開いたときの初期化処理
+  if (id === "list") window.renderList();
+  if (id === "sectionPage") window.renderSectionButtons();
+  
   if (id === "homePage") {
     isReviewMode = false;
     testLog = [];
-    resetQuizUI();
-    currentSection = determineTodaySection();
-    document.getElementById("welcomeUser").textContent = `こんにちは、${currentUser}さん！`;
-    document.getElementById("targetSectionName").textContent = `Section ${currentSection}`;
-    document.getElementById("studyCountText").textContent = studyCount;
-    updateHomeDashboard();
+    if (typeof resetQuizUI === 'function') resetQuizUI();
+
+    // ❌ 【バグの原因を撤去】：ここにあった「currentSection = determineTodaySection();」を完全に削除しました。
+    // これにより、手動で選んだセクションや、テスト合格時に進んだセクションが勝手に書き換わるのを防ぎます。
+
+    // 生徒への挨拶表示
+    if (document.getElementById("welcomeUser")) {
+      document.getElementById("welcomeUser").textContent = `こんにちは、${currentUser}さん！`;
+    }
+    
+    // 現在保持しているセクション情報（選んだセクション）のままダッシュボードを描き変える
+    if (typeof updateHomeDashboard === 'function') updateHomeDashboard(); 
   }
 };
 
@@ -916,16 +928,21 @@ window.selectUser = function(name) {
 window.login = async function() {
     const pass = document.getElementById("passwordInput").value;
     const snapshot = await get(child(ref(db), `users/${selectedUser}`));
-    if(snapshot.exists() && snapshot.val().password === pass) {
+    
+    let users = JSON.parse(localStorage.getItem("users") || "{}");
+    if(users[selectedUser] === pass) {
         currentUser = selectedUser;
         localStorage.setItem("currentUser", currentUser);
         
-        // データを完全に読み込み終わるのを待つ
-        await loadUserData(currentUser); 
+        await loadUserData(currentUser); // クラウドからデータを読み込む（ここでセクションも復元される）
         
-        // ★データ復元が終わった後に、確定したセクション情報をホームに反映する
-        updateHomeDashboard(); 
-        showPage("homePage");
+        // ★クラウドにデータがない新規生徒の場合のみ自動計算
+        if (!currentSection) {
+            currentSection = determineTodaySection();
+        }
+        
+        window.updateHomeDashboard(); 
+        window.showPage("homePage");
     } else { alert("パスワードが違います"); }
 };
 
@@ -1375,29 +1392,31 @@ document.getElementById("keyboardSelect").onchange = (e) => {
 // --- 初期化 ---
 async function init() {
   const listSelect = document.getElementById("listSectionSelect");
-  listSelect.innerHTML = ""; // 初期化
-  
-  const count = Math.ceil(words.length / SECTION_SIZE);
-  for (let i = 1; i <= count; i++) {
-    const opt = document.createElement("option");
-    opt.value = i; 
-    opt.textContent = `Section ${i}`;
-    listSelect.appendChild(opt);
+  if (listSelect) {
+    listSelect.innerHTML = ""; 
+    const count = Math.ceil(words.length / SECTION_SIZE);
+    for (let i = 1; i <= count; i++) {
+        const opt = document.createElement("option");
+        opt.value = i; opt.textContent = `Section ${i}`;
+        listSelect.appendChild(opt);
+    }
+    const allOpt = document.createElement("option");
+    allOpt.value = "all"; allOpt.textContent = "全単語（全範囲）";
+    listSelect.appendChild(allOpt);
   }
   
-  // 👇 プルダウンの最後に「全単語」の選択肢を追加
-  const allOpt = document.createElement("option");
-  allOpt.value = "all";
-  allOpt.textContent = "全単語（全範囲）";
-  listSelect.appendChild(allOpt);
-  
-  await renderUserList();
+  window.renderUserList();
   
   if (currentUser) {
     await loadUserData(currentUser);
-    showPage("homePage");
+    // ★クラウドからセクションが復元できなかった（完全に初回起動の）場合のみ自動計算する
+    if (!currentSection) {
+        currentSection = determineTodaySection();
+    }
+    window.updateHomeDashboard();
+    window.showPage("homePage");
   } else {
-    showPage("userPage");
+    window.showPage("userPage");
   }
   buildKeyboard();
 }

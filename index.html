@@ -115,9 +115,8 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
 </head>
 <body>
 
-<div id="quizControls" class="quiz-controls" style="display: none; gap: 10px; justify-content: center; padding: 10px;">
-    <!-- 常に出すのはこの「ホームに戻る」ボタン1つだけにします -->
-    <button onclick="window.showPage('homePage')" class="btn-nav" style="padding: 10px 20px; background: #555; color: #fff; border: none; border-radius: 5px; font-weight: bold;">
+<div id="quizControls" class="quiz-controls" style="display: none; justify-content: center; padding: 10px;">
+    <button onclick="window.showPage('homePage')" class="btn-nav" style="padding: 12px 24px; background: #555; color: #fff; border: none; border-radius: 5px; font-weight: bold; width: 100%;">
         🏠 ホームに戻る
     </button>
 </div>
@@ -251,8 +250,12 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
       <option value="wrong">不正解のみ</option>
     </select>
     <select id="listSectionSelect" onchange="changeListSection(this.value)" style="padding:8px;"></select>
-    <button onclick="goToQuizFromList(true)" class="btn-primary">この範囲をテスト</button>
-    <button onclick="goToQuizFromList(false)" class="btn-primary" style="background: #f44336;">チェックテスト</button>
+    
+    <!-- ★追加：テストボタン群をプログラムから隠せるように ID で囲みました -->
+    <div id="listQuizNav" style="display: flex; gap: 8px;">
+      <button onclick="goToQuizFromList(true)" class="btn-primary">この範囲をテスト</button>
+      <button onclick="goToQuizFromList(false)" class="btn-primary" style="background: #f44336;">チェックテスト</button>
+    </div>
   </div>
   <table id="wordTable"></table>
 </section>
@@ -830,26 +833,37 @@ async function loadUserData(userName) {
     
 // --- ページ制御 ---
 window.showPage = function(id) {
-  // 1. 全てのページのactiveクラスを外して画面を切り替える
-  document.querySelectorAll(".page").forEach(p => p.classList.remove(".active" ? "active" : ""));
+  // 1. 全てのページのactiveクラスを外し、画面を切り替える
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
   const target = document.getElementById(id);
   if (target) target.classList.add("active");
 
-  // 2. ★【重要】「ホームに戻る」ボタンエリア（quizControls）の表示制御
+  // 2. ★【修正の肝①】「ホームに戻る」ボタンは学習画面（quiz）の時だけ表示
   const controls = document.getElementById("quizControls");
   if (controls) {
-    // ログイン済み、かつ「今ホーム画面以外」にいるときだけ、ホームに戻るボタンを表示する
-    if (currentUser && id !== "homePage") {
+    if (currentUser && id === "quiz") {
       controls.style.display = "flex";
     } else {
-      // ホーム画面にいるときや、ログイン前（ユーザー選択画面）のときは非表示にする
       controls.style.display = "none";
     }
   }
 
-  // 3. 各画面を開いたときの初期化処理（既存のものを維持）
-  if (id === "list") window.renderList();
-  if (id === "sectionPage") window.renderSectionButtons();
+  // 3. 各画面を開いたときの初期化処理
+  if (id === "list") {
+    window.renderList();
+    
+    // ★【修正の肝②】ホームから直接「一覧」に来た場合、チェックテストボタンを隠す
+    // ※ HTML側で、一覧画面内にあるクイズ開始ボタン（練習モードやテストモードのボタン）を
+    // まとめて囲っている親要素のIDを "listQuizNav" と仮定しています。
+    const listQuizNav = document.getElementById("listQuizNav");
+    if (listQuizNav) {
+        listQuizNav.style.display = "none"; // ボタンエリアを非表示にしてテスト不可にする
+    }
+  }
+  
+  if (id === "sectionPage") {
+    window.renderSectionButtons();
+  }
   
   if (id === "homePage") {
     isReviewMode = false;
@@ -1248,23 +1262,21 @@ window.renderSectionButtons = function() {
     btn.innerHTML = `Section ${i}`;
     btn.onclick = async () => { 
       isAllWordsMode = false;
-      currentSection = i;       // ★今日の目標は新しいセクションに変える
-      // ❌【大修正】「lastStudiedSection = i;」を完全に削除しました！
-      // これにより、手動で新しいセクションを選んでも、前回本当に学んでいた履歴は守られます。
+      currentSection = i;       // 今日の目標を新しいセクションに変える
       
       const listSelect = document.getElementById("listSectionSelect");
       if (listSelect) listSelect.value = i;
       
       await saveProgress();     // 新しい目標をクラウドへ即時保存
       
-      // ホーム画面の表示を更新して移動
+      // ★変更：ホームに戻らず、選んだセクションの一覧画面（list）へ移動する
       document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
-      document.getElementById("homePage").classList.add("active");
-      
-      if (document.getElementById("welcomeUser")) {
-        document.getElementById("welcomeUser").textContent = `こんにちは、${currentUser}さん！`;
-      }
-      if (typeof updateHomeDashboard === 'function') updateHomeDashboard();
+      document.getElementById("list").classList.add("active");
+      if (typeof window.renderList === 'function') window.renderList();
+
+      // ★重要：セクション選択から一覧に来たときだけは、テストボタンを表示する
+      const listQuizNav = document.getElementById("listQuizNav");
+      if (listQuizNav) listQuizNav.style.display = "flex";
     };
     container.appendChild(btn);
   }
@@ -1280,12 +1292,19 @@ window.renderSectionButtons = function() {
       if (listSelect) listSelect.value = "all"; 
       await saveProgress();
       
+      // ★変更：全範囲のときも、一覧画面（list）へ移動する
       document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
-      document.getElementById("homePage").classList.add("active");
-      if (typeof updateHomeDashboard === 'function') updateHomeDashboard();
+      document.getElementById("list").classList.add("active");
+      if (typeof window.renderList === 'function') window.renderList();
+
+      // ★全範囲のときもテストボタンを表示する
+      const listQuizNav = document.getElementById("listQuizNav");
+      if (listQuizNav) listQuizNav.style.display = "flex";
   };
   container.appendChild(allBtn);
 };
+
+
 window.renderList = function() {
     const table = document.getElementById("wordTable");
     const filter = document.getElementById("filter").value;

@@ -271,27 +271,41 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
 </section>
 
 <!-- 設定画面 -->
-<section id="settingsPage" class="page">
-  <div class="card">
-    <h3>学習設定</h3>
-    <div style="margin-bottom:15px;">
-      <label>1セクションの単語数:</label><br>
-      <select id="setSectionSize" style="width:100%; padding:10px; margin-top:5px; border-radius:6px; border:1px solid #ddd;">
-        <option value="10">10語</option>
-        <option value="20">20語</option>
-        <option value="30">30語</option>
-        <option value="40">40語</option>
+<section id="settingPage" class="page">
+  <div class="card" style="padding: 20px;">
+    <h3 style="margin-top: 0; color: #333; border-bottom: 2px solid #1a73e8; padding-bottom: 8px;">⚙️ アプリ設定</h3>
+    
+    <!-- 設定項目1：セクションの単語数 -->
+    <div style="margin-bottom: 20px; text-align: left;">
+      <label style="display: block; font-weight: bold; margin-bottom: 5px; color: #555;">1セクションあたりの単語数</label>
+      <select id="setSectionSize" style="padding: 10px; width: 100%; border-radius: 6px; border: 1px solid #ccc;">
+        <option value="5">5問ずつ区切る</option>
+        <option value="10" selected>10問ずつ区切る</option>
+        <option value="15">15問ずつ区切る</option>
+        <option value="20">20問ずつ区切る</option>
       </select>
     </div>
-    <div style="margin-bottom:15px;">
-      <label>チェックテストの問題数:</label><br>
-      <select id="setTestCount" style="width:100%; padding:10px; margin-top:5px; border-radius:6px; border:1px solid #ddd;">
-        <option value="5">5問</option>
-        <option value="10">10問</option>
-        <option value="20">20問</option>
+
+    <!-- 設定項目2：テストの出題問題数 -->
+    <div style="margin-bottom: 25px; text-align: left;">
+      <label style="display: block; font-weight: bold; margin-bottom: 5px; color: #555;">テストの出題問題数</label>
+      <select id="setTestCount" style="padding: 10px; width: 100%; border-radius: 6px; border: 1px solid #ccc;">
+        <option value="5">5問テスト</option>
+        <option value="10" selected>10問テスト</option>
+        <option value="15">15問テスト</option>
+        <option value="20">20問テスト</option>
       </select>
     </div>
-    <button onclick="saveSettings()" class="btn-primary" style="width:100%; padding:12px;">設定を保存して適用</button>
+
+    <!-- アクションボタン -->
+    <!-- 💡 お手持ちの「saveSettings()」を呼び出すように変更しました -->
+    <button onclick="saveSettings()" class="btn-primary" style="width: 100%; padding: 12px; margin-bottom: 12px; border-radius: 6px;">
+      設定を保存する
+    </button>
+    
+    <button onclick="window.showPage('homePage')" style="width: 100%; padding: 12px; background: #555; color: white; border: none; border-radius: 6px; font-weight: bold;">
+      戻る
+    </button>
   </div>
 </section>
     
@@ -843,28 +857,25 @@ async function loadUserData(userName) {
     
 // --- ページ制御 ---
 window.showPage = function(id) {
-  // 1. 全てのページのactiveクラスを外し、指定の画面に切り替える
   document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
   const target = document.getElementById(id);
   if (target) target.classList.add("active");
 
-  // 2. 一覧画面（list）を開いたときの制御
+  // 一覧画面（list）に「ホームから直接」来たときの制御
   if (id === "list") {
     if (typeof window.renderList === 'function') window.renderList();
     
-    // ホーム画面のメニューから直接「一覧」に来た場合は、テストボタンを隠して「ホームに戻る」を出す
+    // ホームから直接来た場合は、テストボタンを隠して「ホームに戻る」を出す
     const listQuizNav = document.getElementById("listQuizNav");
     const listHomeBackBtn = document.getElementById("listHomeBackBtn");
     if (listQuizNav) listQuizNav.style.display = "none";
     if (listHomeBackBtn) listHomeBackBtn.style.display = "block";
   }
   
-  // 3. セクションページを開いたとき
   if (id === "sectionPage") {
     if (typeof window.renderSectionButtons === 'function') window.renderSectionButtons();
   }
   
-  // 4. ホームページを開いたとき
   if (id === "homePage") {
     isReviewMode = false;
     testLog = [];
@@ -1035,14 +1046,14 @@ window.startTodayLesson = async function() {
     if (isAllWordsMode) {
         uniquePool = [...words];
     } else {
-        // 【第1優先】直前のチェックテストで間違えた単語（最優先）
+        // 【第1優先】直前のチェックテストで間違えた単語
         if (typeof reviewWrongWords !== 'undefined' && Array.isArray(reviewWrongWords)) {
             reviewWrongWords.forEach(w => {
                 if (w && w.word) uniquePool.push(w);
             });
         }
         
-        // 【第2優先】手動選択を完全に無視し、「合格して学習完了したセクション」の単語のみを抽出
+        // 【第2優先】合格して学習完了したセクション
         if (typeof lastCompletedSection !== 'undefined' && lastCompletedSection > 0) {
             let start = (lastCompletedSection - 1) * SECTION_SIZE; 
             let priority2 = words.slice(start, start + SECTION_SIZE);
@@ -1053,17 +1064,13 @@ window.startTodayLesson = async function() {
             });
         }
         
-        // 【第3優先】★【大修正】引き算を完全撤去！
-        // 「一度でも解いた形跡がある（〇か×の状態がついている）既習単語」だけを progress から集める
+        // 【第3優先】解いたことのある既習単語から補填
         if (uniquePool.length < TEST_QUESTION_COUNT) {
-            // 全単語の中から、一度でも解いたことがあり、かつ、まだ今回の復習プールに入っていない単語を抽出
             let learnedWords = words.filter(w => {
                 const hasProgress = progress[w.word.toLowerCase()] !== undefined;
                 const isNotDuplicate = !uniquePool.some(p => p.word.toLowerCase() === w.word.toLowerCase());
                 return hasProgress && isNotDuplicate;
             });
-            
-            // ランダムにシャッフルして必要な分だけ補填
             learnedWords.sort(() => 0.5 - Math.random());
             for (let w of learnedWords) {
                 if (uniquePool.length >= TEST_QUESTION_COUNT) break;
@@ -1072,36 +1079,28 @@ window.startTodayLesson = async function() {
         }
     }
     
-    // 💡 【条件判定】上記すべての復習・既習データを集めても「設定された問題数」を満たせない場合
-    if (uniquePool.length < TEST_QUESTION_COUNT) {
-        alert(`英単語クイズProへようこそ！🎉\n\n「今日の学習」では、前回合格したセクションや過去の既習単語から復習テストを自動作成しますが、まだアプリ全体でテストを行えるだけの学習データ（解いたことのある単語）が溜まっていません。\n\nまずは今日の目標である「Section ${currentSection}」の単語を一覧画面で見て、覚えることから始めましょう！`);
-        
-        const listSelect = document.getElementById("listSectionSelect");
-        if (listSelect) {
-            listSelect.value = isAllWordsMode ? "all" : currentSection;
-        }
-        
-        await saveProgress();
-        if (typeof updateHomeDashboard === 'function') updateHomeDashboard();
-        
-        showPage("list");
-        return; 
-    }
-    
-    // 問題数を確定させ、ランダムにシャッフルして最終決定
+    // 💡 問題数をシャッフルして reviewPool に確定させておく（裏側で準備完了）
     reviewPool = uniquePool.sort(() => 0.5 - Math.random()).slice(0, TEST_QUESTION_COUNT);
     
     await saveProgress(); 
     if (typeof updateHomeDashboard === 'function') updateHomeDashboard();
     
-    isReviewMode = true;
-    isSelfPracticeMode = false;
-    testLog = [];
+    // 🔄【大変更】：テスト画面には行かず、目標セクションの「一覧画面」へ移動
+    const listSelect = document.getElementById("listSectionSelect");
+    if (listSelect) {
+        listSelect.value = isAllWordsMode ? "all" : currentSection;
+    }
     
-    renderQuestion();
-    showPage("quiz");
-};
+    document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+    document.getElementById("list").classList.add("active");
+    if (typeof window.renderList === 'function') window.renderList();
 
+    // ★今日の学習から来たので、「テストボタン」を表示し、「ホームに戻る」を隠す！
+    const listQuizNav = document.getElementById("listQuizNav");
+    const listHomeBackBtn = document.getElementById("listHomeBackBtn");
+    if (listQuizNav) listQuizNav.style.display = "flex";
+    if (listHomeBackBtn) listHomeBackBtn.style.display = "none";
+};
 function getNextWord() {
   let start = (currentSection - 1) * SECTION_SIZE;
   let pool = words.slice(start, start + SECTION_SIZE);

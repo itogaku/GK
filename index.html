@@ -923,7 +923,55 @@ window.logout = function() {
 };
 
 // --- クイズロジック ---
+// --- クイズロジック（修正版） ---
 window.startTodayLesson = async function() {
+    // 復習テスト用の一時プール
+    let pool = [];
+    
+    // 【最優先】直前のチェックテスト（または学習）で間違えた単語
+    // ※ reviewWrongWords は前回のミスがリアルタイムで保存されている配列
+    const priority1 = [...reviewWrongWords];
+    pool.push(...priority1);
+    
+    // 【第2優先】「現在のセクションの1つ前」のセクションの単語
+    // ※ currentSectionが1の場合は「1つ前」が存在しないためスキップ
+    let priority2 = [];
+    if (currentSection > 1) {
+        let prevSection = currentSection - 1;
+        let start = (prevSection - 1) * SECTION_SIZE;
+        priority2 = words.slice(start, start + SECTION_SIZE);
+        pool.push(...priority2);
+    }
+    
+    // 重複をこの時点で排除（第1優先と第2優先の被りを除去）
+    pool = [...new Set(pool.map(w => JSON.stringify(w)))].map(s => JSON.parse(s));
+    
+    // 【第3優先】それ以前（2つ以上前）に学んだ単語
+    // ※ currentSectionが3以上の場合のみ存在
+    if (pool.length < TEST_QUESTION_COUNT && currentSection > 2) {
+        let maxIndex = (currentSection - 2) * SECTION_SIZE;
+        // 2つ以上前の既習単語をシャッフルして取得
+        let pastWords = words.slice(0, maxIndex).sort(() => 0.5 - Math.random());
+        
+        for (let w of pastWords) {
+            if (pool.length >= TEST_QUESTION_COUNT) break;
+            // すでにプールに入っていなければ追加
+            if (!pool.some(p => p.word.toLowerCase() === w.word.toLowerCase())) {
+                pool.push(w);
+            }
+        }
+    }
+    
+    // 💡 【条件判定】既習の単語だけで「設定された問題数」を満たせているか？
+    if (pool.length < TEST_QUESTION_COUNT) {
+        alert(`既習の復習対象単語が足りないため（現在: ${pool.length}/${TEST_QUESTION_COUNT}問）、今回は復習テストを実施しません。次のセクションに進むか、一覧から練習を行ってください。`);
+        return; // テスト画面へ遷移せず処理を終了する
+    }
+    
+    // 問題数を確定させ、ランダムにシャッフル
+    reviewPool = pool.sort(() => 0.5 - Math.random()).slice(0, TEST_QUESTION_COUNT);
+    
+    // テスト開始処理
     studyCount++;
     await saveProgress();
     updateHomeDashboard();
@@ -931,29 +979,6 @@ window.startTodayLesson = async function() {
     isReviewMode = true;
     isSelfPracticeMode = false;
     testLog = [];
-    
-    // 出題プールの作成
-    let pool = [];
-    
-    // 1. 前回のチェックテストで間違えた単語 (優先)
-    pool.push(...reviewWrongWords);
-    
-    // 2. 現在のセクションの単語
-    let start = (currentSection - 1) * SECTION_SIZE;
-    let sectionWords = words.slice(start, start + SECTION_SIZE);
-    pool.push(...sectionWords);
-    
-    // 重複を削除
-    pool = [...new Set(pool)];
-    
-    // 3. 問題数が足りない場合、全単語からランダムに補充
-    if (pool.length < TEST_QUESTION_COUNT) {
-        let others = words.filter(w => !pool.includes(w)).sort(() => 0.5 - Math.random());
-        pool.push(...others.slice(0, TEST_QUESTION_COUNT - pool.length));
-    }
-    
-    // 最終的に指定された「問題数」でシャッフルしてセット
-    reviewPool = pool.sort(() => 0.5 - Math.random()).slice(0, TEST_QUESTION_COUNT);
     
     renderQuestion();
     showPage("quiz");

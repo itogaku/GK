@@ -222,6 +222,11 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
         一覧に戻って暗記を確認
       </button>
     </div>
+    <div style="margin-top: 20px; padding: 10px 0; border-top: 1px solid #eee;">
+      <button onclick="window.showPage('homePage')" style="padding: 12px 24px; background: #555; color: #fff; border: none; border-radius: 8px; font-weight: bold; width: 100%; font-size: 16px;">
+        🏠 学習を中断してホームに戻る
+      </button>
+    </div>
   </div>
 
   <div id="answerControlArea" style="text-align:center;">
@@ -838,45 +843,28 @@ async function loadUserData(userName) {
     
 // --- ページ制御 ---
 window.showPage = function(id) {
-  // 1. 全てのページのactiveクラスを外し、画面を切り替える
+  // 1. 全てのページのactiveクラスを外し、指定の画面に切り替える
   document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
   const target = document.getElementById(id);
   if (target) target.classList.add("active");
 
-  // 2. 「学習中（quiz）」の画面の時だけ、クイズ用の共通操作ナビを出す（既存維持）
-  const controls = document.getElementById("quizControls");
-  if (controls) {
-    if (currentUser && id === "quiz") {
-      controls.style.display = "flex";
-    } else {
-      controls.style.display = "none";
-    }
-  }
-
-  // 3. ★【超重要変更】一覧画面（list）の状態をどこから開かれても一元管理する
-  const listQuizNav = document.getElementById("listQuizNav");
-  const listHomeBackBtn = document.getElementById("listHomeBackBtn");
-  
+  // 2. 一覧画面（list）を開いたときの制御
   if (id === "list") {
     if (typeof window.renderList === 'function') window.renderList();
     
-    // ➔ もし「ホーム画面から直接」一覧に来た場合の処理
-    // テストボタンを絶対に隠し、代わりに同じ場所にホームに戻るボタンを出す
+    // ホーム画面のメニューから直接「一覧」に来た場合は、テストボタンを隠して「ホームに戻る」を出す
+    const listQuizNav = document.getElementById("listQuizNav");
+    const listHomeBackBtn = document.getElementById("listHomeBackBtn");
     if (listQuizNav) listQuizNav.style.display = "none";
     if (listHomeBackBtn) listHomeBackBtn.style.display = "block";
-  } else {
-    // ➔ 一覧画面以外の画面（ホーム、ログイン、設定など）にいるときは、
-    // 次回のために一覧画面のテストボタンをデフォルト（none）にリセットしておくことで、浮き上がりバグを完全封鎖
-    if (listQuizNav) listQuizNav.style.display = "none";
-    if (listHomeBackBtn) listHomeBackBtn.style.display = "none";
   }
   
-  // 4. セクションページを開いたとき
+  // 3. セクションページを開いたとき
   if (id === "sectionPage") {
     if (typeof window.renderSectionButtons === 'function') window.renderSectionButtons();
   }
   
-  // 5. ホームページを開いたとき
+  // 4. ホームページを開いたとき
   if (id === "homePage") {
     isReviewMode = false;
     testLog = [];
@@ -1273,21 +1261,15 @@ window.renderSectionButtons = function() {
     btn.innerHTML = `Section ${i}`;
     btn.onclick = async () => { 
       isAllWordsMode = false;
-      currentSection = i;       // 今日の目標を新しいセクションに変える
+      currentSection = i;       // 今日の目標セクションを上書き
       
       const listSelect = document.getElementById("listSectionSelect");
       if (listSelect) listSelect.value = i;
       
-      await saveProgress();     // 新しい目標をクラウドへ即時保存
+      await saveProgress();     // 新しい目標を即座にクラウドへ保存
       
-      // ★変更：ホームに戻らず、選んだセクションの一覧画面（list）へ移動する
-      document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
-      document.getElementById("list").classList.add("active");
-      if (typeof window.renderList === 'function') window.renderList();
-
-      // ★重要：セクション選択から一覧に来たときだけは、テストボタンを表示する
-      const listQuizNav = document.getElementById("listQuizNav");
-      if (listQuizNav) listQuizNav.style.display = "flex";
+      // ★一覧へは行かず、直接ホーム画面に戻る（目標表示やグラフが自動で切り替わります）
+      window.showPage("homePage");
     };
     container.appendChild(btn);
   }
@@ -1303,18 +1285,11 @@ window.renderSectionButtons = function() {
       if (listSelect) listSelect.value = "all"; 
       await saveProgress();
       
-      // ★変更：全範囲のときも、一覧画面（list）へ移動する
-      document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
-      document.getElementById("list").classList.add("active");
-      if (typeof window.renderList === 'function') window.renderList();
-
-      // ★全範囲のときもテストボタンを表示する
-      const listQuizNav = document.getElementById("listQuizNav");
-      if (listQuizNav) listQuizNav.style.display = "flex";
+      // ★全範囲のときも直接ホーム画面に戻る
+      window.showPage("homePage");
   };
   container.appendChild(allBtn);
 };
-
 
 window.renderList = function() {
     const table = document.getElementById("wordTable");

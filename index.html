@@ -167,7 +167,9 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
     <button onclick="startTodayLesson()" class="btn-primary" style="font-size: 18px; padding: 15px; width: 100%; margin-bottom: 20px; border-radius: 50px; box-shadow: 0 4px 12px rgba(33,150,243,0.3);">
       今日の学習を開始する
     </button>
-    
+    <button onclick="startGlobalSampleTest()" class="btn-primary" style="font-size: 16px; padding: 12px; width: 100%; margin-bottom: 20px; border-radius: 50px; background: #9c27b0; box-shadow: 0 4px 12px rgba(156,39,176,0.3);">
+      全範囲実力テストを開始する (実力診断)
+    </button>
     <div style="display: flex; gap: 10px;">
       <button onclick="showPage('sectionPage')" style="flex: 1; border-radius: 8px;">別のセクション</button>
       <button onclick="logout()" style="flex: 1; border-radius: 8px;">ログアウト</button>
@@ -238,7 +240,6 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
     <button onclick="toggleAllWordsMode()" id="allWordsBtn" style="padding:8px; background:#e0e0e0;">全単語表示モード: オフ</button>
     <button onclick="goToQuizFromList(true)" class="btn-primary">この範囲をテスト</button>
     <button onclick="goToQuizFromList(false)" class="btn-primary" style="background: #f44336;">チェックテスト</button>
-    <button onclick="startGlobalSampleTest()" class="btn-primary" style="background: #9c27b0; color: white;">全範囲実力テスト</button>
   </div>
   <table id="wordTable"></table>
 </section>
@@ -1146,38 +1147,39 @@ window.renderSectionButtons = function() {
 };
 
 window.renderList = function() {
-  const table = document.getElementById("wordTable");
-  const filter = document.getElementById("filter").value;
-  table.innerHTML = "<tr><th>No</th><th>単語</th><th>意味</th><th>状態</th></tr>";
+    const table = document.getElementById("wordTable");
+    const filter = document.getElementById("filter").value;
+    table.innerHTML = "<tr><th>No</th><th>単語</th><th>意味</th><th>状態</th></tr>";
 
-  // 復習対象の強調表示（全単語モードのときはノイズになるため非表示）
-  if (!isAllWordsMode && reviewWrongWords.length > 0 && filter !== "correct") {
-    table.innerHTML += `<tr><td colspan="4" style="background:#fff3e0; color:#e65100; font-weight:bold; text-align:center;">復習が必要な単語</td></tr>`;
-    reviewWrongWords.forEach(w => {
-      const state = progress[w.word.toLowerCase()];
-      table.innerHTML += `<tr style="background:#fff9f0;"><td>!</td><td><strong>${w.word}</strong></td><td>${w.meaning}</td><td style="text-align:center">${state==='correct'?'〇':'×'}</td></tr>`;
-    });
-  }
-  
-  // 出題対象プールの決定
-  let pool = [];
-  let offset = 0;
-  
-  if (isAllWordsMode) {
-    pool = words; // 全単語
-  } else {
-    offset = (currentSection - 1) * SECTION_SIZE;
-    pool = words.slice(offset, offset + SECTION_SIZE); // セクション内単語
-  }
-
-  pool.forEach((w, index) => {
-    const state = progress[w.word.toLowerCase()];
-    if (filter === "correct" && state !== "correct") return;
-    if (filter === "wrong" && state !== "wrong") return;
+    // 通常モードの時だけ、最上部に復習必須単語をハイライト表示する
+    if (!isAllWordsMode && reviewWrongWords.length > 0 && filter !== "correct") {
+        table.innerHTML += `<tr><td colspan="4" style="background:#fff3e0; color:#e65100; font-weight:bold; text-align:center;">復習が必要な単語</td></tr>`;
+        reviewWrongWords.forEach(w => {
+            const state = progress[w.word.toLowerCase()];
+            table.innerHTML += `<tr style="background:#fff9f0;"><td>!</td><td><strong>${w.word}</strong></td><td>${w.meaning}</td><td style="text-align:center">${state==='correct'?'〇':'×'}</td></tr>`;
+        });
+    }
     
-    const displayIndex = isAllWordsMode ? (index + 1) : (offset + index + 1);
-    table.innerHTML += `<tr><td>${displayIndex}</td><td><strong>${w.word}</strong></td><td>${w.meaning}</td><td style="text-align:center">${state==='correct'?'〇':state==='wrong'?'×':'-'}</td></tr>`;
-  });
+    // 表示する対象（プール）の決定
+    let pool = [];
+    let offset = 0;
+    
+    if (isAllWordsMode) {
+        pool = words; // アプリ内の全単語
+    } else {
+        offset = (currentSection - 1) * SECTION_SIZE;
+        pool = words.slice(offset, offset + SECTION_SIZE); // 選択中セクションの単語
+    }
+
+    pool.forEach((w, index) => {
+        const state = progress[w.word.toLowerCase()];
+        if (filter === "correct" && state !== "correct") return;
+        if (filter === "wrong" && state !== "wrong") return;
+        
+        // 全単語モードの時は通し番号、セクションモードの時はセクション内の番号にする
+        const displayIndex = isAllWordsMode ? (index + 1) : (offset + index + 1);
+        table.innerHTML += `<tr><td>${displayIndex}</td><td><strong>${w.word}</strong></td><td>${w.meaning}</td><td style="text-align:center">${state==='correct'?'〇':state==='wrong'?'×':'-'}</td></tr>`;
+    });
 };
 
 window.changeListSection = (val) => { currentSection = parseInt(val); renderList(); };
@@ -1214,7 +1216,7 @@ window.toggleAllWordsMode = function() {
         btn.textContent = "全単語表示モード: オン";
         btn.style.background = "#4caf50";
         btn.style.color = "white";
-        if (sectionSelect) sectionSelect.disabled = true; // セクション選択を無効化
+        if (sectionSelect) sectionSelect.disabled = true; // セクション選択を一時ロック
     } else {
         btn.textContent = "全単語表示モード: オフ";
         btn.style.background = "#e0e0e0";
@@ -1226,10 +1228,9 @@ window.toggleAllWordsMode = function() {
 
 window.startGlobalSampleTest = function() {
     const N = words.length;
-    if (N === 0) return alert("単語データがありません。");
+    if (N === 0) return alert("単語データが登録されていません。");
 
-    // 統計学的な必要サンプルサイズの計算（信頼度95%, 誤差5%）
-    // 数式を簡略化： n = N / (1 + (N * 0.05^2) / (1.96^2 * 0.25))
+    // 統計学的な必要サンプルサイズ（問題数）の計算（信頼度95%, 誤差5%）
     const z = 1.96;
     const e = 0.05;
     const p = 0.5;
@@ -1238,18 +1239,18 @@ window.startGlobalSampleTest = function() {
     const denominator = (e * e) + (numerator / N);
     let sampleSize = Math.ceil(numerator / denominator);
     
-    // 単語数が極端に少ない場合は、全単語数の半分〜最低5問程度に調整
+    // 単語数が少ない場合のセーフティガード
     if (sampleSize > N) sampleSize = N;
     if (sampleSize < 5 && N >= 5) sampleSize = 5;
 
-    if (!confirm(`全範囲からあなたの現在の実力を測定します。\n統計学的な分析に基づき、全 ${N} 語の中から【 ${sampleSize} 問 】をランダムに抽出してテストを行います。よろしいですか？`)) {
+    if (!confirm(`【全範囲実力テスト】\n\n全範囲からあなたの現在の実力を測定します。\n統計学的な分析に基づき、全 ${N} 語の中から【 ${sampleSize} 問 】をランダムに選んでテストを行います。挑戦しますか？`)) {
         return;
     }
 
-    // 全範囲からランダムにシャッフルして必要数をプールにセット
+    // 全範囲からランダムにシャッフルして必要数をセット
     testLog = [];
     isReviewMode = true; 
-    isSelfPracticeMode = true; // 既存の結果画面を流用するため
+    isSelfPracticeMode = true; // 結果画面のレイアウト崩れを防ぐ設定
     isPracticeModeGlobal = true; 
 
     reviewPool = [...words].sort(() => Math.random() - 0.5).slice(0, sampleSize);

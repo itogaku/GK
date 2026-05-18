@@ -923,53 +923,56 @@ window.logout = function() {
 };
 
 // --- クイズロジック ---
-// --- クイズロジック（修正版） ---
 window.startTodayLesson = async function() {
-    // 復習テスト用の一時プール
-    let pool = [];
+    // 復習テスト用の一時プール（単語の重複を防ぐため、まずIDとして単語文字列を管理）
+    let poolMap = new Map();
     
     // 【最優先】直前のチェックテスト（または学習）で間違えた単語
-    // ※ reviewWrongWords は前回のミスがリアルタイムで保存されている配列
-    const priority1 = [...reviewWrongWords];
-    pool.push(...priority1);
+    if (Array.isArray(reviewWrongWords)) {
+        reviewWrongWords.forEach(w => {
+            if (w && w.word) poolMap.set(w.word.toLowerCase(), w);
+        });
+    }
     
     // 【第2優先】「現在のセクションの1つ前」のセクションの単語
     // ※ currentSectionが1の場合は「1つ前」が存在しないためスキップ
-    let priority2 = [];
     if (currentSection > 1) {
         let prevSection = currentSection - 1;
         let start = (prevSection - 1) * SECTION_SIZE;
-        priority2 = words.slice(start, start + SECTION_SIZE);
-        pool.push(...priority2);
+        let priority2 = words.slice(start, start + SECTION_SIZE);
+        priority2.forEach(w => {
+            if (w && w.word && !poolMap.has(w.word.toLowerCase())) {
+                poolMap.set(w.word.toLowerCase(), w);
+            }
+        });
     }
     
-    // 重複をこの時点で排除（第1優先と第2優先の被りを除去）
-    pool = [...new Set(pool.map(w => JSON.stringify(w)))].map(s => JSON.parse(s));
-    
     // 【第3優先】それ以前（2つ以上前）に学んだ単語
-    // ※ currentSectionが3以上の場合のみ存在
-    if (pool.length < TEST_QUESTION_COUNT && currentSection > 2) {
+    // ※ currentSectionが3以上、かつまだ設定された問題数に達していない場合のみ
+    if (poolMap.size < TEST_QUESTION_COUNT && currentSection > 2) {
         let maxIndex = (currentSection - 2) * SECTION_SIZE;
-        // 2つ以上前の既習単語をシャッフルして取得
+        // 2つ以上前の既習単語をシャッフル
         let pastWords = words.slice(0, maxIndex).sort(() => 0.5 - Math.random());
         
         for (let w of pastWords) {
-            if (pool.length >= TEST_QUESTION_COUNT) break;
-            // すでにプールに入っていなければ追加
-            if (!pool.some(p => p.word.toLowerCase() === w.word.toLowerCase())) {
-                pool.push(w);
+            if (poolMap.size >= TEST_QUESTION_COUNT) break;
+            if (w && w.word && !poolMap.has(w.word.toLowerCase())) {
+                poolMap.set(w.word.toLowerCase(), w);
             }
         }
     }
     
+    // Mapから配列に変換
+    let finalPool = Array.from(poolMap.values());
+    
     // 💡 【条件判定】既習の単語だけで「設定された問題数」を満たせているか？
-    if (pool.length < TEST_QUESTION_COUNT) {
-        alert(`既習の復習対象単語が足りないため（現在: ${pool.length}/${TEST_QUESTION_COUNT}問）、今回は復習テストを実施しません。次のセクションに進むか、一覧から練習を行ってください。`);
-        return; // テスト画面へ遷移せず処理を終了する
+    if (finalPool.length < TEST_QUESTION_COUNT) {
+        alert(`既習の復習対象単語が足りないため（現在: ${finalPool.length}/${TEST_QUESTION_COUNT}問）、今回は復習テストを実施しません。\n次のセクションに進むか、一覧から練習を行ってください。`);
+        return; // テスト画面へ遷移せず安全に処理を終了
     }
     
-    // 問題数を確定させ、ランダムにシャッフル
-    reviewPool = pool.sort(() => 0.5 - Math.random()).slice(0, TEST_QUESTION_COUNT);
+    // 問題数を確定させ、ランダムにシャッフルしてセット
+    reviewPool = finalPool.sort(() => 0.5 - Math.random()).slice(0, TEST_QUESTION_COUNT);
     
     // テスト開始処理
     studyCount++;
@@ -983,7 +986,6 @@ window.startTodayLesson = async function() {
     renderQuestion();
     showPage("quiz");
 };
-
 function getNextWord() {
   let start = (currentSection - 1) * SECTION_SIZE;
   let pool = words.slice(start, start + SECTION_SIZE);

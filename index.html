@@ -941,54 +941,70 @@ window.logout = function() {
 
 // --- クイズロジック ---
 window.startTodayLesson = async function() {
+    // 1. 学習回数のカウントアップとクラウド同期（共通処理）
+    if (currentUser) {
+        studyCount = parseInt(localStorage.getItem("studyCount_" + currentUser) || 0);
+        studyCount++;
+        localStorage.setItem("studyCount_" + currentUser, studyCount);
+        // ※ saveProgress() は関数の最後、クイズ開始直前で実行します
+    }
+
     // 復習テスト用の一時プール（重複防止用）
     let uniquePool = [];
     
-    // 【第1優先】直前のチェックテストで間違えた単語
-    if (typeof reviewWrongWords !== 'undefined' && Array.isArray(reviewWrongWords)) {
-        reviewWrongWords.forEach(w => {
-            if (w && w.word) uniquePool.push(w);
-        });
-    }
-    
-    // 【第2優先】「現在のセクションの1つ前」のセクションの単語
-    if (currentSection > 1) {
-        let prevSection = currentSection - 1;
-        let start = (prevSection - 1) * SECTION_SIZE;
-        let priority2 = words.slice(start, start + SECTION_SIZE);
-        priority2.forEach(w => {
-            // まだプールになければ追加
-            if (w && w.word && !uniquePool.some(p => p.word.toLowerCase() === w.word.toLowerCase())) {
-                uniquePool.push(w);
-            }
-        });
-    }
-    
-    // 【第3優先】それ以前（2つ以上前）に学んだ単語
-    if (uniquePool.length < TEST_QUESTION_COUNT && currentSection > 2) {
-        let maxIndex = (currentSection - 2) * SECTION_SIZE;
-        // 2つ以上前の既習単語をシャッフル
-        let pastWords = words.slice(0, maxIndex).sort(() => 0.5 - Math.random());
+    // 【仕様変更への対応】：もし「全単語（全範囲）」モードなら、復習ロジックを通さず全単語から抽出
+    if (isAllWordsMode) {
+        uniquePool = [...words];
+    } else {
+        // 通常モード：ご提示いただいた【3段階の優先度ロジック】をそのまま完全維持
         
-        for (let w of pastWords) {
-            if (uniquePool.length >= TEST_QUESTION_COUNT) break;
-            if (w && w.word && !uniquePool.some(p => p.word.toLowerCase() === w.word.toLowerCase())) {
-                uniquePool.push(w);
+        // 【第1優先】直前のチェックテストで間違えた単語
+        if (typeof reviewWrongWords !== 'undefined' && Array.isArray(reviewWrongWords)) {
+            reviewWrongWords.forEach(w => {
+                if (w && w.word) uniquePool.push(w);
+            });
+        }
+        
+        // 【第2優先】「現在の選択（目標）セクションの1つ前」のセクションの単語
+        if (currentSection > 1) {
+            let prevSection = currentSection - 1;
+            let start = (prevSection - 1) * SECTION_SIZE;
+            let priority2 = words.slice(start, start + SECTION_SIZE);
+            priority2.forEach(w => {
+                if (w && w.word && !uniquePool.some(p => p.word.toLowerCase() === w.word.toLowerCase())) {
+                    uniquePool.push(w);
+                }
+            });
+        }
+        
+        // 【第3優先】それ以前（2つ以上前）に学んだ単語
+        if (uniquePool.length < TEST_QUESTION_COUNT && currentSection > 2) {
+            let maxIndex = (currentSection - 2) * SECTION_SIZE;
+            let pastWords = words.slice(0, maxIndex).sort(() => 0.5 - Math.random());
+            
+            for (let w of pastWords) {
+                if (uniquePool.length >= TEST_QUESTION_COUNT) break;
+                if (w && w.word && !uniquePool.some(p => p.word.toLowerCase() === w.word.toLowerCase())) {
+                    uniquePool.push(w);
+                }
             }
         }
     }
     
     // 💡 【条件判定】既習の単語だけで「設定された問題数」を満たせているか？
     if (uniquePool.length < TEST_QUESTION_COUNT) {
-        // 初めて使う生徒さん向けのナビゲーション
+        // 初めて使う生徒さん、または手動で若いセクションを選んで復習データが足りない場合のナビゲーション
         alert(`英単語クイズProへようこそ！🎉\n\n「今日の学習」では、通常は過去に学んだ単語の復習テストからスタートしますが、現在はまだテストを行えるだけの学習データが溜まっていません。\n\nまずは今日の目標である「Section ${currentSection}」の単語を覚えることから始めましょう！`);
         
         // 🔄 復習テストをパスして、現在の目標セクションの「一覧画面」へ直接遷移
-        // 一覧画面のドロップダウンの選択状態も現在のセクションに同期させる
         const listSelect = document.getElementById("listSectionSelect");
         if (listSelect) {
-            listSelect.value = currentSection;
+            listSelect.value = isAllWordsMode ? "all" : currentSection;
         }
+        
+        // ナビゲーション移動前に、ここまでの進捗（studyCountなど）をクラウドに安全に保存
+        await saveProgress();
+        if (typeof updateHomeDashboard === 'function') updateHomeDashboard();
         
         showPage("list");
         return; 
@@ -997,10 +1013,9 @@ window.startTodayLesson = async function() {
     // 問題数を確定させ、ランダムにシャッフルしてグローバル変数の reviewPool にセット
     reviewPool = uniquePool.sort(() => 0.5 - Math.random()).slice(0, TEST_QUESTION_COUNT);
     
-    // --- ここから下は元々のアプリの正常な開始処理 ---
-    studyCount++;
-    await saveProgress();
-    updateHomeDashboard();
+    // --- アプリの正常なクイズ開始処理 ---
+    await saveProgress(); // クラウドへの完全同期
+    if (typeof updateHomeDashboard === 'function') updateHomeDashboard();
     
     isReviewMode = true;
     isSelfPracticeMode = false;
@@ -1145,16 +1160,16 @@ window.renderSectionButtons = function() {
     btn.innerHTML = `Section ${i}`;
     btn.onclick = async () => { 
       isAllWordsMode = false;
-      currentSection = i; // 選択されたセクションを現在の目標にする
+      currentSection = i; // ★選んだセクションを現在の目標に設定
       
-      // 一覧画面のプルダウンの選択状態もあらかじめ同期
+      // 一覧画面のプルダウンの選択状態もあらかじめバックグラウンドで同期
       const listSelect = document.getElementById("listSectionSelect");
       if (listSelect) listSelect.value = i;
       
-      // ★追加：新しいセクション目標を即座にクラウドへ保存
+      // ★選んだセクション状態を即座にクラウドへセーブ
       await saveProgress();
       
-      // ★変更：一覧ではなくホーム画面に戻り、目標の表示を更新する
+      // ★【重要変更】一覧へは行かず、ホーム画面に戻る（目標表示やダッシュボードが自動更新されます）
       showPage("homePage"); 
     };
     container.appendChild(btn);
@@ -1172,15 +1187,13 @@ window.renderSectionButtons = function() {
       const listSelect = document.getElementById("listSectionSelect");
       if (listSelect) listSelect.value = "all"; 
       
-      // ★全範囲フラグの状態をクラウドへセーブ
       await saveProgress();
       
-      // ★ホーム画面へ戻る
+      // ★全範囲モードの時もホーム画面へ戻る
       showPage("homePage");
   };
   container.appendChild(allBtn);
 };
-
 window.renderList = function() {
     const table = document.getElementById("wordTable");
     const filter = document.getElementById("filter").value;

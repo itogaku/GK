@@ -887,18 +887,28 @@ window.addUser = async function() {
   if(!name || !pass) return alert("名前とパスワードを入力してください");
   
   try {
-    await set(ref(db, 'users/' + name), {
-      password: pass,
-      progress: {},
-      studyCount: 0
-    });
-    alert(name + "さんを追加しました！");
+    // ユーザー名にドットやスラッシュなどFirebaseで禁止されている記号がないかチェック
+    if (/[.$#[\]]/.test(name)) {
+        return alert("ユーザー名に . $ # [ ] などの記号は使用できません");
+    }
+
+    // 1. クラウド（Firebase）にパスワードを直接保存
+    await set(ref(db, 'users/' + name + '/auth'), { password: pass });
+    
+    // 2. ローカルストレージ（バックアップ用）にも保存
+    let users = JSON.parse(localStorage.getItem("users") || "{}");
+    users[name] = pass;
+    localStorage.setItem("users", JSON.stringify(users));
+    
+    alert("アカウントを作成しました！");
+    window.renderUserList();
+    
+    // 入力欄をクリア
     document.getElementById("newName").value = "";
     document.getElementById("newPass").value = "";
-    renderUserList(); // リストを更新
-  } catch (error) {
-    console.error(error);
-    alert("保存に失敗しました: " + error.message);
+  } catch (e) { 
+    console.error("Add User Error:", e);
+    alert("アカウントの作成に失敗しました。クラウドとの通信が拒否されました。"); 
   }
 };
 
@@ -926,24 +936,63 @@ window.selectUser = function(name) {
 };
 
 window.login = async function() {
-    const pass = document.getElementById("passwordInput").value;
-    const snapshot = await get(child(ref(db), `users/${selectedUser}`));
+    const pass = document.getElementById("passwordInput").value.trim(); // 入力されたパスワード
     
-    let users = JSON.parse(localStorage.getItem("users") || "{}");
-    if(users[selectedUser] === pass) {
-        currentUser = selectedUser;
-        localStorage.setItem("currentUser", currentUser);
+    if (!selectedUser) {
+        alert("ユーザーを選択してください");
+        return;
+    }
+
+    try {
+        // 1. ★【修正の肝】Firebaseの「users/ユーザー名/auth」から正しいパスワードを取得する
+        const snapshot = await get(child(ref(db), `users/${selectedUser}/auth`));
         
-        await loadUserData(currentUser); // クラウドからデータを読み込む（ここでセクションも復元される）
-        
-        // ★クラウドにデータがない新規生徒の場合のみ自動計算
-        if (!currentSection) {
-            currentSection = determineTodaySection();
+        if (snapshot.exists()) {
+            const authData = snapshot.val();
+            
+            // 2. クラウド上のパスワードと、入力されたパスワードが一致するか検証
+            if (authData && authData.password === pass) {
+                currentUser = selectedUser;
+                localStorage.setItem("currentUser", currentUser);
+                
+                // 3. パスワードが合っていたら、その生徒の学習データを読み込む
+                await loadUserData(currentUser); 
+                
+                // 初回起動時などでセクションが未設定なら自動判定
+                if (!currentSection) {
+                    currentSection = determineTodaySection();
+                }
+                
+                // 4. ダッシュボードを更新してホーム画面へ
+                if (typeof updateHomeDashboard === 'function') updateHomeDashboard(); 
+                window.showPage("homePage");
+                
+            } else { 
+                alert("パスワードが違います"); 
+            }
+        } else {
+            // クラウドにauthノードがない（または以前のローカルストレージ方式で作られた古いユーザーの）場合
+            // 安全弁としてローカルストレージ側のパスワードも確認する
+            let localUsers = JSON.parse(localStorage.getItem("users") || "{}");
+            if (localUsers[selectedUser] === pass) {
+                currentUser = selectedUser;
+                localStorage.setItem("currentUser", currentUser);
+                
+                // ログインできたので、現在のパスワード構造をクラウドに救い上げて保存する
+                await set(ref(db, `users/${selectedUser}/auth`), { password: pass });
+                await loadUserData(currentUser);
+                
+                if (!currentSection) currentSection = determineTodaySection();
+                if (typeof updateHomeDashboard === 'function') updateHomeDashboard(); 
+                window.showPage("homePage");
+            } else {
+                alert("パスワードが違います、またはアカウント情報がありません");
+            }
         }
-        
-        window.updateHomeDashboard(); 
-        window.showPage("homePage");
-    } else { alert("パスワードが違います"); }
+    } catch (e) { 
+        console.error("Login Error:", e);
+        alert("ログイン処理でエラーが発生しました。インターネット接続やFirebaseの「ルール」設定を確認してください。"); 
+    }
 };
 
 window.logout = function() {

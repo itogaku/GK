@@ -1014,15 +1014,14 @@ window.startTodayLesson = async function() {
     if (isAllWordsMode) {
         uniquePool = [...words];
     } else {
-        // 【第1優先】直前のチェックテストで間違えた単語（最優先復習）
+        // 【第1優先】直前のチェックテストで間違えた単語
         if (typeof reviewWrongWords !== 'undefined' && Array.isArray(reviewWrongWords)) {
             reviewWrongWords.forEach(w => {
                 if (w && w.word) uniquePool.push(w);
             });
         }
         
-        // 【第2優先】★【ここが修正の肝】
-        // 新しく選んだセクションではなく、「リアルに前回まで学習していたセクション」から復習を作ります
+        // 【第2優先】手動選択で書き換わっていない、本当に「リアルに前回まで学習していたセクション」から抽出
         if (typeof lastStudiedSection !== 'undefined' && lastStudiedSection > 0) {
             let start = (lastStudiedSection - 1) * SECTION_SIZE; 
             let priority2 = words.slice(start, start + SECTION_SIZE);
@@ -1034,7 +1033,7 @@ window.startTodayLesson = async function() {
         }
         
         // 【第3優先】それ以前（既習）に学んだ単語
-        // 過去のすべての学習済み範囲からランダムに補填します
+        // 現在選んでいるセクション「未満」の過去単語からランダムに補填
         let maxIndex = (currentSection - 1) * SECTION_SIZE;
         if (uniquePool.length < TEST_QUESTION_COUNT && maxIndex > 0) {
             let pastWords = words.slice(0, maxIndex).sort(() => 0.5 - Math.random());
@@ -1049,7 +1048,6 @@ window.startTodayLesson = async function() {
     
     // 💡 【条件判定】復習テストを作れるだけのデータが過去にあるか？
     if (uniquePool.length < TEST_QUESTION_COUNT) {
-        // 過去データがない（初回、または選んだセクションが若すぎて復習範囲がない）場合は、ナビゲーションを出して一覧へ
         alert(`英単語クイズProへようこそ！🎉\n\n「今日の学習」では、前回学んだ単語の復習テストからスタートしますが、まだテストを行えるだけの過去の学習データが溜まっていません。\n\nまずは今日の目標である「Section ${currentSection}」の単語を一覧で覚えることから始めましょう！`);
         
         const listSelect = document.getElementById("listSectionSelect");
@@ -1057,7 +1055,7 @@ window.startTodayLesson = async function() {
             listSelect.value = isAllWordsMode ? "all" : currentSection;
         }
         
-        // 次回からはここが「前回学んだセクション」として復習に出るようにセット
+        // 初回なので、このセクションを今後のための「前回履歴」の初期値にする
         lastStudiedSection = currentSection;
         await saveProgress();
         if (typeof updateHomeDashboard === 'function') updateHomeDashboard();
@@ -1066,10 +1064,10 @@ window.startTodayLesson = async function() {
         return; 
     }
     
-    // 問題数を確定させ、ランダムにシャッフルしてクイズプールを決定
+    // 問題数を確定させ、ランダムにシャッフルして確定
     reviewPool = uniquePool.sort(() => 0.5 - Math.random()).slice(0, TEST_QUESTION_COUNT);
     
-    // ★【大修正】：クイズの「中身が決まった後」に、今回の選択セクションを「次回用の前回履歴」として上書きする！
+    // ★【重要】：無事に過去の復習テストが組み上がった「後」で、初めて次回に向けて「前回履歴」を現在の目標に更新する
     lastStudiedSection = currentSection;
     
     await saveProgress(); 
@@ -1249,22 +1247,23 @@ window.renderSectionButtons = function() {
     btn.innerHTML = `Section ${i}`;
     btn.onclick = async () => { 
       isAllWordsMode = false;
-      currentSection = i;       // ★選択されたセクションを強制的に目標に固定
-      lastStudiedSection = i;   // ★今回学ぶセクションとして記憶
+      currentSection = i;       // ★今日の目標は新しいセクションに変える
+      // ❌【大修正】「lastStudiedSection = i;」を完全に削除しました！
+      // これにより、手動で新しいセクションを選んでも、前回本当に学んでいた履歴は守られます。
       
       const listSelect = document.getElementById("listSectionSelect");
       if (listSelect) listSelect.value = i;
       
-      await saveProgress();     // クラウドへ即時保存
+      await saveProgress();     // 新しい目標をクラウドへ即時保存
       
-      // ★目標が変わらないバグを防ぐため、homePageの初期化を直接制御して画面移動
+      // ホーム画面の表示を更新して移動
       document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
       document.getElementById("homePage").classList.add("active");
       
       if (document.getElementById("welcomeUser")) {
         document.getElementById("welcomeUser").textContent = `こんにちは、${currentUser}さん！`;
       }
-      updateHomeDashboard(); // ダッシュボードを新しい目標セクションで描き変え
+      if (typeof updateHomeDashboard === 'function') updateHomeDashboard();
     };
     container.appendChild(btn);
   }
@@ -1282,11 +1281,10 @@ window.renderSectionButtons = function() {
       
       document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
       document.getElementById("homePage").classList.add("active");
-      updateHomeDashboard();
+      if (typeof updateHomeDashboard === 'function') updateHomeDashboard();
   };
   container.appendChild(allBtn);
 };
-
 window.renderList = function() {
     const table = document.getElementById("wordTable");
     const filter = document.getElementById("filter").value;

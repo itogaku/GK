@@ -1091,33 +1091,68 @@ function showTestResult() {
 
     const correctCount = testLog.filter(i => i.status === "correct").length;
     const totalCount = testLog.length;
+    
+    // 💡 全問正解（合格）したかどうかの判定
     const isPerfect = (correctCount === totalCount); 
-
-    // チェックテストかつ全問正解なら「合格」
-    if (!isPracticeModeGlobal && isPerfect) {
-        if (!completedSections.includes(currentSection)) {
-            completedSections.push(currentSection);
-            saveProgress(); // クラウドに保存
-        }
-        document.getElementById("resultTitle").textContent = "✨ セクション合格！ ✨";
-    }
 
     document.getElementById("resultScore").textContent = `${totalCount}問中 ${correctCount}問 正解`;
 
-    if (!isPracticeModeGlobal && isPerfect) {
-        document.getElementById("resultTitle").textContent = "✨ 学習完了！ ✨";
-        document.getElementById("resultTitle").style.color = "#ff9800";
+    // 【仕様変更】：自主練習モード（isSelfPracticeMode）ではなく、通常の「合格テスト」で全問正解した場合
+    if (!isSelfPracticeMode && isPerfect && !isAllWordsMode) {
+        
+        // 1. 現在のセクションを合格リスト（completedSections）に記録
+        if (!completedSections.includes(currentSection)) {
+            completedSections.push(currentSection);
+        }
+
+        // 2. ★【重要変更】ホームの現在の目標を「次のセクション」に進める
+        const maxSection = Math.ceil(words.length / SECTION_SIZE);
+        if (currentSection < maxSection) {
+            currentSection++; // 次のセクションへ
+            lastStudiedSection = currentSection; // 前回学んだセクションも更新して連動
+        }
+        
+        // クラウド（Firebase）に進捗と新しい目標セクションを即座に保存
+        saveProgress();
+
+        // 3. ★結果画面の表示を「合格用」に書き換え＆「ホームに戻る」ボタンを設置
+        const resultView = document.getElementById("quizResultView");
+        resultView.innerHTML = `
+            <h3 id="resultTitle" style="color:#ff9800; margin-top:0;">✨ 合格！テスト完了 ✨</h3>
+            <p id="resultScore" style="font-size:32px; font-weight:bold; margin:15px 0;">全問正解！素晴らしい！</p>
+            <p style="margin-bottom:20px; color:#666;">ホームの目標が 自動的に 【Section ${currentSection}】 に更新されました。</p>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="showPage('homePage')" class="btn-primary" style="flex: 1; height: 50px; background: #ff9800; font-size:16px;">ホームに戻る</button>
+                <button onclick="exitToListView()" style="flex: 1; height: 50px; border:1px solid #ccc; font-size:16px;">一覧を確認</button>
+            </div>
+        `;
     } else {
-        document.getElementById("resultTitle").textContent = "テスト結果";
+        // 通常のチェックテスト（不合格）または「この範囲を確認」モードなどの通常結果表示
+        document.getElementById("resultTitle").textContent = isPracticeModeGlobal ? "確認モード完了" : "チェックテスト結果";
+        document.getElementById("resultTitle").style.color = "#1a73e8";
+        
+        // 不合格時や練習モード時も「ホームに戻る」動線を確保するため、既存のボタンエリアを上書き
+        const resultView = document.getElementById("quizResultView");
+        
+        // すでに中に表示されているリスト用コンテナなどを維持しつつ、ボタン部分を使いやすく配置
         let listHtml = "";
         testLog.forEach(item => {
             const mark = item.status === "correct" ? "○" : "×";
-            listHtml += `<div>${mark} ${item.word} (${item.meaning})</div>`;
+            const color = item.status === "correct" ? "#2e7d32" : "#c62828";
+            listHtml += `<div style="color:${color}; border-bottom:1px solid #eee; padding:5px 0;">${mark} ${item.word} (${item.meaning})</div>`;
         });
-        document.getElementById("resultList").innerHTML = listHtml;
+        
+        resultView.innerHTML = `
+            <h3 id="resultTitle" style="color:#1a73e8; margin-top:0;">${isPracticeModeGlobal ? "確認モード完了" : "チェックテスト結果"}</h3>
+            <p id="resultScore" style="font-size:32px; font-weight:bold; margin:15px 0;">${totalCount}問中 ${correctCount}問 正解</p>
+            <div id="resultList" style="text-align:left; max-height:180px; overflow-y:auto; border:1px solid #eee; padding:10px; margin-bottom:20px; font-size:14px; background:#fafafa;">${listHtml}</div>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="showPage('homePage')" class="btn-primary" style="flex: 1; height: 50px; background: #1a73e8; font-size:16px;">ホームに戻る</button>
+                <button onclick="exitToListView()" style="flex: 1; height: 50px; border:1px solid #ccc; font-size:16px;">一覧を確認</button>
+            </div>
+        `;
     }
 }
-
 window.exitToListView = function() {
     isReviewMode = false;
     isSelfPracticeMode = false;

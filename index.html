@@ -963,11 +963,17 @@ window.startTodayLesson = async function() {
     
     // 💡 【条件判定】既習の単語だけで「設定された問題数」を満たせているか？
     if (uniquePool.length < TEST_QUESTION_COUNT) {
-        // 初めて使う生徒さん向けの親切なナビゲーション文言
-        alert(`英単語クイズProへようこそ！🎉\n\n「今日の学習」では、通常は過去に学んだ単語の復習テストからスタートしますが、現在はまだテストを行えるだけの学習データが溜まっていません。\n\nまずはセクションを選んで、新しい単語を覚えることから始めましょう！`);
+        // 初めて使う生徒さん向けのナビゲーション
+        alert(`英単語クイズProへようこそ！🎉\n\n「今日の学習」では、通常は過去に学んだ単語の復習テストからスタートしますが、現在はまだテストを行えるだけの学習データが溜まっていません。\n\nまずは今日の目標である「Section ${currentSection}」の単語を覚えることから始めましょう！`);
         
-        // 🔄 復習テストをパスして「セクション選択画面」へ直接遷移
-        showPage("sectionPage");
+        // 🔄 復習テストをパスして、現在の目標セクションの「一覧画面」へ直接遷移
+        // 一覧画面のドロップダウンの選択状態も現在のセクションに同期させる
+        const listSelect = document.getElementById("listSectionSelect");
+        if (listSelect) {
+            listSelect.value = currentSection;
+        }
+        
+        showPage("list");
         return; 
     }
     
@@ -986,7 +992,6 @@ window.startTodayLesson = async function() {
     renderQuestion();
     showPage("quiz");
 };
-
 function getNextWord() {
   let start = (currentSection - 1) * SECTION_SIZE;
   let pool = words.slice(start, start + SECTION_SIZE);

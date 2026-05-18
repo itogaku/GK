@@ -780,10 +780,14 @@ async function saveProgress() {
     await update(ref(db, 'users/' + currentUser), {
         progress: progress,
         studyCount: studyCount,
-        reviewWrongWords: reviewWrongWords, // これを忘れない
+        reviewWrongWords: reviewWrongWords, 
         SECTION_SIZE: SECTION_SIZE,
         TEST_QUESTION_COUNT: TEST_QUESTION_COUNT,
-        completedSections: completedSections // 追加
+        completedSections: completedSections,
+        
+        // ★ここに追記：手動で変更したセクションと全範囲モードの状態も一緒にクラウドへ保存する
+        currentSection: currentSection,
+        isAllWordsMode: isAllWordsMode
     });
 }
 
@@ -793,15 +797,21 @@ async function loadUserData(userName) {
         const data = snapshot.val();
         progress = data.progress || {};
         studyCount = data.studyCount || 0;
+        
         // 設定値をクラウドから復元
         SECTION_SIZE = data.SECTION_SIZE || 10;
         TEST_QUESTION_COUNT = data.TEST_QUESTION_COUNT || 10;
         reviewWrongWords = data.reviewWrongWords || [];
+        completedSections = data.completedSections || []; 
+        
+        // ★ここが拡張：選んだセクションや全範囲モードの状態もクラウドから引き継ぐ
+        currentSection = data.currentSection || currentSection;
+        isAllWordsMode = data.isAllWordsMode !== undefined ? data.isAllWordsMode : false;
         
         // 設定画面のUIに数値を反映
         if(document.getElementById("setSectionSize")) document.getElementById("setSectionSize").value = SECTION_SIZE;
         if(document.getElementById("setTestCount")) document.getElementById("setTestCount").value = TEST_QUESTION_COUNT;
-        completedSections = data.completedSections || []; // 追加
+        
         return data;
     }
     return null;
@@ -913,9 +923,11 @@ window.login = async function() {
     if(snapshot.exists() && snapshot.val().password === pass) {
         currentUser = selectedUser;
         localStorage.setItem("currentUser", currentUser);
-        await loadUserData(currentUser); // データを読み込む
         
-        // 追加：ログイン直後にダッシュボードを更新
+        // データを完全に読み込み終わるのを待つ
+        await loadUserData(currentUser); 
+        
+        // ★データ復元が終わった後に、確定したセクション情報をホームに反映する
         updateHomeDashboard(); 
         showPage("homePage");
     } else { alert("パスワードが違います"); }
@@ -1131,28 +1143,40 @@ window.renderSectionButtons = function() {
     }
     
     btn.innerHTML = `Section ${i}`;
-    btn.onclick = () => { 
+    btn.onclick = async () => { 
       isAllWordsMode = false;
-      currentSection = i; 
-      // 一覧画面のプルダウンの選択状態も同期させる
+      currentSection = i; // 選択されたセクションを現在の目標にする
+      
+      // 一覧画面のプルダウンの選択状態もあらかじめ同期
       const listSelect = document.getElementById("listSectionSelect");
       if (listSelect) listSelect.value = i;
-      showPage("list"); 
+      
+      // ★追加：新しいセクション目標を即座にクラウドへ保存
+      await saveProgress();
+      
+      // ★変更：一覧ではなくホーム画面に戻り、目標の表示を更新する
+      showPage("homePage"); 
     };
     container.appendChild(btn);
   }
 
-  // 👇 【追加】最後に「全単語（全範囲）」用のボタンを生成
+  // 「全単語（全範囲）」用のボタンを生成
   const allBtn = document.createElement("button");
   allBtn.className = "section-btn";
-  allBtn.style.borderColor = "#4caf50"; // 緑色の枠線にして特別感を出す
+  allBtn.style.borderColor = "#4caf50"; 
   allBtn.style.color = "#4caf50";
   allBtn.innerHTML = "全単語（全範囲）";
-  allBtn.onclick = () => {
+  allBtn.onclick = async () => {
       isAllWordsMode = true;
+      
       const listSelect = document.getElementById("listSectionSelect");
-      if (listSelect) listSelect.value = "all"; // プルダウンを「全単語」に同期
-      showPage("list");
+      if (listSelect) listSelect.value = "all"; 
+      
+      // ★全範囲フラグの状態をクラウドへセーブ
+      await saveProgress();
+      
+      // ★ホーム画面へ戻る
+      showPage("homePage");
   };
   container.appendChild(allBtn);
 };

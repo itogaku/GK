@@ -237,7 +237,6 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
       <option value="wrong">不正解のみ</option>
     </select>
     <select id="listSectionSelect" onchange="changeListSection(this.value)" style="padding:8px;"></select>
-    <button onclick="toggleAllWordsMode()" id="allWordsBtn" style="padding:8px; background:#e0e0e0;">全単語表示モード: オフ</button>
     <button onclick="goToQuizFromList(true)" class="btn-primary">この範囲をテスト</button>
     <button onclick="goToQuizFromList(false)" class="btn-primary" style="background: #f44336;">チェックテスト</button>
   </div>
@@ -1118,32 +1117,42 @@ window.renderSectionButtons = function() {
   const container = document.getElementById("sectionContainer");
   container.innerHTML = "";
   
-  // 現在の設定（SECTION_SIZE）に基づいてセクション数を計算
   const count = Math.ceil(words.length / SECTION_SIZE);
   
+  // 通常のセクションボタンを生成
   for (let i = 1; i <= count; i++) {
     const btn = document.createElement("button");
     btn.className = "section-btn";
     
-    // このセクションに含まれる単語を抽出
-    let start = (i - 1) * SECTION_SIZE;
-    let pool = words.slice(start, start + SECTION_SIZE);
-    
-    // セクション内のすべての単語が progress で "correct" になっているか判定
-    const isCompleted = pool.length > 0 && pool.every(w => progress[w.word.toLowerCase()] === "correct");
-    
-    // 単語の状態ではなく「completedSections」に含まれるかで判定
     if (completedSections.includes(i)) {
         btn.classList.add("completed");
     }
     
     btn.innerHTML = `Section ${i}`;
     btn.onclick = () => { 
+      isAllWordsMode = false;
       currentSection = i; 
+      // 一覧画面のプルダウンの選択状態も同期させる
+      const listSelect = document.getElementById("listSectionSelect");
+      if (listSelect) listSelect.value = i;
       showPage("list"); 
     };
     container.appendChild(btn);
   }
+
+  // 👇 【追加】最後に「全単語（全範囲）」用のボタンを生成
+  const allBtn = document.createElement("button");
+  allBtn.className = "section-btn";
+  allBtn.style.borderColor = "#4caf50"; // 緑色の枠線にして特別感を出す
+  allBtn.style.color = "#4caf50";
+  allBtn.innerHTML = "全単語（全範囲）";
+  allBtn.onclick = () => {
+      isAllWordsMode = true;
+      const listSelect = document.getElementById("listSectionSelect");
+      if (listSelect) listSelect.value = "all"; // プルダウンを「全単語」に同期
+      showPage("list");
+  };
+  container.appendChild(allBtn);
 };
 
 window.renderList = function() {
@@ -1151,7 +1160,7 @@ window.renderList = function() {
     const filter = document.getElementById("filter").value;
     table.innerHTML = "<tr><th>No</th><th>単語</th><th>意味</th><th>状態</th></tr>";
 
-    // 通常モードの時だけ、最上部に復習必須単語をハイライト表示する
+    // 通常セクションモードの時だけ、最上部に復習必須単語をハイライト表示する
     if (!isAllWordsMode && reviewWrongWords.length > 0 && filter !== "correct") {
         table.innerHTML += `<tr><td colspan="4" style="background:#fff3e0; color:#e65100; font-weight:bold; text-align:center;">復習が必要な単語</td></tr>`;
         reviewWrongWords.forEach(w => {
@@ -1160,15 +1169,14 @@ window.renderList = function() {
         });
     }
     
-    // 表示する対象（プール）の決定
     let pool = [];
     let offset = 0;
     
     if (isAllWordsMode) {
-        pool = words; // アプリ内の全単語
+        pool = words; // 全単語を表示
     } else {
         offset = (currentSection - 1) * SECTION_SIZE;
-        pool = words.slice(offset, offset + SECTION_SIZE); // 選択中セクションの単語
+        pool = words.slice(offset, offset + SECTION_SIZE); // 特定セクションのみ表示
     }
 
     pool.forEach((w, index) => {
@@ -1176,13 +1184,20 @@ window.renderList = function() {
         if (filter === "correct" && state !== "correct") return;
         if (filter === "wrong" && state !== "wrong") return;
         
-        // 全単語モードの時は通し番号、セクションモードの時はセクション内の番号にする
         const displayIndex = isAllWordsMode ? (index + 1) : (offset + index + 1);
         table.innerHTML += `<tr><td>${displayIndex}</td><td><strong>${w.word}</strong></td><td>${w.meaning}</td><td style="text-align:center">${state==='correct'?'〇':state==='wrong'?'×':'-'}</td></tr>`;
     });
 };
 
-window.changeListSection = (val) => { currentSection = parseInt(val); renderList(); };
+window.changeListSection = (val) => { 
+    if (val === "all") {
+        isAllWordsMode = true;
+    } else {
+        isAllWordsMode = false;
+        currentSection = parseInt(val); 
+    }
+    renderList(); 
+};
 
 window.goToQuizFromList = function(isPractice) {
     testLog = [];
@@ -1296,12 +1311,21 @@ document.getElementById("keyboardSelect").onchange = (e) => {
 // --- 初期化 ---
 async function init() {
   const listSelect = document.getElementById("listSectionSelect");
+  listSelect.innerHTML = ""; // 初期化
+  
   const count = Math.ceil(words.length / SECTION_SIZE);
   for (let i = 1; i <= count; i++) {
     const opt = document.createElement("option");
-    opt.value = i; opt.textContent = `Section ${i}`;
+    opt.value = i; 
+    opt.textContent = `Section ${i}`;
     listSelect.appendChild(opt);
   }
+  
+  // 👇 プルダウンの最後に「全単語」の選択肢を追加
+  const allOpt = document.createElement("option");
+  allOpt.value = "all";
+  allOpt.textContent = "全単語（全範囲）";
+  listSelect.appendChild(allOpt);
   
   await renderUserList();
   
@@ -1313,7 +1337,6 @@ async function init() {
   }
   buildKeyboard();
 }
-
 init();
 </script>
 </body>

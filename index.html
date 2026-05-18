@@ -736,6 +736,7 @@ let isSelfPracticeMode = false;
 let isPracticeModeGlobal = false;
 let currentLayout = "mobile";
 let completedSections = []; // 合格したセクション番号（例: [1, 3]）を保持
+let lastCompletedSection = 0; // 最後にテストで合格（学習完了）したセクションを記録する変数
 let isAllWordsMode = false;
 let lastStudiedSection = 1; // 前回学んだ（選択した）セクションを記録する変数
     
@@ -784,8 +785,8 @@ async function saveProgress() {
         SECTION_SIZE: SECTION_SIZE,
         TEST_QUESTION_COUNT: TEST_QUESTION_COUNT,
         completedSections: completedSections,
-        currentSection: currentSection,          // ★現在の目標セクションを保存
-        lastStudiedSection: lastStudiedSection,  // ★前回学んだセクションを保存
+        currentSection: currentSection,
+        lastCompletedSection: lastCompletedSection, // ★最後に合格したセクションを保存
         isAllWordsMode: isAllWordsMode
     });
 }
@@ -801,9 +802,8 @@ async function loadUserData(userName) {
         reviewWrongWords = data.reviewWrongWords || [];
         completedSections = data.completedSections || []; 
         
-        // ★自動判定に上書きされないよう、クラウドに保存された選択セクションを最優先で復元
         currentSection = data.currentSection || currentSection;
-        lastStudiedSection = data.lastStudiedSection || lastStudiedSection;
+        lastCompletedSection = data.lastCompletedSection || lastCompletedSection; // ★復元
         isAllWordsMode = data.isAllWordsMode !== undefined ? data.isAllWordsMode : false;
         
         if(document.getElementById("setSectionSize")) document.getElementById("setSectionSize").value = SECTION_SIZE;
@@ -813,7 +813,6 @@ async function loadUserData(userName) {
     }
     return null;
 }
-
     
 // --- ページ制御 ---
 window.showPage = function(id) {
@@ -1014,16 +1013,16 @@ window.startTodayLesson = async function() {
     if (isAllWordsMode) {
         uniquePool = [...words];
     } else {
-        // 【第1優先】直前のチェックテストで間違えた単語
+        // 【第1優先】直前のチェックテストで間違えた単語（最優先）
         if (typeof reviewWrongWords !== 'undefined' && Array.isArray(reviewWrongWords)) {
             reviewWrongWords.forEach(w => {
                 if (w && w.word) uniquePool.push(w);
             });
         }
         
-        // 【第2優先】手動選択で書き換わっていない、本当に「リアルに前回まで学習していたセクション」から抽出
-        if (typeof lastStudiedSection !== 'undefined' && lastStudiedSection > 0) {
-            let start = (lastStudiedSection - 1) * SECTION_SIZE; 
+        // 【第2優先】★【大変更】選択セクションではなく「合格して学習完了したセクション」から出題！
+        if (typeof lastCompletedSection !== 'undefined' && lastCompletedSection > 0) {
+            let start = (lastCompletedSection - 1) * SECTION_SIZE; 
             let priority2 = words.slice(start, start + SECTION_SIZE);
             priority2.forEach(w => {
                 if (w && w.word && !uniquePool.some(p => p.word.toLowerCase() === w.word.toLowerCase())) {
@@ -1033,7 +1032,7 @@ window.startTodayLesson = async function() {
         }
         
         // 【第3優先】それ以前（既習）に学んだ単語
-        // 現在選んでいるセクション「未満」の過去単語からランダムに補填
+        // 現在の目標セクション未満のすべての過去単語からランダムに補填
         let maxIndex = (currentSection - 1) * SECTION_SIZE;
         if (uniquePool.length < TEST_QUESTION_COUNT && maxIndex > 0) {
             let pastWords = words.slice(0, maxIndex).sort(() => 0.5 - Math.random());
@@ -1046,17 +1045,15 @@ window.startTodayLesson = async function() {
         }
     }
     
-    // 💡 【条件判定】復習テストを作れるだけのデータが過去にあるか？
+    // 💡 【条件判定】単語が足りないときの対応（ご提示通り）
     if (uniquePool.length < TEST_QUESTION_COUNT) {
-        alert(`英単語クイズProへようこそ！🎉\n\n「今日の学習」では、前回学んだ単語の復習テストからスタートしますが、まだテストを行えるだけの過去の学習データが溜まっていません。\n\nまずは今日の目標である「Section ${currentSection}」の単語を一覧で覚えることから始めましょう！`);
+        alert(`英単語クイズProへようこそ！🎉\n\n「今日の学習」では、前回合格したセクションの復習テストからスタートしますが、まだテストを行えるだけの合格データ（学習完了データ）が溜まっていません。\n\nまずは今日の目標である「Section ${currentSection}」の単語を一覧で覚えることから始めましょう！`);
         
         const listSelect = document.getElementById("listSectionSelect");
         if (listSelect) {
             listSelect.value = isAllWordsMode ? "all" : currentSection;
         }
         
-        // 初回なので、このセクションを今後のための「前回履歴」の初期値にする
-        lastStudiedSection = currentSection;
         await saveProgress();
         if (typeof updateHomeDashboard === 'function') updateHomeDashboard();
         
@@ -1064,11 +1061,8 @@ window.startTodayLesson = async function() {
         return; 
     }
     
-    // 問題数を確定させ、ランダムにシャッフルして確定
+    // 問題数を確定させ、ランダムにシャッフルして確定（機能維持）
     reviewPool = uniquePool.sort(() => 0.5 - Math.random()).slice(0, TEST_QUESTION_COUNT);
-    
-    // ★【重要】：無事に過去の復習テストが組み上がった「後」で、初めて次回に向けて「前回履歴」を現在の目標に更新する
-    lastStudiedSection = currentSection;
     
     await saveProgress(); 
     if (typeof updateHomeDashboard === 'function') updateHomeDashboard();
@@ -1157,50 +1151,42 @@ function showTestResult() {
 
     const correctCount = testLog.filter(i => i.status === "correct").length;
     const totalCount = testLog.length;
-    
-    // 💡 全問正解（合格）したかどうかの判定
     const isPerfect = (correctCount === totalCount); 
 
     document.getElementById("resultScore").textContent = `${totalCount}問中 ${correctCount}問 正解`;
 
-    // 【仕様変更】：自主練習モード（isSelfPracticeMode）ではなく、通常の「合格テスト」で全問正解した場合
     if (!isSelfPracticeMode && isPerfect && !isAllWordsMode) {
-        
-        // 1. 現在のセクションを合格リスト（completedSections）に記録
         if (!completedSections.includes(currentSection)) {
             completedSections.push(currentSection);
         }
 
-        // 2. ★【重要変更】ホームの現在の目標を「次のセクション」に進める
+        // ★【重要】合格して学習完了したこのセクションを「前回の合格セクション」としてガッチリ記憶！
+        lastCompletedSection = currentSection;
+
+        // ホームの現在の目標を自動的に「次のセクション」に進める
         const maxSection = Math.ceil(words.length / SECTION_SIZE);
         if (currentSection < maxSection) {
-            currentSection++; // 次のセクションへ
-            lastStudiedSection = currentSection; // 前回学んだセクションも更新して連動
+            currentSection++; 
         }
         
-        // クラウド（Firebase）に進捗と新しい目標セクションを即座に保存
         saveProgress();
 
-        // 3. ★結果画面の表示を「合格用」に書き換え＆「ホームに戻る」ボタンを設置
         const resultView = document.getElementById("quizResultView");
         resultView.innerHTML = `
             <h3 id="resultTitle" style="color:#ff9800; margin-top:0;">✨ 合格！テスト完了 ✨</h3>
             <p id="resultScore" style="font-size:32px; font-weight:bold; margin:15px 0;">全問正解！素晴らしい！</p>
-            <p style="margin-bottom:20px; color:#666;">ホームの目標が 自動的に 【Section ${currentSection}】 に更新されました。</p>
+            <p style="margin-bottom:20px; color:#666;">このセクションの学習が完了しました。目標が自動的に【Section ${currentSection}】に更新されます。</p>
             <div style="display: flex; gap: 10px;">
                 <button onclick="showPage('homePage')" class="btn-primary" style="flex: 1; height: 50px; background: #ff9800; font-size:16px;">ホームに戻る</button>
                 <button onclick="exitToListView()" style="flex: 1; height: 50px; border:1px solid #ccc; font-size:16px;">一覧を確認</button>
             </div>
         `;
     } else {
-        // 通常のチェックテスト（不合格）または「この範囲を確認」モードなどの通常結果表示
+        // 不合格時や練習モード時の既存ロジック（そのまま完全維持）
         document.getElementById("resultTitle").textContent = isPracticeModeGlobal ? "確認モード完了" : "チェックテスト結果";
         document.getElementById("resultTitle").style.color = "#1a73e8";
         
-        // 不合格時や練習モード時も「ホームに戻る」動線を確保するため、既存のボタンエリアを上書き
         const resultView = document.getElementById("quizResultView");
-        
-        // すでに中に表示されているリスト用コンテナなどを維持しつつ、ボタン部分を使いやすく配置
         let listHtml = "";
         testLog.forEach(item => {
             const mark = item.status === "correct" ? "○" : "×";
@@ -1219,6 +1205,7 @@ function showTestResult() {
         `;
     }
 }
+
 window.exitToListView = function() {
     isReviewMode = false;
     isSelfPracticeMode = false;

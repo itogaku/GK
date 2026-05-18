@@ -1014,16 +1014,18 @@ window.startTodayLesson = async function() {
     if (isAllWordsMode) {
         uniquePool = [...words];
     } else {
-        // 【第1優先】直前のチェックテストで間違えた単語
+        // 【第1優先】直前のチェックテストで間違えた単語（ここはそのまま維持）
         if (typeof reviewWrongWords !== 'undefined' && Array.isArray(reviewWrongWords)) {
             reviewWrongWords.forEach(w => {
                 if (w && w.word) uniquePool.push(w);
             });
         }
         
-        // 【第2優先】★「1つ前」ではなく【前回学んだセクション（lastStudiedSection）】の単語
+        // 【第2優先】★【大修正】引き算を完全に撤去！
+        // 「lastStudiedSection」が指すセクションそのものの単語を正確に切り出します
         if (typeof lastStudiedSection !== 'undefined' && lastStudiedSection > 0) {
-            let start = (lastStudiedSection - 1) * SECTION_SIZE;
+            // 例：Section 1 なら (1-1)*SIZE = 0番目から抽出。Section 2 なら (2-1)*SIZE = 2番目から抽出
+            let start = (lastStudiedSection - 1) * SECTION_SIZE; 
             let priority2 = words.slice(start, start + SECTION_SIZE);
             priority2.forEach(w => {
                 if (w && w.word && !uniquePool.some(p => p.word.toLowerCase() === w.word.toLowerCase())) {
@@ -1033,7 +1035,7 @@ window.startTodayLesson = async function() {
         }
         
         // 【第3優先】それ以前（既習）に学んだ単語
-        // 手動選択に対応するため、現在の目標セクションの開始位置未満の既習単語を対象にする
+        // 現在選んでいるセクション「未満」の過去単語をシャッフルして補填に回す
         let maxIndex = (currentSection - 1) * SECTION_SIZE;
         if (uniquePool.length < TEST_QUESTION_COUNT && maxIndex > 0) {
             let pastWords = words.slice(0, maxIndex).sort(() => 0.5 - Math.random());
@@ -1046,7 +1048,7 @@ window.startTodayLesson = async function() {
         }
     }
     
-    // 💡 【条件判定】既習の単語だけで「設定された問題数」を満たせているか？
+    // 💡 【条件判定】問題数を満たせているか？
     if (uniquePool.length < TEST_QUESTION_COUNT) {
         alert(`英単語クイズProへようこそ！🎉\n\n「今日の学習」では、前回学んだ単語の復習テストからスタートしますが、選択された範囲にはまだテストを行えるだけの学習データが溜まっていません。\n\nまずは今日の目標である「Section ${currentSection}」の単語を覚えることから始めましょう！`);
         
@@ -1055,7 +1057,7 @@ window.startTodayLesson = async function() {
             listSelect.value = isAllWordsMode ? "all" : currentSection;
         }
         
-        // 今回学んだセクションとして現在のセクションをセットしておく
+        // 復習対象を現在のセクションに同期させておく
         lastStudiedSection = currentSection;
         await saveProgress();
         if (typeof updateHomeDashboard === 'function') updateHomeDashboard();
@@ -1067,7 +1069,7 @@ window.startTodayLesson = async function() {
     // 問題数を確定させ、ランダムにシャッフルして reviewPool にセット
     reviewPool = uniquePool.sort(() => 0.5 - Math.random()).slice(0, TEST_QUESTION_COUNT);
     
-    // クイズが正常に開始されるため、このセクションを「前回学んだセクション」として上書き記憶
+    // クイズが正常に開始されたので、次回のためにこのセクションを「前回学んだ場所」として記憶
     lastStudiedSection = currentSection;
     
     await saveProgress(); 

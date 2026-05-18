@@ -115,12 +115,11 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
 </head>
 <body>
 
-<div id="quizControls">
-  <button onclick="showPage('homePage')" style="background: #fff; border: 1px solid #2196f3; color: #2196f3;">ホーム</button>
-  <button onclick="showPage('sectionPage')">セクション選択</button>
-  <button onclick="showPage('list')">一覧</button>
-  <button onclick="showPage('settingsPage')">設定</button>
-  <button onclick="logout()">ログアウト</button>
+<div id="quizControls" class="quiz-controls" style="display: none; gap: 10px; justify-content: center; padding: 10px;">
+    <!-- 常に出すのはこの「ホームに戻る」ボタン1つだけにします -->
+    <button onclick="window.showPage('homePage')" class="btn-nav" style="padding: 10px 20px; background: #555; color: #fff; border: none; border-radius: 5px; font-weight: bold;">
+        🏠 ホームに戻る
+    </button>
 </div>
 
 <!-- ログイン画面 -->
@@ -164,19 +163,34 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
       <p style="color: #666; font-size: 14px;">現在の目標：<span id="targetSectionName" style="font-weight:bold; color: #1a73e8;">Section 1</span></p>
     </div>
 
-    <button onclick="startTodayLesson()" class="btn-primary" style="font-size: 18px; padding: 15px; width: 100%; margin-bottom: 20px; border-radius: 50px; box-shadow: 0 4px 12px rgba(33,150,243,0.3);">
-      今日の学習を開始する
+    <!-- メイン学習ボタン -->
+    <button onclick="startTodayLesson()" class="btn-primary" style="font-size: 18px; padding: 15px; width: 100%; margin-bottom: 15px; border-radius: 50px; box-shadow: 0 4px 12px rgba(33,150,243,0.3);">
+      🚀 今日の学習を開始する
     </button>
-    <button onclick="startGlobalSampleTest()" class="btn-primary" style="font-size: 16px; padding: 12px; width: 100%; margin-bottom: 20px; border-radius: 50px; background: #9c27b0; box-shadow: 0 4px 12px rgba(156,39,176,0.3);">
-      全範囲実力テストを開始する (実力診断)
+    
+    <button onclick="startGlobalSampleTest()" class="btn-primary" style="font-size: 16px; padding: 12px; width: 100%; margin-bottom: 25px; border-radius: 50px; background: #9c27b0; box-shadow: 0 4px 12px rgba(156,39,176,0.3);">
+      📝 全範囲実力テストを開始する
     </button>
-    <div style="display: flex; gap: 10px;">
-      <button onclick="showPage('sectionPage')" style="flex: 1; border-radius: 8px;">別のセクション</button>
-      <button onclick="logout()" style="flex: 1; border-radius: 8px;">ログアウト</button>
+
+    <div style="border-top: 2px dashed #eee; margin: 20px 0;"></div>
+
+    <!-- 🛠️ すべての管理系メニューをホーム画面下部に集約（2列の綺麗に並ぶボタン配置） -->
+    <div class="home-menu-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+      <button onclick="showPage('sectionPage')" style="padding: 12px 5px; border-radius: 12px; font-weight: bold; background: #f5f5f7; border: 1px solid #ddd; color: #333;">
+        📁 セクション選択
+      </button>
+      <button onclick="showPage('list')" style="padding: 12px 5px; border-radius: 12px; font-weight: bold; background: #f5f5f7; border: 1px solid #ddd; color: #333;">
+        📖 単語一覧を確認
+      </button>
+      <button onclick="showPage('settingPage')" style="padding: 12px 5px; border-radius: 12px; font-weight: bold; background: #f5f5f7; border: 1px solid #ddd; color: #333;">
+        ⚙️ アプリ設定
+      </button>
+      <button onclick="logout()" style="padding: 12px 5px; border-radius: 12px; font-weight: bold; background: #ffebee; border: 1px solid #ffcdd2; color: #c62828;">
+        🚪 ログアウト
+      </button>
     </div>
   </div>
 </section>
-
 <!-- セクション選択画面 -->
 <section id="sectionPage" class="page">
   <h2 style="text-align:center;">学習セクションを選択</h2>
@@ -816,23 +830,24 @@ async function loadUserData(userName) {
     
 // --- ページ制御 ---
 window.showPage = function(id) {
-  // 1. 全てのページのactiveクラスを外す
-  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
-  
-  // 2. 指定されたページを表示する
+  // 1. 全てのページのactiveクラスを外して画面を切り替える
+  document.querySelectorAll(".page").forEach(p => p.classList.remove(".active" ? "active" : ""));
   const target = document.getElementById(id);
   if (target) target.classList.add("active");
 
-  // 3. ナビゲーションコントロールの表示制御
+  // 2. ★【重要】「ホームに戻る」ボタンエリア（quizControls）の表示制御
   const controls = document.getElementById("quizControls");
-  if (currentUser) {
-    controls.style.display = "flex";
-    controls.classList.add("is-logged-in");
-  } else { 
-    controls.style.display = "none"; 
+  if (controls) {
+    // ログイン済み、かつ「今ホーム画面以外」にいるときだけ、ホームに戻るボタンを表示する
+    if (currentUser && id !== "homePage") {
+      controls.style.display = "flex";
+    } else {
+      // ホーム画面にいるときや、ログイン前（ユーザー選択画面）のときは非表示にする
+      controls.style.display = "none";
+    }
   }
 
-  // 4. 各画面を開いたときの初期化処理
+  // 3. 各画面を開いたときの初期化処理（既存のものを維持）
   if (id === "list") window.renderList();
   if (id === "sectionPage") window.renderSectionButtons();
   
@@ -841,15 +856,9 @@ window.showPage = function(id) {
     testLog = [];
     if (typeof resetQuizUI === 'function') resetQuizUI();
 
-    // ❌ 【バグの原因を撤去】：ここにあった「currentSection = determineTodaySection();」を完全に削除しました。
-    // これにより、手動で選んだセクションや、テスト合格時に進んだセクションが勝手に書き換わるのを防ぎます。
-
-    // 生徒への挨拶表示
     if (document.getElementById("welcomeUser")) {
       document.getElementById("welcomeUser").textContent = `こんにちは、${currentUser}さん！`;
     }
-    
-    // 現在保持しているセクション情報（選んだセクション）のままダッシュボードを描き変える
     if (typeof updateHomeDashboard === 'function') updateHomeDashboard(); 
   }
 };

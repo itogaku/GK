@@ -242,8 +242,9 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
 </section>
 
 <!-- 一覧画面 -->
-<section id="list" class="page">
-  <div class="card" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+<section id="list" class="page" style="display: flex; flex-direction: column; min-height: 80vh;">
+  <!-- 上部コントロールエリア -->
+  <div class="card" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom: 15px;">
     <select id="filter" onchange="renderList()" style="padding:8px;">
       <option value="all">全て表示</option>
       <option value="correct">正解のみ</option>
@@ -251,13 +252,24 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
     </select>
     <select id="listSectionSelect" onchange="changeListSection(this.value)" style="padding:8px;"></select>
     
-    <!-- ★追加：テストボタン群をプログラムから隠せるように ID で囲みました -->
+    <!-- テストボタン群（ホームから来たときは隠れるエリア） -->
     <div id="listQuizNav" style="display: flex; gap: 8px;">
       <button onclick="goToQuizFromList(true)" class="btn-primary">この範囲をテスト</button>
       <button onclick="goToQuizFromList(false)" class="btn-primary" style="background: #f44336;">チェックテスト</button>
     </div>
   </div>
-  <table id="wordTable"></table>
+
+  <!-- 単語テーブル表示エリア -->
+  <div style="flex: 1;">
+    <table id="wordTable"></table>
+  </div>
+
+  <!-- 💡 追加：一覧画面専用の「ホームに戻る」固定ボタン -->
+  <div class="list-nav-footer" style="margin-top: 25px; padding: 10px 0;">
+    <button onclick="window.showPage('homePage')" class="btn-nav" style="padding: 12px 24px; background: #555; color: #fff; border: none; border-radius: 8px; font-weight: bold; width: 100%; font-size: 16px; box-shadow: 0 2px 6px rgba(0,0,0,0.15);">
+      🏠 ホームに戻る
+    </button>
+  </div>
 </section>
 
 <!-- 設定画面 -->
@@ -838,7 +850,7 @@ window.showPage = function(id) {
   const target = document.getElementById(id);
   if (target) target.classList.add("active");
 
-  // 2. ★【修正の肝①】「ホームに戻る」ボタンは学習画面（quiz）の時だけ表示
+  // 2. 「学習中（quiz）」の画面の時だけ、共通のホームに戻るナビを出す
   const controls = document.getElementById("quizControls");
   if (controls) {
     if (currentUser && id === "quiz") {
@@ -850,19 +862,17 @@ window.showPage = function(id) {
 
   // 3. 各画面を開いたときの初期化処理
   if (id === "list") {
-    window.renderList();
+    if (typeof window.renderList === 'function') window.renderList();
     
-    // ★【修正の肝②】ホームから直接「一覧」に来た場合、チェックテストボタンを隠す
-    // ※ HTML側で、一覧画面内にあるクイズ開始ボタン（練習モードやテストモードのボタン）を
-    // まとめて囲っている親要素のIDを "listQuizNav" と仮定しています。
+    // ★重要：ホーム画面から直接「一覧」に来た場合のみ、テストボタン（listQuizNav）を隠す
     const listQuizNav = document.getElementById("listQuizNav");
     if (listQuizNav) {
-        listQuizNav.style.display = "none"; // ボタンエリアを非表示にしてテスト不可にする
+        listQuizNav.style.display = "none"; 
     }
   }
   
   if (id === "sectionPage") {
-    window.renderSectionButtons();
+    if (typeof window.renderSectionButtons === 'function') window.renderSectionButtons();
   }
   
   if (id === "homePage") {
@@ -876,7 +886,6 @@ window.showPage = function(id) {
     if (typeof updateHomeDashboard === 'function') updateHomeDashboard(); 
   }
 };
-
 /* --- 設定保存関数の追加 --- */
 window.saveSettings = async function() {
     SECTION_SIZE = parseInt(document.getElementById("setSectionSize").value);

@@ -270,7 +270,7 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
     
 <script type="module">
 // 1. まずインポート部分（使う機能をFirebaseから読み込む）
-/* ===== 1. Firebase初期設定（Realtime Databaseに統一） ===== */
+/* ===== 1. Firebase初期設定 ===== */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
@@ -284,7 +284,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-/* ===== 1.5. Firebaseログ送信送信 ===== */
+/* ===== 1.5. Firebaseログ送信 ===== */
 async function sendLog(word, correct) {
   if (!currentUser) return;
   try {
@@ -296,7 +296,7 @@ async function sendLog(word, correct) {
       time: new Date().toISOString()
     });
   } catch(e) {
-    console.log("オフラインまたは送信失敗");
+    console.log("ログ送信オフライン");
   }
 }
     
@@ -728,7 +728,7 @@ const words = [
 
 ];
 
-/* ===== 2. 定数・変数定義 ===== */
+/* ===== 2. 定数・変数定義（HTML側と完全一致） ===== */
 const SECTION_SIZE = 2; 
 let progress = {};
 let current = null;
@@ -740,6 +740,7 @@ let reviewPool = [];
 let isPracticeModeGlobal = false;
 let isSelfPracticeMode = false;
 let currentLayout = "mobile"; 
+let reviewWrongWords = []; // 【修正】HTML側で要求されている配列を復活
 
 /* ===== 3. クラウド同期関数群 ===== */
 
@@ -750,7 +751,7 @@ async function saveUserData() {
         await set(ref(db, 'users/' + currentUser + '/data'), {
             progress: progress,
             studyCount: studyCount,
-            currentSection: currentSection, // 選択したセクション情報もクラウドに保存
+            currentSection: currentSection,
             lastUpdated: new Date().toISOString()
         });
     } catch (e) { console.error("Save Error:", e); }
@@ -762,7 +763,6 @@ async function loadUserData(username) {
         if (snapshot.exists()) {
             const data = snapshot.val();
             progress = data.progress || {};
-            // クラウドに保存されたセクションがあればそれを優先
             currentSection = data.currentSection || determineTodaySection();
             localStorage.setItem("studyCount_" + username, data.studyCount || 0);
             return true;
@@ -794,7 +794,7 @@ window.renderUserList = async function() {
     if (snapshot.exists()) {
       const users = snapshot.val();
       Object.keys(users).forEach(name => {
-        if (name === "logs") return; // ログ用ノードは除外
+        if (name === "logs") return; 
         const div = document.createElement("div");
         div.className = "user-item";
         div.innerHTML = `<span>${name}</span><button onclick="selectUser('${name}')">選択</button>`;
@@ -880,8 +880,8 @@ window.startTodayLesson = async function() {
   }
   isSelfPracticeMode = false;
   testLog = [];
+  reviewWrongWords = []; // 新しいレッスン開始時にリセット
   
-  // 今日の学習は、現在選択されている目標セクションから出題する
   let offset = (currentSection - 1) * SECTION_SIZE;
   reviewPool = words.slice(offset, offset + SECTION_SIZE).sort(() => Math.random() - 0.5);
   
@@ -959,9 +959,12 @@ document.getElementById("checkBtn").onclick = async () => {
     testLog.push({ word: current.word, meaning: current.meaning, status: status });
     progress[current.word.toLowerCase()] = status;
     
-    // ログ送信
-    await sendLog(current.word, ok);
+    // 【修正】間違えた単語をHTML側のリスト要求に合わせて配列にストック
+    if (!ok && !reviewWrongWords.some(w => w.word === current.word)) {
+        reviewWrongWords.push(current);
+    }
     
+    await sendLog(current.word, ok);
     if (currentUser) { await saveUserData(); }
     
     const j = document.getElementById("judge");
@@ -969,6 +972,11 @@ document.getElementById("checkBtn").onclick = async () => {
     j.className = ok ? "correct-text" : "wrong-text";
     document.getElementById("resultArea").className = ok ? "correct" : "wrong";
     document.getElementById("correctWord").textContent = "答え: " + current.word;
+    
+    // 【修正】exampleAreaの置換バグを修正
+    if (current.example) {
+        document.getElementById("answerExample").textContent = current.example.replace(/_+/g, current.word);
+    }
     
     document.getElementById("checkBtn").classList.add("hidden");
     document.getElementById("nextBtn").classList.remove("hidden");
@@ -995,7 +1003,6 @@ window.exitToListView = function() {
   window.showPage("homePage");
 };
 
-// 【重要変更】：セクションボタンを押した時の挙動を修正
 window.renderSectionButtons = function() {
   const container = document.getElementById("sectionContainer"); container.innerHTML = "";
   const count = Math.ceil(words.length / SECTION_SIZE);
@@ -1003,9 +1010,9 @@ window.renderSectionButtons = function() {
     const btn = document.createElement("button"); btn.className = "section-btn";
     btn.innerHTML = `Section ${i}`; 
     btn.onclick = async () => { 
-      currentSection = i;           // 選択されたセクションを記憶
-      await saveUserData();         // セクション情報をクラウドに保存して同期
-      window.showPage("homePage");  // クイズをはじめず、ホーム画面に戻る
+      currentSection = i;           
+      await saveUserData();         
+      window.showPage("homePage");  
     };
     container.appendChild(btn);
   }
@@ -1015,13 +1022,28 @@ window.renderList = function() {
   const table = document.getElementById("wordTable");
   const filter = document.getElementById("filter").value;
   table.innerHTML = "<tr><th>No</th><th>単語</th><th>意味</th><th>状態</th></tr>";
+  
+  // 【機能復活】復習テストでの間違いを最上部に表示するHTML側のロジック
+  if (reviewWrongWords.length > 0 && filter !== "correct") {
+    table.innerHTML += `<tr><td colspan="4" style="background:#fff3e0; color:#e65100; font-weight:bold; text-align:center;">復習テストでの間違い（再確認！）</td></tr>`;
+    reviewWrongWords.forEach(w => {
+      const st = progress[w.word.toLowerCase()];
+      const mark = st === 'correct' ? '〇' : '×';
+      const tr = document.createElement("tr");
+      tr.style.background = "#fff9f0"; 
+      tr.innerHTML = `<td>!</td><td><strong>${w.word}</strong></td><td>${w.meaning}</td><td style="text-align:center">${mark}</td>`;
+      table.appendChild(tr);
+    });
+    table.innerHTML += `<tr><td colspan="4" style="background:#f0f2f5; height:10px; padding:0;"></td></tr>`; 
+  }
+
   let offset = (currentSection - 1) * SECTION_SIZE;
   words.slice(offset, offset + SECTION_SIZE).forEach((w, i) => {
     const st = progress[w.word.toLowerCase()];
     if (filter === "correct" && st !== "correct") return;
     if (filter === "wrong" && st !== "wrong") return;
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td>${offset+i+1}</td><td><strong>${w.word}</strong></td><td>${w.meaning}</td><td>${st==='correct'?'〇':st==='wrong'?'×':'-'}</td>`;
+    tr.innerHTML = `<td>${offset+i+1}</td><td><strong>${w.word}</strong></td><td>${w.meaning}</td><td style="text-align:center">${st==='correct'?'〇':st==='wrong'?'×':'-'}</td>`;
     table.appendChild(tr);
   });
 };

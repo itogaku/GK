@@ -258,23 +258,26 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
     </select>
     <select id="listSectionSelect" onchange="changeListSection(this.value)" style="padding:8px;"></select>
     
-    <!-- 今日の学習（セクション選択含む）から来たときだけ表示されるボタンエリア -->
+    <!-- 今日の学習・セクション画面から来たときだけ表示されるボタンエリア -->
     <div id="listQuizNav" style="display: flex; gap: 8px;">
       <button onclick="goToQuizFromList(true)" class="btn-primary">この範囲をテスト</button>
       <button onclick="goToQuizFromList(false)" class="btn-primary" style="background: #f44336;">チェックテスト</button>
-      
-      <!-- ★追加：学習を中断してホームに戻るボタン -->
       <button onclick="suspendLesson()" style="padding: 8px 16px; background: #666; color: #fff; border: none; border-radius: 4px; font-weight: bold;">
         🏠 学習を中断する
       </button>
     </div>
+    
+    <!-- ❌ カード内にあった「ホームに戻る」ボタン（listHomeBackBtn）は完全に削除しました -->
+  </div>
 
-    <!-- ホーム画面から直接来たときだけ表示されるホームに戻るボタン（既存維持） -->
-    <button id="listHomeBackBtn" onclick="window.showPage('homePage')" style="padding: 8px 16px; background: #555; color: #fff; border: none; border-radius: 4px; font-weight: bold; display: none;">
+  <table id="wordTable"></table>
+
+  <!-- 💡 【新設】：ホーム画面から直接来たとき（テストボタンが非表示のとき）だけ、一覧のすぐ下に現れる「ホームに戻る」固定ボタン -->
+  <div id="listBottomHomeBackArea" style="margin-top: 20px; padding: 10px 0; display: none;">
+    <button onclick="window.showPage('homePage')" style="padding: 12px 24px; background: #555; color: #fff; border: none; border-radius: 8px; font-weight: bold; width: 100%; font-size: 16px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
       🏠 ホームに戻る
     </button>
   </div>
-  <table id="wordTable"></table>
 </section>
 
 <!-- 設定画面 -->
@@ -869,27 +872,27 @@ window.showPage = function(id) {
   const target = document.getElementById(id);
   if (target) target.classList.add("active");
 
-  // 学習中（quiz）の共通ナビ（既存維持）
+  // クイズ共通ナビの制御（既存維持）
   const controls = document.getElementById("quizControls");
   if (controls) {
     if (currentUser && id === "quiz") controls.style.display = "flex";
     else controls.style.display = "none";
   }
 
-  // 一覧画面（list）の制御
+  // ★【大修正】一覧画面（list）にどこから来たかでボタンを出し分ける
+  const listQuizNav = document.getElementById("listQuizNav");
+  const listBottomHomeBackArea = document.getElementById("listBottomHomeBackArea");
+  
   if (id === "list") {
     if (typeof window.renderList === 'function') window.renderList();
     
-    const listQuizNav = document.getElementById("listQuizNav");
-    const listHomeBackBtn = document.getElementById("listHomeBackBtn");
+    // ➔ ホームから直接来た場合：テストボタン群を隠し、最下部にドカンと「ホームに戻る」を出す
     if (listQuizNav) listQuizNav.style.display = "none";
-    if (listHomeBackBtn) listHomeBackBtn.style.display = "block";
+    if (listBottomHomeBackArea) listBottomHomeBackArea.style.display = "block";
   } else {
-    // リスト画面以外にいるときは、バグ防止のため一覧のボタンを隠しておく
-    const listQuizNav = document.getElementById("listQuizNav");
-    const listHomeBackBtn = document.getElementById("listHomeBackBtn");
+    // ➔ 一覧以外の画面にいるとき：バグ防止のため全てのボタン状態を隠しておく
     if (listQuizNav) listQuizNav.style.display = "none";
-    if (listHomeBackBtn) listHomeBackBtn.style.display = "none";
+    if (listBottomHomeBackArea) listBottomHomeBackArea.style.display = "none";
   }
   
   if (id === "sectionPage") {
@@ -906,16 +909,16 @@ window.showPage = function(id) {
     }
     if (typeof updateHomeDashboard === 'function') updateHomeDashboard(); 
 
-    // ★【重要追加】：中断データがある場合は、ホームボタンを「再開」に切り替える
+    // 中断再開ボタンの切り替え（既存維持）
     const mainBtn = document.getElementById("mainLessonBtn");
     if (mainBtn) {
-        if (isSuspended) {
+        if (typeof isSuspended !== 'undefined' && isSuspended) {
             mainBtn.innerHTML = "🔄 今日の学習を再開する";
-            mainBtn.style.background = "#4caf50"; // 再開だと分かりやすいように緑色にチェンジ
+            mainBtn.style.background = "#4caf50";
             mainBtn.style.boxShadow = "0 4px 12px rgba(76,175,80,0.3)";
         } else {
             mainBtn.innerHTML = "🚀 今日の学習を開始する";
-            mainBtn.style.background = "#2196f3"; // 通常の青色
+            mainBtn.style.background = "#2196f3";
             mainBtn.style.boxShadow = "0 4px 12px rgba(33,150,243,0.3)";
         }
     }

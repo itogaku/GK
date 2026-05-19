@@ -257,7 +257,7 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
     </select>
     <select id="listSectionSelect" onchange="changeListSection(this.value)" style="padding:8px;"></select>
     
-    <!-- 今日の学習・セクション画面から来たときだけ表示されるボタンエリア -->
+    <!-- 1. 今日の学習・セクション画面から来たときだけ表示されるボタンエリア -->
     <div id="listQuizNav" style="display: flex; gap: 8px;">
       <button onclick="goToQuizFromList(true)" class="btn-primary">この範囲をテスト</button>
       <button onclick="goToQuizFromList(false)" class="btn-primary" style="background: #f44336;">チェックテスト</button>
@@ -265,16 +265,16 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
         🏠 学習を中断する
       </button>
     </div>
-  </div>
 
-  <table id="wordTable"></table>
-
-  <!-- 💡 【復活】：ホーム画面から直接「一覧」に来たときだけ、ここに現れるホームに戻るボタン -->
-  <div id="listBottomHomeBackArea" style="margin-top: 20px; padding: 10px 0; display: none;">
-    <button onclick="window.showPage('homePage')" style="padding: 12px 24px; background: #555; color: #fff; border: none; border-radius: 8px; font-weight: bold; width: 100%; font-size: 16px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+    <!-- 2. 💡【引っ越し完了】ホームから直接来たときだけ、上のテストボタンの「身代わり」として同じカード内に出現するボタン -->
+    <button id="listHomeBackBtn" onclick="window.showPage('homePage')" style="padding: 8px 16px; background: #555; color: #fff; border: none; border-radius: 4px; font-weight: bold; display: none;">
       🏠 ホームに戻る
     </button>
   </div>
+
+  <table id="wordTable"></table>
+  
+  <!-- ❌ 外側にあった無駄な余白エリア（listBottomHomeBackArea）は完全に消去しました -->
 </section>
 
   <table id="wordTable"></table>
@@ -869,25 +869,24 @@ async function loadUserData(userName) {
     
 // --- ページ制御 ---
 window.showPage = function(id) {
-  // 1. 全てのページのactiveクラスを外し、画面を切り替える
   document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
   const target = document.getElementById(id);
   if (target) target.classList.add("active");
 
-  // 一覧画面（list）にどこから来たかでボタンを出し分ける完全制御
+  // 一覧画面（list）のボタン排他制御
   const listQuizNav = document.getElementById("listQuizNav");
-  const listBottomHomeBackArea = document.getElementById("listBottomHomeBackArea");
+  const listHomeBackBtn = document.getElementById("listHomeBackBtn");
   
   if (id === "list") {
     if (typeof window.renderList === 'function') window.renderList();
     
-    // ➔ ホームから直接来た場合：テスト用ナビを隠し、最下部に「ホームに戻る」を出現させる
+    // ➔ ホームから直接来た場合：テスト3ボタンを隠し、同じカード内に「ホームに戻る」を出現させる
     if (listQuizNav) listQuizNav.style.display = "none";
-    if (listBottomHomeBackArea) listBottomHomeBackArea.style.display = "block";
+    if (listHomeBackBtn) listHomeBackBtn.style.display = "inline-block";
   } else {
-    // ➔ 一覧以外の画面にいるとき：裏側でリセットをかけておく（浮き上がりバグ封鎖）
+    // ➔ 一覧以外の画面にいるとき：念のため両方隠してバグを完全封鎖
     if (listQuizNav) listQuizNav.style.display = "none";
-    if (listBottomHomeBackArea) listBottomHomeBackArea.style.display = "none";
+    if (listHomeBackBtn) listHomeBackBtn.style.display = "none";
   }
   
   if (id === "sectionPage") {
@@ -904,7 +903,7 @@ window.showPage = function(id) {
     }
     if (typeof updateHomeDashboard === 'function') updateHomeDashboard(); 
 
-    // 中断再開ボタンの文字切り替え
+    // 中断再開ボタンの切り替え
     const mainBtn = document.getElementById("mainLessonBtn");
     if (mainBtn) {
         if (typeof isSuspended !== 'undefined' && isSuspended) {
@@ -1262,25 +1261,22 @@ function showTestResult() {
 }
 
 window.exitToListView = function() {
-    // 1. クイズの実行モードやUIの状態をきれいにリセット（既存の処理を完全維持）
     isReviewMode = false;
     isSelfPracticeMode = false;
     if (typeof resetQuizUI === 'function') resetQuizUI();
     
-    // 2. 画面を「一覧（list）」に切り替えてデータを描画
     document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
     const listPage = document.getElementById("list");
     if (listPage) listPage.classList.add("active");
     if (typeof window.renderList === 'function') window.renderList();
 
-    // 3. ★【大修正】テストが終わって戻ってきたので、一覧のテストボタン群を「表示」にする！
+    // ★テスト終了ルートなので、テスト用3ボタンを表示し、身代わりホームボタンは隠す
     const listQuizNav = document.getElementById("listQuizNav");
-    const listBottomHomeBackArea = document.getElementById("listBottomHomeBackArea");
+    const listHomeBackBtn = document.getElementById("listHomeBackBtn");
     
     if (listQuizNav) listQuizNav.style.display = "flex";
-    if (listBottomHomeBackArea) listBottomHomeBackArea.style.display = "none"; // 下部のホームボタンは隠す
+    if (listHomeBackBtn) listHomeBackBtn.style.display = "none";
 };
-
 function resetQuizUI() {
   document.getElementById("quizQuestionArea").classList.remove("hidden");
   document.getElementById("quizResultView").classList.add("hidden");

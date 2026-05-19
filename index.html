@@ -261,8 +261,6 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
     <div id="listQuizNav" style="display: flex; gap: 8px;">
       <button onclick="goToQuizFromList(true)" class="btn-primary">この範囲をテスト</button>
       <button onclick="goToQuizFromList(false)" class="btn-primary" style="background: #f44336;">チェックテスト</button>
-      
-      <!-- 💡 【復活！】学習を中断してホーム画面に安全に戻るためのボタン -->
       <button onclick="suspendLesson()" style="padding: 8px 16px; background: #666; color: #fff; border: none; border-radius: 4px; font-weight: bold;">
         🏠 学習を中断する
       </button>
@@ -270,6 +268,13 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
   </div>
 
   <table id="wordTable"></table>
+
+  <!-- 💡 【復活】：ホーム画面から直接「一覧」に来たときだけ、ここに現れるホームに戻るボタン -->
+  <div id="listBottomHomeBackArea" style="margin-top: 20px; padding: 10px 0; display: none;">
+    <button onclick="window.showPage('homePage')" style="padding: 12px 24px; background: #555; color: #fff; border: none; border-radius: 8px; font-weight: bold; width: 100%; font-size: 16px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+      🏠 ホームに戻る
+    </button>
+  </div>
 </section>
 
   <table id="wordTable"></table>
@@ -869,22 +874,26 @@ window.showPage = function(id) {
   const target = document.getElementById(id);
   if (target) target.classList.add("active");
 
-  // 2. 一覧画面（list）を開いたときの処理
+  // 一覧画面（list）にどこから来たかでボタンを出し分ける完全制御
+  const listQuizNav = document.getElementById("listQuizNav");
+  const listBottomHomeBackArea = document.getElementById("listBottomHomeBackArea");
+  
   if (id === "list") {
     if (typeof window.renderList === 'function') window.renderList();
     
-    // ホームから直接来た場合：テストボタン群を確実に隠す
-    // セクション選択や今日の学習から来た場合は、それぞれの関数側で flex に上書きされるのでこれで完璧です
-    const listQuizNav = document.getElementById("listQuizNav");
+    // ➔ ホームから直接来た場合：テスト用ナビを隠し、最下部に「ホームに戻る」を出現させる
     if (listQuizNav) listQuizNav.style.display = "none";
+    if (listBottomHomeBackArea) listBottomHomeBackArea.style.display = "block";
+  } else {
+    // ➔ 一覧以外の画面にいるとき：裏側でリセットをかけておく（浮き上がりバグ封鎖）
+    if (listQuizNav) listQuizNav.style.display = "none";
+    if (listBottomHomeBackArea) listBottomHomeBackArea.style.display = "none";
   }
   
-  // 3. セクションページを開いたとき
   if (id === "sectionPage") {
     if (typeof window.renderSectionButtons === 'function') window.renderSectionButtons();
   }
   
-  // 4. ホームページを開いたとき
   if (id === "homePage") {
     isReviewMode = false;
     testLog = [];
@@ -894,6 +903,20 @@ window.showPage = function(id) {
       document.getElementById("welcomeUser").textContent = `こんにちは、${currentUser}さん！`;
     }
     if (typeof updateHomeDashboard === 'function') updateHomeDashboard(); 
+
+    // 中断再開ボタンの文字切り替え
+    const mainBtn = document.getElementById("mainLessonBtn");
+    if (mainBtn) {
+        if (typeof isSuspended !== 'undefined' && isSuspended) {
+            mainBtn.innerHTML = "🔄 今日の学習を再開する";
+            mainBtn.style.background = "#4caf50";
+            mainBtn.style.boxShadow = "0 4px 12px rgba(76,175,80,0.3)";
+        } else {
+            mainBtn.innerHTML = "🚀 今日の学習を開始する";
+            mainBtn.style.background = "#2196f3";
+            mainBtn.style.boxShadow = "0 4px 12px rgba(33,150,243,0.3)";
+        }
+    }
   }
 };
 /* --- 設定保存関数の追加 --- */

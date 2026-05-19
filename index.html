@@ -214,7 +214,7 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
       </div>
     </div>
 
-    <!-- テスト完了画面（ボタンが重複しないよう、中の一覧ボタンは削りスッキリさせました） -->
+    <!-- テスト完了画面 -->
     <div id="quizResultView" class="hidden" style="text-align:center; padding:10px;">
       <h3 id="resultTitle" style="color:#1a73e8; margin-top:0;">テスト完了！</h3>
       <p id="resultScore" style="font-size:32px; font-weight:bold; margin:15px 0;"></p>
@@ -240,8 +240,7 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
     </select>
   </div>
 
-  <!-- 💡 【大修正】カードの外側・最下部に「一覧に戻る」固定ボタンを配置！ -->
-  <!-- クイズを解いている時も、解き終わって結果を見ている時も、常にこのボタンからさっきの一覧画面へ戻れます -->
+  <!-- 💡 【修正】：中断も完了後も、ここから「一覧に戻る」だけに一本化 -->
   <div style="margin-top: 20px; padding: 10px 0; border-top: 1px solid #eee;">
     <button onclick="goBackToListFromQuiz()" style="padding: 12px 24px; background: #555; color: #fff; border: none; border-radius: 8px; font-weight: bold; width: 100%; font-size: 16px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
       ⬅️ 一覧に戻る
@@ -259,27 +258,17 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
     <select id="listSectionSelect" onchange="changeListSection(this.value)" style="padding:8px;"></select>
     
     <!-- 今日の学習・セクション画面から来たときだけ表示されるボタンエリア -->
+    <!-- ❌ 「学習を中断する」ボタンを削除しました -->
     <div id="listQuizNav" style="display: flex; gap: 8px;">
       <button onclick="goToQuizFromList(true)" class="btn-primary">この範囲をテスト</button>
       <button onclick="goToQuizFromList(false)" class="btn-primary" style="background: #f44336;">チェックテスト</button>
-      <button onclick="suspendLesson()" style="padding: 8px 16px; background: #666; color: #fff; border: none; border-radius: 4px; font-weight: bold;">
-        🏠 学習を中断する
-      </button>
     </div>
-    
-    <!-- ❌ カード内にあった「ホームに戻る」ボタン（listHomeBackBtn）は完全に削除しました -->
   </div>
 
   <table id="wordTable"></table>
 
-  <!-- 💡 【新設】：ホーム画面から直接来たとき（テストボタンが非表示のとき）だけ、一覧のすぐ下に現れる「ホームに戻る」固定ボタン -->
-  <div id="listBottomHomeBackArea" style="margin-top: 20px; padding: 10px 0; display: none;">
-    <button onclick="window.showPage('homePage')" style="padding: 12px 24px; background: #555; color: #fff; border: none; border-radius: 8px; font-weight: bold; width: 100%; font-size: 16px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-      🏠 ホームに戻る
-    </button>
-  </div>
+  <!-- ❌ 最下部にあった「listBottomHomeBackArea（ホームに戻る）」は丸ごと削除しました -->
 </section>
-
 <!-- 設定画面 -->
 <section id="settingPage" class="page">
   <div class="card" style="padding: 20px;">
@@ -868,37 +857,27 @@ async function loadUserData(userName) {
     
 // --- ページ制御 ---
 window.showPage = function(id) {
+  // 1. 全てのページのactiveクラスを外し、画面を切り替える
   document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
   const target = document.getElementById(id);
   if (target) target.classList.add("active");
 
-  // クイズ共通ナビの制御（既存維持）
-  const controls = document.getElementById("quizControls");
-  if (controls) {
-    if (currentUser && id === "quiz") controls.style.display = "flex";
-    else controls.style.display = "none";
-  }
-
-  // ★【大修正】一覧画面（list）にどこから来たかでボタンを出し分ける
-  const listQuizNav = document.getElementById("listQuizNav");
-  const listBottomHomeBackArea = document.getElementById("listBottomHomeBackArea");
-  
+  // 2. 一覧画面（list）を開いたときの処理
   if (id === "list") {
     if (typeof window.renderList === 'function') window.renderList();
     
-    // ➔ ホームから直接来た場合：テストボタン群を隠し、最下部にドカンと「ホームに戻る」を出す
+    // ホームから直接来た場合：テストボタン群を確実に隠す
+    // セクション選択や今日の学習から来た場合は、それぞれの関数側で flex に上書きされるのでこれで完璧です
+    const listQuizNav = document.getElementById("listQuizNav");
     if (listQuizNav) listQuizNav.style.display = "none";
-    if (listBottomHomeBackArea) listBottomHomeBackArea.style.display = "block";
-  } else {
-    // ➔ 一覧以外の画面にいるとき：バグ防止のため全てのボタン状態を隠しておく
-    if (listQuizNav) listQuizNav.style.display = "none";
-    if (listBottomHomeBackArea) listBottomHomeBackArea.style.display = "none";
   }
   
+  // 3. セクションページを開いたとき
   if (id === "sectionPage") {
     if (typeof window.renderSectionButtons === 'function') window.renderSectionButtons();
   }
   
+  // 4. ホームページを開いたとき
   if (id === "homePage") {
     isReviewMode = false;
     testLog = [];
@@ -908,20 +887,6 @@ window.showPage = function(id) {
       document.getElementById("welcomeUser").textContent = `こんにちは、${currentUser}さん！`;
     }
     if (typeof updateHomeDashboard === 'function') updateHomeDashboard(); 
-
-    // 中断再開ボタンの切り替え（既存維持）
-    const mainBtn = document.getElementById("mainLessonBtn");
-    if (mainBtn) {
-        if (typeof isSuspended !== 'undefined' && isSuspended) {
-            mainBtn.innerHTML = "🔄 今日の学習を再開する";
-            mainBtn.style.background = "#4caf50";
-            mainBtn.style.boxShadow = "0 4px 12px rgba(76,175,80,0.3)";
-        } else {
-            mainBtn.innerHTML = "🚀 今日の学習を開始する";
-            mainBtn.style.background = "#2196f3";
-            mainBtn.style.boxShadow = "0 4px 12px rgba(33,150,243,0.3)";
-        }
-    }
   }
 };
 /* --- 設定保存関数の追加 --- */

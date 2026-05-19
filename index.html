@@ -1267,10 +1267,23 @@ function showTestResult() {
 }
 
 window.exitToListView = function() {
+    // 1. クイズの実行モードやUIの状態をきれいにリセット（既存の処理を完全維持）
     isReviewMode = false;
     isSelfPracticeMode = false;
-    resetQuizUI();
-    showPage("list");
+    if (typeof resetQuizUI === 'function') resetQuizUI();
+    
+    // 2. 画面を「一覧（list）」に切り替えてデータを描画
+    document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+    const listPage = document.getElementById("list");
+    if (listPage) listPage.classList.add("active");
+    if (typeof window.renderList === 'function') window.renderList();
+
+    // 3. ★【大修正】テストが終わって戻ってきたので、一覧のテストボタン群を「表示」にする！
+    const listQuizNav = document.getElementById("listQuizNav");
+    const listBottomHomeBackArea = document.getElementById("listBottomHomeBackArea");
+    
+    if (listQuizNav) listQuizNav.style.display = "flex";
+    if (listBottomHomeBackArea) listBottomHomeBackArea.style.display = "none"; // 下部のホームボタンは隠す
 };
 
 function resetQuizUI() {
@@ -1458,11 +1471,12 @@ window.goBackToListFromQuiz = function() {
     // 2. 一覧のデータを再描画する
     if (typeof window.renderList === 'function') window.renderList();
 
-    // 3. 今日の学習動線から戻るので、テストボタン群をしっかり「表示」にする
+    // 3. ★【確定】テストが終わって戻ってきたので、テストボタン群を確実に「表示」にする！
     const listQuizNav = document.getElementById("listQuizNav");
-    const listHomeBackBtn = document.getElementById("listHomeBackBtn");
+    const listBottomHomeBackArea = document.getElementById("listBottomHomeBackArea");
+    
     if (listQuizNav) listQuizNav.style.display = "flex";
-    if (listHomeBackBtn) listHomeBackBtn.style.display = "none";
+    if (listBottomHomeBackArea) listBottomHomeBackArea.style.display = "none"; // 下部のホームボタンは隠す
 };
     
 // --- キーボード ---

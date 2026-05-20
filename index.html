@@ -1197,16 +1197,19 @@ document.getElementById("checkBtn").onclick = async () => {
 document.getElementById("nextBtn").onclick = () => renderQuestion();
 
 function showTestResult() {
-    isSuspended = false; // クイズが終了したので中断状態をリセット
+    isSuspended = false; // クイズが終了（合格・不合格）したので中断状態をリセット
     document.getElementById("quizQuestionArea").classList.add("hidden");
     document.getElementById("answerControlArea").classList.add("hidden");
     document.getElementById("quizKeyboard").classList.add("hidden");
     document.getElementById("quizResultView").classList.remove("hidden");
 
-    // 💡【重要】結果画面が表示されている間は、クイズ画面の一番下にある固定の「一覧に戻る」ボタンを非表示にする
-    // これにより、ボタンが2つ重複して表示されるバグを完全に防ぎます。
+    // 💡 結果画面が表示されている間は、クイズ画面の最下部にある固定の「一覧に戻る」ボタンを非表示にします。
+    // これにより、結果表示エリア内のボタンと重複して2つ見えてしまうバグを完全に防ぎます。
     const quizBottomBackBtn = document.querySelector("#quiz > div > button[onclick='goBackToListFromQuiz()']");
-    if (quizBottomBackBtn) quizBottomBackBtn.style.display = "none";
+    if (quizBottomBackBtn) {
+        const quizBottomContainer = quizBottomBackBtn.parentElement;
+        if (quizBottomContainer) quizBottomContainer.style.display = "none";
+    }
 
     const correctCount = testLog.filter(i => i.status === "correct").length;
     const totalCount = testLog.length;
@@ -1214,6 +1217,7 @@ function showTestResult() {
 
     const resultView = document.getElementById("quizResultView");
 
+    // 🏆 【A】チェックテストに「満点合格」した場合の処理
     if (!isSelfPracticeMode && isPerfect && !isAllWordsMode) {
         // 現在のセクションを合格リストに追加
         if (!completedSections.includes(currentSection)) {
@@ -1230,32 +1234,28 @@ function showTestResult() {
             nextSection = currentSection + 1; 
         }
         
-        // 💡 次の目標セクションを確定させる
+        // 💡 1. 現在の目標を「次のセクション」に自動更新
         currentSection = nextSection;
 
-        // ★【即時反映】ホーム画面のグラフ、目標テキスト、セクション選択画面のボタンをすべてこの瞬間に最新状態へ更新！
-        if (typeof updateHomeDashboard === 'function') updateHomeDashboard();
+        // 💡 2. セクション選択画面（合格マーク）とホーム画面（グラフや目標テキスト）をこの瞬間に即時書き換え！
         if (typeof window.renderSectionButtons === 'function') window.renderSectionButtons();
+        if (typeof updateHomeDashboard === 'function') updateHomeDashboard();
         
-        // クラウドへ進捗データを即座に保存
+        // 進捗データをクラウド（Firebase）へ即座に保存
         saveProgress();
 
-        // 💡【修正】合格画面：「ホームに戻る」と「一覧を確認」を1つずつ綺麗に並べます
+        // 💡 3. 結果画面：「ホームに戻る」ボタンを主役に、スッキリと配置
         resultView.innerHTML = `
             <h3 id="resultTitle" style="color:#ff9800; margin-top:0;">✨ 合格！テスト完了 ✨</h3>
             <p id="resultScore" style="font-size:32px; font-weight:bold; margin:15px 0;">全問正解！素晴らしい！</p>
-            <p style="margin-bottom:20px; color:#666; font-size:14px; padding:0 10px;">目標が自動的に【Section ${currentSection}】に更新されました！</p>
-            <div style="display: flex; gap: 10px;">
-                <button onclick="showPage('homePage')" class="btn-primary" style="flex: 1; height: 50px; background: #ff9800; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-                    🏠 ホームに戻る
-                </button>
-                <button onclick="exitToListView()" style="flex: 1; height: 50px; background: #fff; color: #333; border:1px solid #ccc; font-size:16px; border-radius:6px; font-weight:bold;">
-                    📖 一覧を確認
-                </button>
-            </div>
+            <p style="margin-bottom:20px; color:#666; font-size:14px; padding:0 10px;">目標セクションが【Section ${currentSection}】に進みました！</p>
+            <button onclick="showPage('homePage')" class="btn-primary" style="width: 100%; height: 50px; background: #ff9800; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                🏠 ホームに戻る
+            </button>
         `;
+
     } else {
-        // 不合格時や確認モード時の処理
+        // 😢 【B】「不合格」または「確認モード完了」の場合の処理
         let listHtml = "";
         testLog.forEach(item => {
             const mark = item.status === "correct" ? "○" : "×";
@@ -1263,18 +1263,17 @@ function showTestResult() {
             listHtml += `<div style="color:${color}; border-bottom:1px solid #eee; padding:5px 0;">${mark} ${item.word} (${item.meaning})</div>`;
         });
         
-        // 💡 不合格画面：ボタンは「一覧に戻って暗記を確認」の1つだけに絞り込みます
+        // 💡 不合格時も、迷わず一発で「ホームに戻る」ボタンだけをすっきりと設置
         resultView.innerHTML = `
             <h3 id="resultTitle" style="color:#1a73e8; margin-top:0;">${isPracticeModeGlobal ? "確認モード完了" : "チェックテスト結果"}</h3>
-            <p id="resultScore" style="font-size:32px; font-weight:bold; margin:15px 0;">${totalCount}2問中 ${correctCount}問 正解</p>
+            <p id="resultScore" style="font-size:32px; font-weight:bold; margin:15px 0;">${totalCount}問中 ${correctCount}問 正解</p>
             <div id="resultList" style="text-align:left; max-height:180px; overflow-y:auto; border:1px solid #eee; padding:10px; margin-bottom:20px; font-size:14px; background:#fafafa;">${listHtml}</div>
-            <button onclick="exitToListView()" class="btn-primary" style="width: 100%; height: 50px; background: #1a73e8; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-                ⬅️ 一覧に戻って暗記を確認
+            <button onclick="showPage('homePage')" class="btn-primary" style="width: 100%; height: 50px; background: #1a73e8; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                🏠 ホームに戻る
             </button>
         `;
     }
 }
-
 window.exitToListView = function() {
     isReviewMode = false;
     isSelfPracticeMode = false;

@@ -1013,18 +1013,25 @@ window.logout = function() {
 
 // --- クイズロジック ---
 window.startTodayLesson = async function() {
-    if (currentUser && !isSuspended) {
-        studyCount++; // クラウド同期変数を使用
+    if (currentUser) {
+        // 中断再開時ではない、純粋な新規開始のときだけ学習回数を増やす
+        if (!isSuspended) {
+            studyCount++;
+        }
     }
 
     let uniquePool = [];
+    
     if (isAllWordsMode) {
         uniquePool = [...words];
     } else {
-        if (Array.isArray(reviewWrongWords)) {
+        // 1. 最優先：これまでに間違えた単語（reviewWrongWords）をプールに入れる
+        if (typeof reviewWrongWords !== 'undefined' && Array.isArray(reviewWrongWords)) {
             reviewWrongWords.forEach(w => { if (w && w.word) uniquePool.push(w); });
         }
-        if (lastCompletedSection > 0) {
+        
+        // 2. 次点優先：最後に合格したセクションの単語を補填
+        if (typeof lastCompletedSection !== 'undefined' && lastCompletedSection > 0) {
             let start = (lastCompletedSection - 1) * SECTION_SIZE; 
             let priority2 = words.slice(start, start + SECTION_SIZE);
             priority2.forEach(w => {
@@ -1033,6 +1040,8 @@ window.startTodayLesson = async function() {
                 }
             });
         }
+        
+        // 3. それでもテスト設定問題数（TEST_QUESTION_COUNT）に満たない場合、これまでに学習したことのある単語からランダムに補填
         if (uniquePool.length < TEST_QUESTION_COUNT) {
             let learnedWords = words.filter(w => {
                 const hasProgress = progress[w.word.toLowerCase()] !== undefined;
@@ -1047,25 +1056,26 @@ window.startTodayLesson = async function() {
         }
     }
     
+    // 設定された出題数分だけランダムにシャッフルして抽出
     reviewPool = uniquePool.sort(() => 0.5 - Math.random()).slice(0, TEST_QUESTION_COUNT);
+    
+    // 💡【重要】各種クイズフラグの制御
+    isSuspended = false;           // 中断状態を解除
+    testLog = [];                  // テスト記録をリセット
+    isReviewMode = true;           // 復習プール（reviewPool）から出題するモードをON
+    isSelfPracticeMode = false;    // ✕練習モードではない ＝ ◎本番テスト（満点合格でセクションが進む対象！）
+    isPracticeModeGlobal = false;  // 結果画面の文言を「チェックテスト結果」にする
+
+    // 進捗をクラウドへ保存してダッシュボードを更新
     await saveProgress(); 
-    updateHomeDashboard();
+    if (typeof updateHomeDashboard === 'function') updateHomeDashboard();
     
-    const listSelect = document.getElementById("listSectionSelect");
-    if (listSelect) {
-        listSelect.value = isAllWordsMode ? "all" : currentSection;
-    }
+    // クイズの最初の1問目をレンダリング
+    renderQuestion();
     
-    document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
-    document.getElementById("list").classList.add("active");
-    if (typeof window.renderList === 'function') window.renderList();
-
-    const listQuizNav = document.getElementById("listQuizNav");
-    const listHomeBackBtn = document.getElementById("listHomeBackBtn");
-    if (listQuizNav) listQuizNav.style.display = "flex";
-    if (listHomeBackBtn) listHomeBackBtn.style.display = "none";
+    // 💡 リスト画面ではなく、直接「クイズ画面」をアクティブにして開始する！
+    window.showPage("quiz");
 };
-
 function getNextWord() {
   let start = (currentSection - 1) * SECTION_SIZE;
   let pool = words.slice(start, start + SECTION_SIZE);

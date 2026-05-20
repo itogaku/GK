@@ -900,17 +900,17 @@ window.showPage = function(id) {
     if (document.getElementById("welcomeUser")) {
       document.getElementById("welcomeUser").textContent = `こんにちは、${currentUser}さん！`;
     }
+
+    // 🔄 先にダッシュボードやグラフを更新させます（ここで古い値に上書きされても大丈夫なようにする）
+    if (typeof updateHomeDashboard === 'function') updateHomeDashboard(); 
     
-    // ★【超重要追加】ホームに戻ってきたこの瞬間に、画面の「現在の目標」テキストを最新のセクション番号で強制上書きする
+    // 🔥【最終防衛線】すべての更新処理が終わった「一番最後」に、最新のセクション番号を画面に強制ロック注入する！
     const targetText = document.getElementById("targetSectionName");
     if (targetText) {
         targetText.textContent = isAllWordsMode ? "全単語（全範囲）" : `Section ${currentSection}`;
     }
 
-    // ダッシュボードのグラフなどの更新
-    if (typeof updateHomeDashboard === 'function') updateHomeDashboard(); 
-
-    // 中断再開ボタンの切り替え
+    // 中断再開ボタンの切り替え（既存維持）
     const mainBtn = document.getElementById("mainLessonBtn");
     if (mainBtn) {
         if (typeof isSuspended !== 'undefined' && isSuspended) {
@@ -1210,8 +1210,7 @@ function showTestResult() {
     document.getElementById("quizKeyboard").classList.add("hidden");
     document.getElementById("quizResultView").classList.remove("hidden");
 
-    // 💡 結果画面が表示されている間は、クイズ画面の最下部にある固定の「一覧に戻る」ボタンを非表示にします。
-    // これにより、結果表示エリア内のボタンと重複して2つ見えてしまうバグを完全に防ぎます。
+    // 結果画面表示中は、クイズ画面の一番下にある固定の「一覧に戻る」ボタンを非表示にする（重複防止）
     const quizBottomBackBtn = document.querySelector("#quiz > div > button[onclick='goBackToListFromQuiz()']");
     if (quizBottomBackBtn) {
         const quizBottomContainer = quizBottomBackBtn.parentElement;
@@ -1224,9 +1223,10 @@ function showTestResult() {
 
     const resultView = document.getElementById("quizResultView");
 
-    // 🏆 【A】チェックテストに「満点合格」した場合の処理
+    // 🏆 【A】チェックテストに「全問正解（満点合格）」した場合の処理
     if (!isSelfPracticeMode && isPerfect && !isAllWordsMode) {
-        // 現在のセクションを合格リストに追加
+        
+        // 1. 合格リストに現在のセクションを記録（重複させない）
         if (!completedSections.includes(currentSection)) {
             completedSections.push(currentSection);
         }
@@ -1234,30 +1234,38 @@ function showTestResult() {
         // 合格したセクションを「前回の合格セクション」として記憶
         lastCompletedSection = currentSection;
 
-        // 次に進むべきセクション番号を算出
+        // 2. 「現在の目標」を次のセクションに進める
         const maxSection = Math.ceil(words.length / SECTION_SIZE);
-        let nextSection = currentSection;
         if (currentSection < maxSection) {
-            nextSection = currentSection + 1; 
+            currentSection = currentSection + 1; 
         }
         
-        // 💡 1. 現在の目標を「次のセクション」に自動更新
-        currentSection = nextSection;
+        // 3. クラウド（Firebase）のデータを最新の数値で直接上書き保存
+        if (currentUser) {
+            // ※お使いのFirebaseの参照・更新方法（updateやrefなど）に合わせて適宜調整してください
+            if (typeof update === 'function' && typeof ref === 'function' && typeof db !== 'undefined') {
+                update(ref(db, 'users/' + currentUser), {
+                    currentSection: currentSection,
+                    completedSections: completedSections,
+                    lastCompletedSection: lastCompletedSection
+                });
+            }
+        }
 
-        // 💡 2. セクション選択画面（合格マーク）とホーム画面（グラフや目標テキスト）をこの瞬間に即時書き換え！
+        // 4. セクション画面（合格マーク）とホーム画面（グラフ）を裏側で即座に再描画！
         if (typeof window.renderSectionButtons === 'function') window.renderSectionButtons();
         if (typeof updateHomeDashboard === 'function') updateHomeDashboard();
         
-        // 進捗データをクラウド（Firebase）へ即座に保存
-        saveProgress();
+        // ローカルストレージ等への補助保存
+        if (typeof saveProgress === 'function') saveProgress();
 
-        // 💡 3. 結果画面：「ホームに戻る」ボタンを主役に、スッキリと配置
+        // 5. 結果画面：ご要望通りの「🏠 ホームに戻る」ボタンのみをドカンと1つ設置
         resultView.innerHTML = `
             <h3 id="resultTitle" style="color:#ff9800; margin-top:0;">✨ 合格！テスト完了 ✨</h3>
             <p id="resultScore" style="font-size:32px; font-weight:bold; margin:15px 0;">全問正解！素晴らしい！</p>
-            <p style="margin-bottom:20px; color:#666; font-size:14px; padding:0 10px;">目標セクションが【Section ${currentSection}】に進みました！</p>
-            <button onclick="showPage('homePage')" class="btn-primary" style="width: 100%; height: 50px; background: #ff9800; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-                🏠 ホームに戻る
+            <p style="margin-bottom:20px; color:#666; font-size:14px; padding:0 10px;">目標セクションが【Section ${currentSection}】に更新されました！</p>
+            <button onclick="window.showPage('homePage')" class="btn-primary" style="width: 100%; height: 50px; background: #ff9800; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                🏠 合格してホームに戻る
             </button>
         `;
 
@@ -1270,12 +1278,11 @@ function showTestResult() {
             listHtml += `<div style="color:${color}; border-bottom:1px solid #eee; padding:5px 0;">${mark} ${item.word} (${item.meaning})</div>`;
         });
         
-        // 💡 不合格時も、迷わず一発で「ホームに戻る」ボタンだけをすっきりと設置
         resultView.innerHTML = `
             <h3 id="resultTitle" style="color:#1a73e8; margin-top:0;">${isPracticeModeGlobal ? "確認モード完了" : "チェックテスト結果"}</h3>
             <p id="resultScore" style="font-size:32px; font-weight:bold; margin:15px 0;">${totalCount}問中 ${correctCount}問 正解</p>
             <div id="resultList" style="text-align:left; max-height:180px; overflow-y:auto; border:1px solid #eee; padding:10px; margin-bottom:20px; font-size:14px; background:#fafafa;">${listHtml}</div>
-            <button onclick="showPage('homePage')" class="btn-primary" style="width: 100%; height: 50px; background: #1a73e8; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+            <button onclick="window.showPage('homePage')" class="btn-primary" style="width: 100%; height: 50px; background: #1a73e8; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
                 🏠 ホームに戻る
             </button>
         `;

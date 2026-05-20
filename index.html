@@ -869,6 +869,7 @@ async function loadUserData(userName) {
     
 // --- ページ制御 ---
 window.showPage = function(id) {
+  // 1. 全てのページのactiveクラスを外し、画面を切り替える
   document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
   const target = document.getElementById(id);
   if (target) target.classList.add("active");
@@ -879,12 +880,9 @@ window.showPage = function(id) {
   
   if (id === "list") {
     if (typeof window.renderList === 'function') window.renderList();
-    
-    // ➔ ホームから直接来た場合：テスト3ボタンを隠し、同じカード内に「ホームに戻る」を出現させる
     if (listQuizNav) listQuizNav.style.display = "none";
     if (listHomeBackBtn) listHomeBackBtn.style.display = "inline-block";
   } else {
-    // ➔ 一覧以外の画面にいるとき：念のため両方隠してバグを完全封鎖
     if (listQuizNav) listQuizNav.style.display = "none";
     if (listHomeBackBtn) listHomeBackBtn.style.display = "none";
   }
@@ -893,6 +891,7 @@ window.showPage = function(id) {
     if (typeof window.renderSectionButtons === 'function') window.renderSectionButtons();
   }
   
+  // 💡 4. ホームページを開いたとき
   if (id === "homePage") {
     isReviewMode = false;
     testLog = [];
@@ -901,6 +900,14 @@ window.showPage = function(id) {
     if (document.getElementById("welcomeUser")) {
       document.getElementById("welcomeUser").textContent = `こんにちは、${currentUser}さん！`;
     }
+    
+    // ★【超重要追加】ホームに戻ってきたこの瞬間に、画面の「現在の目標」テキストを最新のセクション番号で強制上書きする
+    const targetText = document.getElementById("targetSectionName");
+    if (targetText) {
+        targetText.textContent = isAllWordsMode ? "全単語（全範囲）" : `Section ${currentSection}`;
+    }
+
+    // ダッシュボードのグラフなどの更新
     if (typeof updateHomeDashboard === 'function') updateHomeDashboard(); 
 
     // 中断再開ボタンの切り替え

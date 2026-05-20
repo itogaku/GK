@@ -801,6 +801,7 @@ function updateHomeDashboard() {
         progressBar.style.strokeDashoffset = offset;
     }
 
+    // 現在の目標セクション表示を更新
     if (document.getElementById("targetSectionName")) {
         document.getElementById("targetSectionName").textContent = isAllWordsMode ? "全単語（全範囲）" : `Section ${currentSection}`;
     }
@@ -875,6 +876,7 @@ window.showPage = function(id) {
       document.getElementById("welcomeUser").textContent = `こんにちは、${currentUser}さん！`;
     }
 
+    // ダッシュボードと目標テキストを最新状態に更新
     if (typeof updateHomeDashboard === 'function') updateHomeDashboard(); 
     
     const mainBtn = document.getElementById("mainLessonBtn");
@@ -891,7 +893,6 @@ window.showPage = function(id) {
     }
   }
 };
-
 window.saveSettings = async function() {
     SECTION_SIZE = parseInt(document.getElementById("setSectionSize").value);
     TEST_QUESTION_COUNT = parseInt(document.getElementById("setTestCount").value);
@@ -1142,28 +1143,34 @@ function showTestResult() {
 
     const resultView = document.getElementById("quizResultView");
 
+    // 自習用練習テスト（isSelfPracticeMode = true）ではなく、本番のチェックテストで満点の場合
     if (!isSelfPracticeMode && isPerfect && !isAllWordsMode) {
+        // 1. 合格リストに現在のセクションを追加
         if (!completedSections.includes(currentSection)) {
             completedSections.push(currentSection);
         }
         lastCompletedSection = currentSection;
 
+        // 2. 目標を次のセクションに進める
         const maxSection = Math.ceil(words.length / SECTION_SIZE);
         if (currentSection < maxSection) {
             currentSection = currentSection + 1; 
         }
         
-        if (currentUser) {
+        // 3. クラウド上の変数を即座に更新し、合わせて全体の progress も保存
+        if (currentUser && typeof update === 'function' && typeof ref === 'function') {
             update(ref(db, 'users/' + currentUser), {
                 currentSection: currentSection,
                 completedSections: completedSections,
                 lastCompletedSection: lastCompletedSection
+            }).then(() => {
+                saveProgress(); // 全体バックアップを並行
             });
         }
 
+        // 4. 各種画面の再レンダリング
         if (typeof window.renderSectionButtons === 'function') window.renderSectionButtons();
         updateHomeDashboard();
-        saveProgress();
 
         resultView.innerHTML = `
             <h3 id="resultTitle" style="color:#ff9800; margin-top:0;">✨ 合格！テスト完了 ✨</h3>
@@ -1174,6 +1181,7 @@ function showTestResult() {
             </button>
         `;
     } else {
+        // 不合格、または練習・確認モード終了時の画面
         let listHtml = "";
         testLog.forEach(item => {
             const mark = item.status === "correct" ? "○" : "×";
@@ -1225,7 +1233,11 @@ window.renderSectionButtons = function() {
   for (let i = 1; i <= count; i++) {
     const btn = document.createElement("button");
     btn.className = "section-btn";
-    if (completedSections.includes(i)) { btn.classList.add("completed"); }
+    
+    // completedSections配列に含まれているセクションにcompletedクラスを付与（CSSで★合格が表示される）
+    if (completedSections && completedSections.includes(i)) { 
+        btn.classList.add("completed"); 
+    }
     
     btn.innerHTML = `Section ${i}`;
     btn.onclick = async () => { 
@@ -1254,7 +1266,6 @@ window.renderSectionButtons = function() {
   };
   container.appendChild(allBtn);
 };
-
 window.renderList = function() {
     const table = document.getElementById("wordTable");
     const filter = document.getElementById("filter").value;

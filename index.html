@@ -1153,21 +1153,18 @@ function showTestResult() {
 
     const resultView = document.getElementById("quizResultView");
 
-    // 💡 本番テスト（isSelfPracticeMode = false）で満点、かつ全範囲モードではない場合
+    // 【A】チェックテスト（新しい範囲）で満点合格した場合
     if (!isSelfPracticeMode && isPerfect && !isAllWordsMode) {
-        // 1. 合格リストに現在のセクションを追加
         if (!completedSections.includes(currentSection)) {
             completedSections.push(currentSection);
         }
         lastCompletedSection = currentSection;
 
-        // 2. 目標を次のセクションに進める
         const maxSection = Math.ceil(words.length / SECTION_SIZE);
         if (currentSection < maxSection) {
             currentSection = currentSection + 1; 
         }
         
-        // 3. クラウド上の変数を即座に更新し、合わせて全体の progress も保存
         if (currentUser && typeof update === 'function' && typeof ref === 'function') {
             update(ref(db, 'users/' + currentUser), {
                 currentSection: currentSection,
@@ -1178,7 +1175,6 @@ function showTestResult() {
             });
         }
 
-        // 4. 各種画面の再レンダリング
         if (typeof window.renderSectionButtons === 'function') window.renderSectionButtons();
         updateHomeDashboard();
 
@@ -1191,7 +1187,7 @@ function showTestResult() {
             </button>
         `;
     } else {
-        // 不合格、または練習・確認モード終了時の画面
+        // 💡【B】復習テスト完了、または不合格、確認モード終了時の画面
         let listHtml = "";
         testLog.forEach(item => {
             const mark = item.status === "correct" ? "○" : "×";
@@ -1199,40 +1195,58 @@ function showTestResult() {
             listHtml += `<div style="color:${color}; border-bottom:1px solid #eee; padding:5px 0;">${mark} ${item.word} (${item.meaning})</div>`;
         });
         
-        resultView.innerHTML = `
-            <h3 id="resultTitle" style="color:#1a73e8; margin-top:0;">${isPracticeModeGlobal ? "確認モード完了" : "チェックテスト結果"}</h3>
-            <p id="resultScore" style="font-size:32px; font-weight:bold; margin:15px 0;">${totalCount}問中 ${correctCount}問 正解</p>
-            <div id="resultList" style="text-align:left; max-height:180px; overflow-y:auto; border:1px solid #eee; padding:10px; margin-bottom:20px; font-size:14px; background:#fafafa;">${listHtml}</div>
-            <button onclick="window.showPage('homePage')" class="btn-primary" style="width: 100%; height: 50px; background: #1a73e8; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-                🏠 ホームに戻る
-            </button>
-        `;
+        // 「今日の学習」から始まった復習テストかどうかを判定
+        // isSelfPracticeMode が false（本番）かつ、全単語モードではない場合は「復習テスト」として扱う
+        const isFromTodayLesson = (!isSelfPracticeMode && !isAllWordsMode);
+
+        if (isFromTodayLesson) {
+            // 🚀 復習テスト完了時は、次の「学習画面（一覧）」へ直接進むボタンを設置
+            resultView.innerHTML = `
+                <h3 id="resultTitle" style="color:#2196f3; margin-top:0;">📖 復習テスト完了</h3>
+                <p id="resultScore" style="font-size:32px; font-weight:bold; margin:15px 0;">${totalCount}問中 ${correctCount}問 正解</p>
+                <div id="resultList" style="text-align:left; max-height:150px; overflow-y:auto; border:1px solid #eee; padding:10px; margin-bottom:20px; font-size:14px; background:#fafafa;">${listHtml}</div>
+                <p style="margin-bottom:15px; color:#666; font-size:14px;">次は本日の学習範囲【Section ${currentSection}】の暗記に進みます！</p>
+                <button onclick="window.exitToListViewFromReview()" class="btn-primary" style="width: 100%; height: 50px; background: #2196f3; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                    👉 本日の学習画面へ進む
+                </button>
+            `;
+        } else {
+            // 通常の一覧から始めたテストなどの場合は、今まで通りホームに戻る
+            resultView.innerHTML = `
+                <h3 id="resultTitle" style="color:#1a73e8; margin-top:0;">${isPracticeModeGlobal ? "確認モード完了" : "チェックテスト結果"}</h3>
+                <p id="resultScore" style="font-size:32px; font-weight:bold; margin:15px 0;">${totalCount}問中 ${correctCount}問 正解</p>
+                <div id="resultList" style="text-align:left; max-height:180px; overflow-y:auto; border:1px solid #eee; padding:10px; margin-bottom:20px; font-size:14px; background:#fafafa;">${listHtml}</div>
+                <button onclick="window.showPage('homePage')" class="btn-primary" style="width: 100%; height: 50px; background: #1a73e8; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                    🏠 ホームに戻る
+                </button>
+            `;
+        }
     }
 }
 
-window.exitToListView = function() {
+window.exitToListViewFromReview = function() {
     isReviewMode = false;
     isSelfPracticeMode = false;
     resetQuizUI();
+    
+    // 単語一覧のセレクトボックスを現在の目標セクションに強制同期
+    const listSelect = document.getElementById("listSectionSelect");
+    if (listSelect) {
+        listSelect.value = currentSection;
+    }
     
     document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
     const listPage = document.getElementById("list");
     if (listPage) listPage.classList.add("active");
     if (typeof window.renderList === 'function') window.renderList();
 
+    // 今日の学習フローの途中なので、一覧画面の上部にある「テスト開始」「チェックテスト」等のナビを表示する
     const listQuizNav = document.getElementById("listQuizNav");
     const listHomeBackBtn = document.getElementById("listHomeBackBtn");
     
     if (listQuizNav) listQuizNav.style.display = "flex";
     if (listHomeBackBtn) listHomeBackBtn.style.display = "none";
 };
-
-function resetQuizUI() {
-  document.getElementById("quizQuestionArea").classList.remove("hidden");
-  document.getElementById("quizResultView").classList.add("hidden");
-  document.getElementById("answerControlArea").classList.remove("hidden");
-  document.getElementById("quizKeyboard").classList.remove("hidden");
-}
 
 // --- リスト表示 ---
 window.renderSectionButtons = function() {

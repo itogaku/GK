@@ -1143,7 +1143,7 @@ function showTestResult() {
 
     const resultView = document.getElementById("quizResultView");
 
-    // 自習用練習テスト（isSelfPracticeMode = true）ではなく、本番のチェックテストで満点の場合
+    // 💡 本番テスト（isSelfPracticeMode = false）で満点、かつ全範囲モードではない場合
     if (!isSelfPracticeMode && isPerfect && !isAllWordsMode) {
         // 1. 合格リストに現在のセクションを追加
         if (!completedSections.includes(currentSection)) {
@@ -1164,7 +1164,7 @@ function showTestResult() {
                 completedSections: completedSections,
                 lastCompletedSection: lastCompletedSection
             }).then(() => {
-                saveProgress(); // 全体バックアップを並行
+                saveProgress(); 
             });
         }
 
@@ -1313,8 +1313,12 @@ window.goToQuizFromList = function(isPractice) {
     isSuspended = false;
     testLog = [];
     isReviewMode = true; 
-    isSelfPracticeMode = true; 
     isPracticeModeGlobal = isPractice;
+
+    // 💡 修正：ボタンの種類によって本番か練習かを正しく切り替える
+    // isPractice = true （この範囲をテスト） -> 自習練習モード
+    // isPractice = false（チェックテスト） -> 本番テスト（合格・繰り上げ対象！）
+    isSelfPracticeMode = isPractice; 
 
     let offset = (currentSection - 1) * SECTION_SIZE;
     let sectionPool = words.slice(offset, offset + SECTION_SIZE);
@@ -1324,7 +1328,8 @@ window.goToQuizFromList = function(isPractice) {
         combined = combined.filter(w => progress[w.word.toLowerCase()] !== "correct");
         if (combined.length === 0) { alert("未習得の単語はありません！"); return; }
     } else {
-        combined = combined.sort(() => Math.random() - 0.5).slice(0, 5);
+        // 本番のチェックテストは、そのセクションの全単語（最大SECTION_SIZE問）を出題
+        combined = sectionPool;
     }
 
     reviewPool = combined.sort(() => Math.random() - 0.5);

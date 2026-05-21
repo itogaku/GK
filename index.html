@@ -1131,13 +1131,28 @@ document.getElementById("checkBtn").addEventListener("click", async () => {
     testLog.push({ word: current.word, meaning: current.meaning, status: status });
     progress[current.word.toLowerCase()] = status;
 
-    if (ok) {
-        reviewWrongWords = reviewWrongWords.filter(w => w.word !== current.word);
-    } else {
-        if (!reviewWrongWords.some(w => w.word === current.word)) {
-            reviewWrongWords.push(current);
+    // 💡【重要】各種判定フラグをチェック
+    // 練習（青）ではなく、本番チェック（赤）でもなく、全範囲でもない ＝ 「今日の学習（最初の復習テスト）」ルート
+    const isPracticeTest = (isSelfPracticeMode === true);
+    const targetSectionLength = words.slice((currentSection - 1) * SECTION_SIZE, currentSection * SECTION_SIZE).length;
+    const isCheckTest = (isSelfPracticeMode === false && isAllWordsMode === false && window.currentCheckTestLength === targetSectionLength);
+    const isFromTodayLesson = (isSelfPracticeMode === false && isAllWordsMode === false && !isCheckTest && !isPracticeTest);
+
+    // 🚀 ルール1：「今日の学習（復習テスト）」中のみ、間違えた単語をリストに追加する
+    if (isFromTodayLesson) {
+        if (!ok) {
+            // 間違えたらリストに追加（重複防止）
+            if (!reviewWrongWords.some(w => w.word === current.word)) {
+                reviewWrongWords.push(current);
+            }
+        } else {
+            // もし復習テスト中に正解した場合は、リストから消す
+            reviewWrongWords = reviewWrongWords.filter(w => w.word !== current.word);
         }
     }
+    // 🚀 ルール2：「この範囲をテスト（練習）」や「チェックテスト（本番）」のときは、
+    // 正解・不正解どちらになっても reviewWrongWords（復習が必要な単語）は一切いじらない！
+
     await saveProgress();
 
     const res = document.getElementById("resultArea");
@@ -1153,7 +1168,6 @@ document.getElementById("checkBtn").addEventListener("click", async () => {
     document.getElementById("checkBtn").classList.add("hidden");
     document.getElementById("nextBtn").classList.remove("hidden");
 });
-
 document.getElementById("nextBtn").addEventListener("click", () => renderQuestion());
 
 function showTestResult() {

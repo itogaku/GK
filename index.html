@@ -235,8 +235,8 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
   <div id="quizKeyboard">
     <div id="keyboard"></div>
     <select id="keyboardSelect" style="width:100%; margin-top:10px; padding:5px; border-radius:5px;">
+      <option value="qwerty" selected>QWERTY配列</option>
       <option value="mobile">アルファベット順</option>
-      <option value="qwerty">QWERTY配列</option>
     </select>
   </div>
 
@@ -770,7 +770,7 @@ let reviewPool = [];
 let reviewWrongWords = [];
 let isSelfPracticeMode = false;
 let isPracticeModeGlobal = false;
-let currentLayout = "mobile";
+let currentLayout = "qwerty";
 let completedSections = [];
 let lastCompletedSection = 0;
 let isAllWordsMode = false;

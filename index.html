@@ -1175,12 +1175,21 @@ function showTestResult() {
 
     const resultView = document.getElementById("quizResultView");
 
-    // 各種判定フラグの整理
-    const isFromTodayLesson = (!isSelfPracticeMode && !isAllWordsMode && !isPracticeModeGlobal); // ホームの「今日の学習」から始まった復習テストかどうか
-    const isCheckTest = (!isSelfPracticeMode && !isAllWordsMode && isPracticeModeGlobal === false); // 一覧画面の赤ボタンから始まった本番の「チェックテスト」かどうか
+    // 💡【フラグの条件定義を完全に修正】
+    // 1. 練習テスト（青ボタン「この範囲をテスト」）かどうか
+    const isPracticeTest = (isSelfPracticeMode === true);
 
-    // 🏆 【A】本番の「チェックテスト」で全問正解（満点合格）した場合の処理
-    if (isPerfect && isCheckTest && !isFromTodayLesson) {
+    // 2. 本番のチェックテスト（赤ボタン「チェックテスト」）かどうか
+    // （自習練習ではなく、全範囲テストでもなく、今日の学習開始から直行したクイズでもない場合）
+    const isCheckTest = (isSelfPracticeMode === false && isAllWordsMode === false && isPracticeModeGlobal === false && reviewPool.length === words.slice((currentSection - 1) * SECTION_SIZE, currentSection * SECTION_SIZE).length);
+
+    // 3. ホームの「今日の学習を開始する」から始まった「復習テスト」かどうか
+    // （練習モードではなく、かつチェックテストの条件（問題数一致など）に当てはまらない場合）
+    const isFromTodayLesson = (isSelfPracticeMode === false && isAllWordsMode === false && !isCheckTest);
+
+
+    // 🏆 【A】本番の「チェックテスト（赤ボタン）」で全問正解（満点合格）した場合の処理
+    if (isPerfect && !isPracticeTest && !isFromTodayLesson && !isAllWordsMode) {
         
         // 1. 合格したセクションリストに現在のセクション番号を追加（重複防止）
         if (!completedSections.includes(currentSection)) {
@@ -1194,22 +1203,22 @@ function showTestResult() {
             currentSection = currentSection + 1; 
         }
         
-        // 3. クラウド（Firebase Realtime Database）のデータを最新の数値で直接上書き保存
+        // 3. クラウド（Firebase）のデータを最新の数値で直接上書き保存
         if (currentUser && typeof update === 'function' && typeof ref === 'function') {
             update(ref(db, 'users/' + currentUser), {
                 currentSection: currentSection,
                 completedSections: completedSections,
                 lastCompletedSection: lastCompletedSection
             }).then(() => {
-                saveProgress(); // 全体の progress や学習回数なども合わせてバックアップ保存
+                saveProgress(); // 全体バックアップも保存
             });
         }
 
-        // 4. セクション画面（合格マーク）とホーム画面（グラフや目標テキスト）を裏側で即座に再描画
+        // 4. セクション画面（合格マーク）とホーム画面（グラフや目標テキスト）を即座に再描画
         if (typeof window.renderSectionButtons === 'function') window.renderSectionButtons();
         if (typeof updateHomeDashboard === 'function') updateHomeDashboard();
 
-        // 5. 結果画面：合格を祝福し、「🏠 合格してホームに戻る」ボタンだけをドカンと表示
+        // 5. 結果画面：合格を祝福し、「🏠 合格してホームに戻る」ボタンだけを表示
         resultView.innerHTML = `
             <h3 id="resultTitle" style="color:#ff9800; margin-top:0; font-size:24px;">✨ 合格！テスト完了 ✨</h3>
             <p id="resultScore" style="font-size:32px; font-weight:bold; margin:15px 0; color:#ff9800;">全問正解！素晴らしい！</p>
@@ -1222,7 +1231,7 @@ function showTestResult() {
             </button>
         `;
     } 
-    // 🚀 【B】「今日の学習（復習テスト）」から来た場合（全問正解でも、間違えがあってもここを通る）
+    // 🚀 【B】ホームの「今日の学習（復習テスト）」ルートから来た場合（全問正解でも間違えでもここを通る）
     else if (isFromTodayLesson) {
         let listHtml = "";
         testLog.forEach(item => {
@@ -1245,8 +1254,8 @@ function showTestResult() {
             </button>
         `;
     } 
-    // 📝 【C】練習用の「この範囲をテスト（isSelfPracticeMode === true）」が終わった場合
-    else if (isSelfPracticeMode) {
+    // 📝 【C】練習用の「この範囲をテスト（青ボタン）」が終わった場合
+    else if (isPracticeTest) {
         let listHtml = "";
         testLog.forEach(item => {
             const mark = item.status === "correct" ? "○" : "×";
@@ -1264,7 +1273,7 @@ function showTestResult() {
             </button>
         `;
     }
-    // 😢 【D】本番のチェックテストで「不合格（1問でも間違えがあった）」の場合の処理
+    // 😢 【D】本番のチェックテスト（赤ボタン）で「不合格（間違えがあった）」の場合の処理
     else {
         let listHtml = "";
         testLog.forEach(item => {
@@ -1284,7 +1293,6 @@ function showTestResult() {
         `;
     }
 }
-
 window.exitToListViewFromReview = function() {
     isReviewMode = false;
     isSelfPracticeMode = false;

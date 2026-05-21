@@ -1188,60 +1188,59 @@ function showTestResult() {
 
     const resultView = document.getElementById("quizResultView");
 
-    // 各種判定フラグの整理
+    // 💡【フラグ判定を完全に安全な形に再構築】
     const isPracticeTest = (isSelfPracticeMode === true);
-    const isCheckTest = (isSelfPracticeMode === false && isAllWordsMode === false && isPracticeModeGlobal === false);
-    const isFromTodayLesson = (isSelfPracticeMode === false && isAllWordsMode === false && isPracticeModeGlobal === false && window.currentCheckTestLength === undefined);
+    // 確実に赤ボタンから遷移したときだけ true になるように固定
+    const isCheckTest = (window.isActualCheckTestMode === true);
+    // 練習でもなく、チェックテストでもない場合 ＝ ホームからの「今日の学習（復習テスト）」
+    const isFromTodayLesson = (!isPracticeTest && !isCheckTest);
 
     // 🏆 【A】本番の「チェックテスト（赤ボタン）」で全問正解（満点合格）した場合の処理
     if (isPerfect && isCheckTest && !isPracticeTest && !isFromTodayLesson && !isAllWordsMode) {
         
-        // 💡【強力版修正】合格したセクションに含まれる単語を「復習が必要な単語リスト」から【確実に】一括削除する
+        // 💡 合格したセクションに含まれる単語を「復習が必要な単語リスト」から【確実に】一括削除する
         let offset = (currentSection - 1) * SECTION_SIZE;
         let currentSectionWords = words.slice(offset, offset + SECTION_SIZE);
         
-        // オブジェクトの形（.word）でも、文字列（データそのもの）でも、どちらでも文字を抽出できるように対策
         reviewWrongWords = reviewWrongWords.filter(wrongWord => {
             if (!wrongWord) return false;
-            // wrongWordがオブジェクトなら .word を、文字列ならそのままの文字を使用
+            // wrongWordがオブジェクトなら .word を、文字列ならそのままの文字を抽出
             const wrongSpell = (typeof wrongWord === 'object' && wrongWord.word) ? wrongWord.word.toLowerCase() : String(wrongWord).toLowerCase();
             
-            // 現在のセクションの単語（sectionWord.word）に一致するものがあれば【削除（falseを返す）】
+            // 現在のセクション単語に一致するものがあれば削除
             const isMatch = currentSectionWords.some(sectionWord => {
                 return sectionWord && sectionWord.word && sectionWord.word.toLowerCase() === wrongSpell;
             });
-            return !isMatch; // 一致しなかったものだけを残す
+            return !isMatch; 
         });
 
-        // 1. 合格したセクションリストに現在のセクション番号を追加
+        // 1. 合格リストにセクション番号を追加
         if (!completedSections.includes(currentSection)) {
             completedSections.push(currentSection);
         }
         lastCompletedSection = currentSection;
 
-        // 2. 「現在の目標（現在のセクション）」を次のセクションに進める
+        // 2. 目標を次のセクションに進める
         const maxSection = Math.ceil(words.length / SECTION_SIZE);
         if (currentSection < maxSection) {
             currentSection = currentSection + 1; 
         }
         
-        // 3. クラウド（Firebase）のデータを最新の数値（綺麗になった reviewWrongWords も含む）で直接上書き保存
+        // 3. クラウド（Firebase）へ進捗を同期保存
         if (currentUser && typeof update === 'function' && typeof ref === 'function') {
             update(ref(db, 'users/' + currentUser), {
                 currentSection: currentSection,
                 completedSections: completedSections,
                 lastCompletedSection: lastCompletedSection,
-                reviewWrongWords: reviewWrongWords // 💡 綺麗になった復習リストをクラウドへ保存
+                reviewWrongWords: reviewWrongWords 
             }).then(() => {
-                saveProgress(); // 全体バックアップも同期
+                saveProgress(); 
             });
         }
 
-        // 4. セクション画面（合格マーク）とホーム画面（グラフや目標テキスト）を即座に再描画
         if (typeof window.renderSectionButtons === 'function') window.renderSectionButtons();
         if (typeof updateHomeDashboard === 'function') updateHomeDashboard();
 
-        // 5. 結果画面：合格を祝福し、「🏠 合格してホームに戻る」ボタンを表示
         resultView.innerHTML = `
             <h3 id="resultTitle" style="color:#ff9800; margin-top:0; font-size:24px;">✨ 合格！テスト完了 ✨</h3>
             <p id="resultScore" style="font-size:32px; font-weight:bold; margin:15px 0; color:#ff9800;">全問正解！素晴らしい！</p>
@@ -1317,8 +1316,11 @@ function showTestResult() {
         `;
     }
     
+    // 立てていた各種セーフティフラグをリセット
     window.currentCheckTestLength = undefined;
+    window.isActualCheckTestMode = undefined;
 }
+
 window.exitToListViewFromReview = function() {
     isReviewMode = false;
     isSelfPracticeMode = false;
@@ -1472,34 +1474,28 @@ window.goToQuizFromList = function(isPractice) {
     testLog = [];
     isReviewMode = true; 
     isPracticeModeGlobal = isPractice;
-
-    // isPractice = true （この範囲をテスト） -> 自習練習モード
-    // isPractice = false（チェックテスト） -> 本番テスト
     isSelfPracticeMode = isPractice; 
 
-    // 1. 現在のセクションの単語を抽出
+    // 現在のセクションの単語を抽出
     let offset = (currentSection - 1) * SECTION_SIZE;
     let sectionPool = words.slice(offset, offset + SECTION_SIZE);
     
-    // 2. 「復習が必要な単語」を前に、「セクションの単語」を後ろにして合流（重複はカット）
-    // こうすることで、シャッフル前に苦手単語が確実にプールに入ります
+    // 「復習が必要な単語」を前に、「セクションの単語」を後ろにして合流
     let combined = [...new Set([...reviewWrongWords, ...sectionPool])];
 
     if (isPractice) {
         // 【青ボタン（練習）の場合】
-        // すでに「correct（覚えた）」になっているものを除外してテスト
         combined = combined.filter(w => progress[w.word.toLowerCase()] !== "correct");
         if (combined.length === 0) { alert("未習得の単語はありません！"); return; }
-        
-        // 💡 練習テストも設定問題数（TEST_QUESTION_COUNT）でシャッフル＆カット
         reviewPool = combined.sort(() => Math.random() - 0.5).slice(0, TEST_QUESTION_COUNT);
+        window.isActualCheckTestMode = false; // 練習なので本番フラグはOFF
     } else {
         // 【赤ボタン（チェックテスト）の場合】
-        // 💡 復習単語を混ぜた上で、ランダムにシャッフルし、設定問題数（TEST_QUESTION_COUNT）の分だけ切り出す！
         reviewPool = combined.sort(() => Math.random() - 0.5).slice(0, TEST_QUESTION_COUNT);
-        
-        // 合格判定用のフラグ（出題数）を設定数で上書き記録
         window.currentCheckTestLength = reviewPool.length;
+        
+        // 💡【重要】これが一覧画面から手動で始めた「本番のチェックテスト」であることを証明するフラグを立てる！
+        window.isActualCheckTestMode = true;
     }
 
     renderQuestion();

@@ -1131,27 +1131,29 @@ document.getElementById("checkBtn").addEventListener("click", async () => {
     testLog.push({ word: current.word, meaning: current.meaning, status: status });
     progress[current.word.toLowerCase()] = status;
 
-    // 💡【重要】各種判定フラグをチェック
-    // 練習（青）ではなく、本番チェック（赤）でもなく、全範囲でもない ＝ 「今日の学習（最初の復習テスト）」ルート
+    // フラグをチェック
     const isPracticeTest = (isSelfPracticeMode === true);
-    const targetSectionLength = words.slice((currentSection - 1) * SECTION_SIZE, currentSection * SECTION_SIZE).length;
-    const isCheckTest = (isSelfPracticeMode === false && isAllWordsMode === false && window.currentCheckTestLength === targetSectionLength);
-    const isFromTodayLesson = (isSelfPracticeMode === false && isAllWordsMode === false && !isCheckTest && !isPracticeTest);
+    const isCheckTest = (window.isActualCheckTestMode === true);
+    const isFromTodayLesson = (!isPracticeTest && !isCheckTest);
 
-    // 🚀 ルール1：「今日の学習（復習テスト）」中のみ、間違えた単語をリストに追加する
+    // 🚀 【ルール】「今日の学習（最初の復習テスト）」のときだけ、復習リストに追加・削除する
     if (isFromTodayLesson) {
         if (!ok) {
-            // 間違えたらリストに追加（重複防止）
-            if (!reviewWrongWords.some(w => w.word === current.word)) {
-                reviewWrongWords.push(current);
+            // オブジェクトではなく、Firebaseと親和性の高い「純粋なスペル文字列」で統一して保存する
+            if (!reviewWrongWords.some(w => {
+                const spell = (typeof w === 'object') ? w.word : w;
+                return spell.toLowerCase() === current.word.toLowerCase();
+            })) {
+                reviewWrongWords.push(current.word.toLowerCase());
             }
         } else {
-            // もし復習テスト中に正解した場合は、リストから消す
-            reviewWrongWords = reviewWrongWords.filter(w => w.word !== current.word);
+            // 復習テスト中に正解した場合はリストから消す
+            reviewWrongWords = reviewWrongWords.filter(w => {
+                const spell = (typeof w === 'object') ? w.word : w;
+                return spell.toLowerCase() !== current.word.toLowerCase();
+            });
         }
     }
-    // 🚀 ルール2：「この範囲をテスト（練習）」や「チェックテスト（本番）」のときは、
-    // 正解・不正解どちらになっても reviewWrongWords（復習が必要な単語）は一切いじらない！
 
     await saveProgress();
 
@@ -1188,26 +1190,21 @@ function showTestResult() {
 
     const resultView = document.getElementById("quizResultView");
 
-    // 💡【フラグ判定を完全に安全な形に再構築】
     const isPracticeTest = (isSelfPracticeMode === true);
-    // 確実に赤ボタンから遷移したときだけ true になるように固定
     const isCheckTest = (window.isActualCheckTestMode === true);
-    // 練習でもなく、チェックテストでもない場合 ＝ ホームからの「今日の学習（復習テスト）」
     const isFromTodayLesson = (!isPracticeTest && !isCheckTest);
 
     // 🏆 【A】本番の「チェックテスト（赤ボタン）」で全問正解（満点合格）した場合の処理
     if (isPerfect && isCheckTest && !isPracticeTest && !isFromTodayLesson && !isAllWordsMode) {
         
-        // 💡 合格したセクションに含まれる単語を「復習が必要な単語リスト」から【確実に】一括削除する
+        // 💡 合格したセクションに含まれる単語を「復習が必要な単語リスト」から【完全に】一括削除
         let offset = (currentSection - 1) * SECTION_SIZE;
         let currentSectionWords = words.slice(offset, offset + SECTION_SIZE);
         
         reviewWrongWords = reviewWrongWords.filter(wrongWord => {
             if (!wrongWord) return false;
-            // wrongWordがオブジェクトなら .word を、文字列ならそのままの文字を抽出
             const wrongSpell = (typeof wrongWord === 'object' && wrongWord.word) ? wrongWord.word.toLowerCase() : String(wrongWord).toLowerCase();
             
-            // 現在のセクション単語に一致するものがあれば削除
             const isMatch = currentSectionWords.some(sectionWord => {
                 return sectionWord && sectionWord.word && sectionWord.word.toLowerCase() === wrongSpell;
             });
@@ -1226,15 +1223,14 @@ function showTestResult() {
             currentSection = currentSection + 1; 
         }
         
-        // 3. クラウド（Firebase）へ進捗を同期保存
+        // 3. クラウド（Firebase）へ進捗を上書き同期保存（変数の競合を完全に防止）
         if (currentUser && typeof update === 'function' && typeof ref === 'function') {
             update(ref(db, 'users/' + currentUser), {
                 currentSection: currentSection,
                 completedSections: completedSections,
                 lastCompletedSection: lastCompletedSection,
-                reviewWrongWords: reviewWrongWords 
-            }).then(() => {
-                saveProgress(); 
+                reviewWrongWords: reviewWrongWords,
+                progress: progress 
             });
         }
 
@@ -1316,7 +1312,6 @@ function showTestResult() {
         `;
     }
     
-    // 立てていた各種セーフティフラグをリセット
     window.currentCheckTestLength = undefined;
     window.isActualCheckTestMode = undefined;
 }
@@ -1327,25 +1322,21 @@ window.exitToListViewFromReview = function() {
     
     if (typeof resetQuizUI === 'function') resetQuizUI();
     
-    // 単語一覧のセレクトボックスを現在の目標セクションに同期してロック
     const listSelect = document.getElementById("listSectionSelect");
     if (listSelect) {
         listSelect.value = isAllWordsMode ? "all" : currentSection;
-        listSelect.disabled = true; // 他のセクションへの変更を禁止
-        listSelect.style.backgroundColor = "#e0e0e0"; // グレーアウト
+        listSelect.disabled = true; 
+        listSelect.style.backgroundColor = "#e0e0e0"; 
     }
     
-    // 画面を一覧（list）に切り替える
     document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
     const listPage = document.getElementById("list");
     if (listPage) {
         listPage.classList.add("active");
     }
     
-    // データを再描画
     if (typeof window.renderList === 'function') window.renderList();
 
-    // ナビゲーションボタン（この範囲をテスト、チェックテスト）を表示
     const listQuizNav = document.getElementById("listQuizNav");
     const listHomeBackBtn = document.getElementById("listHomeBackBtn");
     
@@ -1359,25 +1350,21 @@ window.exitToListView = function() {
     
     if (typeof resetQuizUI === 'function') resetQuizUI();
     
-    // 一覧画面のセレクトボックスを現在の目標セクションに同期してロック維持
     const listSelect = document.getElementById("listSectionSelect");
     if (listSelect) {
         listSelect.value = isAllWordsMode ? "all" : currentSection;
-        listSelect.disabled = true; // ロックを維持
+        listSelect.disabled = true; 
         listSelect.style.backgroundColor = "#e0e0e0"; 
     }
     
-    // 画面を一覧（list）に切り替える
     document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
     const listPage = document.getElementById("list");
     if (listPage) {
         listPage.classList.add("active");
     }
     
-    // データを再描画
     if (typeof window.renderList === 'function') window.renderList();
 
-    // ナビゲーションボタンを表示
     const listQuizNav = document.getElementById("listQuizNav");
     const listHomeBackBtn = document.getElementById("listHomeBackBtn");
     

@@ -1131,15 +1131,15 @@ document.getElementById("checkBtn").addEventListener("click", async () => {
     testLog.push({ word: current.word, meaning: current.meaning, status: status });
     progress[current.word.toLowerCase()] = status;
 
-    // フラグをチェック
+    // 各種判定フラグをチェック
     const isPracticeTest = (isSelfPracticeMode === true);
     const isCheckTest = (window.isActualCheckTestMode === true);
     const isFromTodayLesson = (!isPracticeTest && !isCheckTest);
 
-    // 🚀 【ルール】「今日の学習（最初の復習テスト）」のときだけ、復習リストに追加・削除する
+    // 🚀 ルール1：「今日の学習（最初の復習テスト）」中のみ、間違えた単語をリストに追加・削除する
     if (isFromTodayLesson) {
         if (!ok) {
-            // オブジェクトではなく、Firebaseと親和性の高い「純粋なスペル文字列」で統一して保存する
+            // Firebaseクラウドと100%親和性の高い「純粋なスペル文字列」に形を統一して重複防止
             if (!reviewWrongWords.some(w => {
                 const spell = (typeof w === 'object') ? w.word : w;
                 return spell.toLowerCase() === current.word.toLowerCase();
@@ -1147,13 +1147,15 @@ document.getElementById("checkBtn").addEventListener("click", async () => {
                 reviewWrongWords.push(current.word.toLowerCase());
             }
         } else {
-            // 復習テスト中に正解した場合はリストから消す
+            // 復習テスト中に正解した場合は、オブジェクト/文字列どちらの形が混ざっていても綺麗にリストから消す
             reviewWrongWords = reviewWrongWords.filter(w => {
                 const spell = (typeof w === 'object') ? w.word : w;
                 return spell.toLowerCase() !== current.word.toLowerCase();
             });
         }
     }
+    // 🚀 ルール2：「この範囲をテスト（練習）」や「チェックテスト（本番）」のときは、
+    // 正解・不正解どちらになっても reviewWrongWords（復習が必要な単語）は一切いじらない！
 
     await saveProgress();
 

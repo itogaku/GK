@@ -1174,11 +1174,10 @@ function showTestResult() {
 
     const resultView = document.getElementById("quizResultView");
 
-    // 💡 判定フラグを整理
+    // 判定フラグを整理
     const isFromTodayLesson = (!isSelfPracticeMode && !isAllWordsMode && !isPracticeModeGlobal); // 「今日の学習」ボタンから始まった復習テストかどうか
-    const isCheckTest = (!isSelfPracticeMode && !isAllWordsMode && isPracticeModeGlobal === false && isReviewMode === false); // 新しいセクションのチェックテスト（本番）かどうか
 
-    // 🏆 【A】「新しい範囲のチェックテスト」で満点合格した場合のみ、セクションを繰り上げる
+    // 🏆 【A】本番の「チェックテスト」で満点合格した場合のみ、セクションを繰り上げてホームに戻る
     if (isPerfect && !isSelfPracticeMode && !isAllWordsMode && !isFromTodayLesson) {
         if (!completedSections.includes(currentSection)) {
             completedSections.push(currentSection);
@@ -1212,7 +1211,7 @@ function showTestResult() {
             </button>
         `;
     } 
-    // 🚀 【B】「今日の学習（復習テスト）」から来た場合（全問正解でも、間違えがあってもここを通る）
+    // 🚀 【B】「今日の学習（復習テスト）」から来た場合
     else if (isFromTodayLesson) {
         let listHtml = "";
         testLog.forEach(item => {
@@ -1226,7 +1225,7 @@ function showTestResult() {
         const titleColor = isPerfect ? "#4caf50" : "#2196f3";
 
         resultView.innerHTML = `
-            <h3 id="resultTitle" style="style="margin-top:0;" style="color:${titleColor};">${titleText}</h3>
+            <h3 id="resultTitle" style="margin-top:0; color:${titleColor};">${titleText}</h3>
             <p id="resultScore" style="font-size:32px; font-weight:bold; margin:15px 0;">${scoreText}</p>
             <div id="resultList" style="text-align:left; max-height:150px; overflow-y:auto; border:1px solid #eee; padding:10px; margin-bottom:20px; font-size:14px; background:#fafafa;">${listHtml}</div>
             <p style="margin-bottom:15px; color:#666; font-size:14px;">次は本日の学習範囲【Section ${currentSection}】の暗記に進みます！</p>
@@ -1235,7 +1234,26 @@ function showTestResult() {
             </button>
         `;
     } 
-    // 😢 【C】その他の通常テスト（不合格、練習モード、確認モードなど）
+    // 📝 【C】💡修正：練習用の「この範囲をテスト（isSelfPracticeMode === true）」が終わった場合
+    else if (isSelfPracticeMode) {
+        let listHtml = "";
+        testLog.forEach(item => {
+            const mark = item.status === "correct" ? "○" : "×";
+            const color = item.status === "correct" ? "#2e7d32" : "#c62828";
+            listHtml += `<div style="color:${color}; border-bottom:1px solid #eee; padding:5px 0;">${mark} ${item.word} (${item.meaning})</div>`;
+        });
+
+        resultView.innerHTML = `
+            <h3 id="resultTitle" style="color:#9c27b0; margin-top:0;">📝 練習テスト結果</h3>
+            <p id="resultScore" style="font-size:32px; font-weight:bold; margin:15px 0;">${totalCount}問中 ${correctCount}問 正解</p>
+            <div id="resultList" style="text-align:left; max-height:150px; overflow-y:auto; border:1px solid #eee; padding:10px; margin-bottom:20px; font-size:14px; background:#fafafa;">${listHtml}</div>
+            <p style="margin-bottom:15px; color:#666; font-size:14px;">間違えた単語を一覧でもう一度確認して覚え直しましょう！</p>
+            <button onclick="window.exitToListView()" class="btn-primary" style="width: 100%; height: 50px; background: #9c27b0; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                👉 学習画面（一覧）に戻る
+            </button>
+        `;
+    }
+    // 😢 【D】その他の本番不合格（チェックテストで間違えがあった場合など）
     else {
         let listHtml = "";
         testLog.forEach(item => {
@@ -1245,10 +1263,10 @@ function showTestResult() {
         });
         
         resultView.innerHTML = `
-            <h3 id="resultTitle" style="color:#1a73e8; margin-top:0;">${isPracticeModeGlobal ? "確認モード完了" : "チェックテスト結果"}</h3>
+            <h3 id="resultTitle" style="color:#c62828; margin-top:0;">❌ チェックテスト不合格</h3>
             <p id="resultScore" style="font-size:32px; font-weight:bold; margin:15px 0;">${totalCount}問中 ${correctCount}問 正解</p>
             <div id="resultList" style="text-align:left; max-height:180px; overflow-y:auto; border:1px solid #eee; padding:10px; margin-bottom:20px; font-size:14px; background:#fafafa;">${listHtml}</div>
-            <button onclick="window.showPage('homePage')" class="btn-primary" style="width: 100%; height: 50px; background: #1a73e8; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+            <button onclick="window.showPage('homePage')" class="btn-primary" style="width: 100%; height: 50px; background: #c62828; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
                 🏠 ホームに戻る
             </button>
         `;

@@ -853,11 +853,18 @@ window.showPage = function(id) {
 
   const listQuizNav = document.getElementById("listQuizNav");
   const listHomeBackBtn = document.getElementById("listHomeBackBtn");
+  const sectionSelect = document.getElementById("listSectionSelect");
   
   if (id === "list") {
     if (typeof window.renderList === 'function') window.renderList();
     if (listQuizNav) listQuizNav.style.display = "none";
     if (listHomeBackBtn) listHomeBackBtn.style.display = "inline-block";
+    
+    // 💡【追加】ホームのメニューから直接一覧を開いたときは、他のセクションを自由に選べるようにロックを解除
+    if (sectionSelect) {
+        sectionSelect.disabled = false;
+        sectionSelect.style.backgroundColor = ""; // 背景色を元に戻す
+    }
   } else {
     if (listQuizNav) listQuizNav.style.display = "none";
     if (listHomeBackBtn) listHomeBackBtn.style.display = "none";
@@ -876,7 +883,6 @@ window.showPage = function(id) {
       document.getElementById("welcomeUser").textContent = `こんにちは、${currentUser}さん！`;
     }
 
-    // ダッシュボードと目標テキストを最新状態に更新
     if (typeof updateHomeDashboard === 'function') updateHomeDashboard(); 
     
     const mainBtn = document.getElementById("mainLessonBtn");
@@ -893,6 +899,7 @@ window.showPage = function(id) {
     }
   }
 };
+
 window.saveSettings = async function() {
     SECTION_SIZE = parseInt(document.getElementById("setSectionSize").value);
     TEST_QUESTION_COUNT = parseInt(document.getElementById("setTestCount").value);
@@ -1015,36 +1022,36 @@ window.logout = function() {
 window.startTodayLesson = async function() {
     if (!currentUser) return;
 
-    // 💡【追加】もし中断からの再開（isSuspendedが真）なら、復習テストをスキップして直接学習画面へ！
+    // もし中断からの再開なら、復習テストをスキップして直接学習画面へ
     if (isSuspended) {
-        isSuspended = false; // フラグをリセット
+        isSuspended = false; 
         isReviewMode = false;
         isSelfPracticeMode = false;
         if (typeof resetQuizUI === 'function') resetQuizUI();
         
-        // 単語一覧のセレクトボックスを現在の目標セクションに同期
         const listSelect = document.getElementById("listSectionSelect");
         if (listSelect) {
             listSelect.value = isAllWordsMode ? "all" : currentSection;
+            // 💡【追加】学習ルートなので、勝手に他のセクションに変えられないようにセレクトボックスをロック
+            listSelect.disabled = true;
+            listSelect.style.backgroundColor = "#e0e0e0"; // ロック中とわかるようにグレーにする
         }
         
-        // 一覧画面（学習画面）を表示
         document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
         const listPage = document.getElementById("list");
         if (listPage) listPage.classList.add("active");
         if (typeof window.renderList === 'function') window.renderList();
 
-        // テスト用ナビボタンを表示
         const listQuizNav = document.getElementById("listQuizNav");
         const listHomeBackBtn = document.getElementById("listHomeBackBtn");
         if (listQuizNav) listQuizNav.style.display = "flex";
         if (listHomeBackBtn) listHomeBackBtn.style.display = "none";
         
-        return; // ここで処理を終了（下のクイズ開始ロジックを通さない）
+        return; 
     }
 
-    // 🚀 ここから下は「新規開始（青いボタン）」のときの挙動（復習テストを開始）
-    studyCount++; // 学習回数をインクリメント
+    // ここから下は「新規開始」のときの挙動（復習テストを開始）
+    studyCount++; 
 
     let uniquePool = [];
     if (isAllWordsMode) {
@@ -1253,10 +1260,12 @@ window.exitToListViewFromReview = function() {
     isSelfPracticeMode = false;
     resetQuizUI();
     
-    // 単語一覧のセレクトボックスを現在の目標セクションに強制同期
     const listSelect = document.getElementById("listSectionSelect");
     if (listSelect) {
         listSelect.value = currentSection;
+        // 💡【追加】今日学習すべき範囲に集中させるため、他のセクションへの変更をロック
+        listSelect.disabled = true;
+        listSelect.style.backgroundColor = "#e0e0e0"; // ロック中とわかるようにグレーにする
     }
     
     document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
@@ -1264,7 +1273,6 @@ window.exitToListViewFromReview = function() {
     if (listPage) listPage.classList.add("active");
     if (typeof window.renderList === 'function') window.renderList();
 
-    // 今日の学習フローの途中なので、一覧画面の上部にある「テスト開始」「チェックテスト」等のナビを表示する
     const listQuizNav = document.getElementById("listQuizNav");
     const listHomeBackBtn = document.getElementById("listHomeBackBtn");
     

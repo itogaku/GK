@@ -1273,31 +1273,40 @@ function showTestResult() {
     }
 }
 
-window.exitToListViewFromReview = function() {
+window.exitToListView = function() {
     isReviewMode = false;
     isSelfPracticeMode = false;
-    resetQuizUI();
     
+    if (typeof resetQuizUI === 'function') resetQuizUI();
+    
+    // 1. 一覧画面のセレクトボックスの状態をチェック
     const listSelect = document.getElementById("listSectionSelect");
     if (listSelect) {
-        listSelect.value = currentSection;
-        // 💡【追加】今日学習すべき範囲に集中させるため、他のセクションへの変更をロック
+        // 現在の目標セクションに強制同期
+        listSelect.value = isAllWordsMode ? "all" : currentSection;
+        
+        // 💡【重要】今日の学習フローの途中（セクション変更不可）のまま戻るので、ロック状態を維持する
         listSelect.disabled = true;
-        listSelect.style.backgroundColor = "#e0e0e0"; // ロック中とわかるようにグレーにする
+        listSelect.style.backgroundColor = "#e0e0e0"; 
     }
     
+    // 2. 画面を一覧（list）に切り替える
     document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
     const listPage = document.getElementById("list");
-    if (listPage) listPage.classList.add("active");
+    if (listPage) {
+        listPage.classList.add("active");
+    }
+    
+    // 3. データを再描画
     if (typeof window.renderList === 'function') window.renderList();
 
+    // 4. ナビゲーションボタンの排他制御
     const listQuizNav = document.getElementById("listQuizNav");
     const listHomeBackBtn = document.getElementById("listHomeBackBtn");
     
     if (listQuizNav) listQuizNav.style.display = "flex";
     if (listHomeBackBtn) listHomeBackBtn.style.display = "none";
 };
-
 // --- リスト表示 ---
 window.renderSectionButtons = function() {
   const container = document.getElementById("sectionContainer");

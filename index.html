@@ -1163,7 +1163,7 @@ function showTestResult() {
     document.getElementById("quizKeyboard").classList.add("hidden");
     document.getElementById("quizResultView").classList.remove("hidden");
 
-    // クイズ画面最下部にある「一覧に戻る」の固定ボタンエリアを非表示にする（重複防止）
+    // クイズ画面最下部にある「一覧に戻る」の固定ボタンエリアを非表示にする
     const quizBottomBackBtn = document.querySelector("#quiz > div > button[onclick='goBackToListFromQuiz()']");
     if (quizBottomBackBtn && quizBottomBackBtn.parentElement) {
         quizBottomBackBtn.parentElement.style.display = "none";
@@ -1175,29 +1175,29 @@ function showTestResult() {
 
     const resultView = document.getElementById("quizResultView");
 
-    // 💡【フラグの条件定義を完全に修正】
+    // 💡【修正】フラグの判定ロジックを完全に安全な形へ変更
     // 1. 練習テスト（青ボタン「この範囲をテスト」）かどうか
     const isPracticeTest = (isSelfPracticeMode === true);
 
     // 2. 本番のチェックテスト（赤ボタン「チェックテスト」）かどうか
-    // （自習練習ではなく、全範囲テストでもなく、今日の学習開始から直行したクイズでもない場合）
-    const isCheckTest = (isSelfPracticeMode === false && isAllWordsMode === false && isPracticeModeGlobal === false && reviewPool.length === words.slice((currentSection - 1) * SECTION_SIZE, currentSection * SECTION_SIZE).length);
+    // （練習モードではなく、全範囲でもなく、かつ出題数がセクション単語数と一致している場合）
+    const targetSectionLength = words.slice((currentSection - 1) * SECTION_SIZE, currentSection * SECTION_SIZE).length;
+    const isCheckTest = (isSelfPracticeMode === false && isAllWordsMode === false && window.currentCheckTestLength === targetSectionLength);
 
     // 3. ホームの「今日の学習を開始する」から始まった「復習テスト」かどうか
-    // （練習モードではなく、かつチェックテストの条件（問題数一致など）に当てはまらない場合）
     const isFromTodayLesson = (isSelfPracticeMode === false && isAllWordsMode === false && !isCheckTest);
 
 
     // 🏆 【A】本番の「チェックテスト（赤ボタン）」で全問正解（満点合格）した場合の処理
-    if (isPerfect && !isPracticeTest && !isFromTodayLesson && !isAllWordsMode) {
+    if (isPerfect && isCheckTest && !isPracticeTest && !isFromTodayLesson && !isAllWordsMode) {
         
-        // 1. 合格したセクションリストに現在のセクション番号を追加（重複防止）
+        // 1. 合格したセクションリストに現在のセクション番号を追加
         if (!completedSections.includes(currentSection)) {
             completedSections.push(currentSection);
         }
         lastCompletedSection = currentSection;
 
-        // 2. 「現在の目標（現在のセクション）」を次のセクションに進める
+        // 2. 「現在の目標」を次のセクションに進める
         const maxSection = Math.ceil(words.length / SECTION_SIZE);
         if (currentSection < maxSection) {
             currentSection = currentSection + 1; 
@@ -1210,7 +1210,7 @@ function showTestResult() {
                 completedSections: completedSections,
                 lastCompletedSection: lastCompletedSection
             }).then(() => {
-                saveProgress(); // 全体バックアップも保存
+                saveProgress(); 
             });
         }
 
@@ -1218,7 +1218,7 @@ function showTestResult() {
         if (typeof window.renderSectionButtons === 'function') window.renderSectionButtons();
         if (typeof updateHomeDashboard === 'function') updateHomeDashboard();
 
-        // 5. 結果画面：合格を祝福し、「🏠 合格してホームに戻る」ボタンだけを表示
+        // 5. 結果画面：「🏠 合格してホームに戻る」ボタンを表示
         resultView.innerHTML = `
             <h3 id="resultTitle" style="color:#ff9800; margin-top:0; font-size:24px;">✨ 合格！テスト完了 ✨</h3>
             <p id="resultScore" style="font-size:32px; font-weight:bold; margin:15px 0; color:#ff9800;">全問正解！素晴らしい！</p>
@@ -1273,7 +1273,7 @@ function showTestResult() {
             </button>
         `;
     }
-    // 😢 【D】本番のチェックテスト（赤ボタン）で「不合格（間違えがあった）」の場合の処理
+    // 😢 【D】本番のチェックテスト（赤ボタン）で不合格（1問でも間違えがあった）の場合の処理
     else {
         let listHtml = "";
         testLog.forEach(item => {
@@ -1292,6 +1292,9 @@ function showTestResult() {
             </button>
         `;
     }
+    
+    // 使用した一時的なグローバルフラグを掃除
+    window.currentCheckTestLength = undefined;
 }
 window.exitToListViewFromReview = function() {
     isReviewMode = false;
@@ -1447,7 +1450,6 @@ window.goToQuizFromList = function(isPractice) {
     isReviewMode = true; 
     isPracticeModeGlobal = isPractice;
 
-    // 💡 修正：ボタンの種類によって本番か練習かを正しく切り替える
     // isPractice = true （この範囲をテスト） -> 自習練習モード
     // isPractice = false（チェックテスト） -> 本番テスト（合格・繰り上げ対象！）
     isSelfPracticeMode = isPractice; 
@@ -1460,15 +1462,17 @@ window.goToQuizFromList = function(isPractice) {
         combined = combined.filter(w => progress[w.word.toLowerCase()] !== "correct");
         if (combined.length === 0) { alert("未習得の単語はありません！"); return; }
     } else {
-        // 本番のチェックテストは、そのセクションの全単語（最大SECTION_SIZE問）を出題
+        // 本番のチェックテストは、そのセクションの全単語を出題
         combined = sectionPool;
     }
+
+    // 💡【重要】終了時に問題数が0になっても判定できるよう、本番用の一時出題数フラグを記録
+    window.currentCheckTestLength = combined.length;
 
     reviewPool = combined.sort(() => Math.random() - 0.5);
     renderQuestion();
     showPage("quiz");
 };
-
 window.toggleAllWordsMode = function() {
     isAllWordsMode = !isAllWordsMode;
     const btn = document.getElementById("allWordsBtn");

@@ -1192,21 +1192,26 @@ function showTestResult() {
 
     const resultView = document.getElementById("quizResultView");
 
+    // 💡【フラグ判定を完全に安全な形に再構築】
     const isPracticeTest = (isSelfPracticeMode === true);
+    // 確実に赤ボタンから遷移したときだけ true になるように固定
     const isCheckTest = (window.isActualCheckTestMode === true);
+    // 練習でもなく、チェックテストでもない場合 ＝ ホームからの「今日の学習（復習テスト）」
     const isFromTodayLesson = (!isPracticeTest && !isCheckTest);
 
     // 🏆 【A】本番の「チェックテスト（赤ボタン）」で全問正解（満点合格）した場合の処理
     if (isPerfect && isCheckTest && !isPracticeTest && !isFromTodayLesson && !isAllWordsMode) {
         
-        // 💡 合格したセクションに含まれる単語を「復習が必要な単語リスト」から【完全に】一括削除
+        // 💡 合格したセクションに含まれる単語を「復習が必要な単語リスト」から【確実に】一括削除する
         let offset = (currentSection - 1) * SECTION_SIZE;
         let currentSectionWords = words.slice(offset, offset + SECTION_SIZE);
         
         reviewWrongWords = reviewWrongWords.filter(wrongWord => {
             if (!wrongWord) return false;
+            // wrongWordがオブジェクトなら .word を、文字列ならそのままの文字を抽出
             const wrongSpell = (typeof wrongWord === 'object' && wrongWord.word) ? wrongWord.word.toLowerCase() : String(wrongWord).toLowerCase();
             
+            // 現在のセクション単語に一致するものがあれば削除
             const isMatch = currentSectionWords.some(sectionWord => {
                 return sectionWord && sectionWord.word && sectionWord.word.toLowerCase() === wrongSpell;
             });
@@ -1225,14 +1230,15 @@ function showTestResult() {
             currentSection = currentSection + 1; 
         }
         
-        // 3. クラウド（Firebase）へ進捗を上書き同期保存（変数の競合を完全に防止）
+        // 3. クラウド（Firebase）へ進捗を同期保存
         if (currentUser && typeof update === 'function' && typeof ref === 'function') {
             update(ref(db, 'users/' + currentUser), {
                 currentSection: currentSection,
                 completedSections: completedSections,
                 lastCompletedSection: lastCompletedSection,
-                reviewWrongWords: reviewWrongWords,
-                progress: progress 
+                reviewWrongWords: reviewWrongWords 
+            }).then(() => {
+                saveProgress(); 
             });
         }
 
@@ -1314,10 +1320,10 @@ function showTestResult() {
         `;
     }
     
+    // 立てていた各種セーフティフラグをリセット
     window.currentCheckTestLength = undefined;
     window.isActualCheckTestMode = undefined;
 }
-
 window.exitToListViewFromReview = function() {
     isReviewMode = false;
     isSelfPracticeMode = false;

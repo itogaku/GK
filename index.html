@@ -1163,6 +1163,7 @@ function showTestResult() {
     document.getElementById("quizKeyboard").classList.add("hidden");
     document.getElementById("quizResultView").classList.remove("hidden");
 
+    // クイズ画面最下部にある「一覧に戻る」の固定ボタンエリアを非表示にする（重複防止）
     const quizBottomBackBtn = document.querySelector("#quiz > div > button[onclick='goBackToListFromQuiz()']");
     if (quizBottomBackBtn && quizBottomBackBtn.parentElement) {
         quizBottomBackBtn.parentElement.style.display = "none";
@@ -1174,44 +1175,54 @@ function showTestResult() {
 
     const resultView = document.getElementById("quizResultView");
 
-    // 判定フラグを整理
-    const isFromTodayLesson = (!isSelfPracticeMode && !isAllWordsMode && !isPracticeModeGlobal); // 「今日の学習」ボタンから始まった復習テストかどうか
+    // 各種判定フラグの整理
+    const isFromTodayLesson = (!isSelfPracticeMode && !isAllWordsMode && !isPracticeModeGlobal); // ホームの「今日の学習」から始まった復習テストかどうか
+    const isCheckTest = (!isSelfPracticeMode && !isAllWordsMode && isPracticeModeGlobal === false); // 一覧画面の赤ボタンから始まった本番の「チェックテスト」かどうか
 
-    // 🏆 【A】本番の「チェックテスト」で満点合格した場合のみ、セクションを繰り上げてホームに戻る
-    if (isPerfect && !isSelfPracticeMode && !isAllWordsMode && !isFromTodayLesson) {
+    // 🏆 【A】本番の「チェックテスト」で全問正解（満点合格）した場合の処理
+    if (isPerfect && isCheckTest && !isFromTodayLesson) {
+        
+        // 1. 合格したセクションリストに現在のセクション番号を追加（重複防止）
         if (!completedSections.includes(currentSection)) {
             completedSections.push(currentSection);
         }
         lastCompletedSection = currentSection;
 
+        // 2. 「現在の目標（現在のセクション）」を次のセクションに進める
         const maxSection = Math.ceil(words.length / SECTION_SIZE);
         if (currentSection < maxSection) {
             currentSection = currentSection + 1; 
         }
         
+        // 3. クラウド（Firebase Realtime Database）のデータを最新の数値で直接上書き保存
         if (currentUser && typeof update === 'function' && typeof ref === 'function') {
             update(ref(db, 'users/' + currentUser), {
                 currentSection: currentSection,
                 completedSections: completedSections,
                 lastCompletedSection: lastCompletedSection
             }).then(() => {
-                saveProgress(); 
+                saveProgress(); // 全体の progress や学習回数なども合わせてバックアップ保存
             });
         }
 
+        // 4. セクション画面（合格マーク）とホーム画面（グラフや目標テキスト）を裏側で即座に再描画
         if (typeof window.renderSectionButtons === 'function') window.renderSectionButtons();
-        updateHomeDashboard();
+        if (typeof updateHomeDashboard === 'function') updateHomeDashboard();
 
+        // 5. 結果画面：合格を祝福し、「🏠 合格してホームに戻る」ボタンだけをドカンと表示
         resultView.innerHTML = `
-            <h3 id="resultTitle" style="color:#ff9800; margin-top:0;">✨ 合格！テスト完了 ✨</h3>
-            <p id="resultScore" style="font-size:32px; font-weight:bold; margin:15px 0;">全問正解！素晴らしい！</p>
-            <p style="margin-bottom:20px; color:#666; font-size:14px; padding:0 10px;">目標セクションが【Section ${currentSection}】に更新されました！</p>
-            <button onclick="window.showPage('homePage')" class="btn-primary" style="width: 100%; height: 50px; background: #ff9800; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+            <h3 id="resultTitle" style="color:#ff9800; margin-top:0; font-size:24px;">✨ 合格！テスト完了 ✨</h3>
+            <p id="resultScore" style="font-size:32px; font-weight:bold; margin:15px 0; color:#ff9800;">全問正解！素晴らしい！</p>
+            <p style="margin-bottom:20px; color:#666; font-size:14px; padding:0 10px;">
+                おめでとうございます！このセクションをクリアしました。<br>
+                目標セクションが自動的に【 <strong>Section ${currentSection}</strong> 】に更新されました！
+            </p>
+            <button onclick="window.showPage('homePage')" class="btn-primary" style="width: 100%; height: 50px; background: #ff9800; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 4px 10px rgba(255,152,0,0.3);">
                 🏠 合格してホームに戻る
             </button>
         `;
     } 
-    // 🚀 【B】「今日の学習（復習テスト）」から来た場合
+    // 🚀 【B】「今日の学習（復習テスト）」から来た場合（全問正解でも、間違えがあってもここを通る）
     else if (isFromTodayLesson) {
         let listHtml = "";
         testLog.forEach(item => {
@@ -1234,7 +1245,7 @@ function showTestResult() {
             </button>
         `;
     } 
-    // 📝 【C】💡修正：練習用の「この範囲をテスト（isSelfPracticeMode === true）」が終わった場合
+    // 📝 【C】練習用の「この範囲をテスト（isSelfPracticeMode === true）」が終わった場合
     else if (isSelfPracticeMode) {
         let listHtml = "";
         testLog.forEach(item => {
@@ -1253,7 +1264,7 @@ function showTestResult() {
             </button>
         `;
     }
-    // 😢 【D】その他の本番不合格（チェックテストで間違えがあった場合など）
+    // 😢 【D】本番のチェックテストで「不合格（1問でも間違えがあった）」の場合の処理
     else {
         let listHtml = "";
         testLog.forEach(item => {
@@ -1265,7 +1276,8 @@ function showTestResult() {
         resultView.innerHTML = `
             <h3 id="resultTitle" style="color:#c62828; margin-top:0;">❌ チェックテスト不合格</h3>
             <p id="resultScore" style="font-size:32px; font-weight:bold; margin:15px 0;">${totalCount}問中 ${correctCount}問 正解</p>
-            <div id="resultList" style="text-align:left; max-height:180px; overflow-y:auto; border:1px solid #eee; padding:10px; margin-bottom:20px; font-size:14px; background:#fafafa;">${listHtml}</div>
+            <div id="resultList" style="text-align:left; max-height:150px; overflow-y:auto; border:1px solid #eee; padding:10px; margin-bottom:20px; font-size:14px; background:#fafafa;">${listHtml}</div>
+            <p style="margin-bottom:15px; color:#666; font-size:14px;">残念！合格には全問正解が必要です。もう一度覚え直して再挑戦しよう！</p>
             <button onclick="window.showPage('homePage')" class="btn-primary" style="width: 100%; height: 50px; background: #c62828; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
                 🏠 ホームに戻る
             </button>

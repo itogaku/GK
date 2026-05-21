@@ -1457,21 +1457,24 @@ window.goToQuizFromList = function(isPractice) {
     // isPractice = false（チェックテスト） -> 本番テスト（合格・繰り上げ対象！）
     isSelfPracticeMode = isPractice; 
 
+    // 現在のセクションの単語を抽出
     let offset = (currentSection - 1) * SECTION_SIZE;
     let sectionPool = words.slice(offset, offset + SECTION_SIZE);
+    
+    // 💡【修正】「復習が必要な単語」と「セクションの単語」を確実に合流させ、重複を排除したプールを作る
     let combined = [...new Set([...reviewWrongWords, ...sectionPool])];
 
     if (isPractice) {
+        // 青ボタン（練習）の時は、すでに「correct」になっているものを除外してテスト
         combined = combined.filter(w => progress[w.word.toLowerCase()] !== "correct");
         if (combined.length === 0) { alert("未習得の単語はありません！"); return; }
     } else {
-        // 本番のチェックテストは、そのセクションの全単語を出題
-        combined = sectionPool;
+        // 赤ボタン（チェックテスト）の時は、合流させた単語（復習単語 + セクション全単語）をすべて出題する
+        // 💡 呼び出し時の出題数を確定させるため、ここをcombinedの長さに修正
+        window.currentCheckTestLength = combined.length;
     }
 
-    // 💡【重要】終了時に問題数が0になっても判定できるよう、本番用の一時出題数フラグを記録
-    window.currentCheckTestLength = combined.length;
-
+    // ランダムにシャッフルしてクイズのプールにセット
     reviewPool = combined.sort(() => Math.random() - 0.5);
     renderQuestion();
     showPage("quiz");

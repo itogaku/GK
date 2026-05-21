@@ -1188,23 +1188,23 @@ function showTestResult() {
 
     const resultView = document.getElementById("quizResultView");
 
-    // 💡【フラグの判定条件を、出題数に依存しない確実な形に修正】
-    // 1. 練習テスト（青ボタン「この範囲をテスト」）かどうか
+    // 各種判定フラグの整理
     const isPracticeTest = (isSelfPracticeMode === true);
-
-    // 2. 本番のチェックテスト（赤ボタン「チェックテスト」）かどうか
-    // （自習練習ではなく、全範囲でもなく、かつ「今日の学習開始」から直行した復習テストでもない場合）
     const isCheckTest = (isSelfPracticeMode === false && isAllWordsMode === false && isPracticeModeGlobal === false);
-
-    // 3. ホームの「今日の学習を開始する」から始まった「復習テスト」かどうか
-    // （isPracticeModeGlobal は goToQuizFromList の中で必ず false か true になるので、今日の学習開始時（未定義など）を判別）
     const isFromTodayLesson = (isSelfPracticeMode === false && isAllWordsMode === false && isPracticeModeGlobal === false && window.currentCheckTestLength === undefined);
 
-
     // 🏆 【A】本番の「チェックテスト（赤ボタン）」で全問正解（満点合格）した場合の処理
-    // 💡 復習単語が混ざって totalCount が10問より増えていても、満点なら確実にここを通ります！
     if (isPerfect && isCheckTest && !isPracticeTest && !isFromTodayLesson && !isAllWordsMode) {
         
+        // 💡【重要】合格したセクションに含まれる単語を「復習が必要な単語リスト」から一括削除する
+        let offset = (currentSection - 1) * SECTION_SIZE;
+        let currentSectionWords = words.slice(offset, offset + SECTION_SIZE);
+        
+        // 合格した範囲の単語と一致しないものだけをフィルターして残す（＝合格した範囲の復習単語が消える）
+        reviewWrongWords = reviewWrongWords.filter(wrongWord => {
+            return !currentSectionWords.some(sectionWord => sectionWord.word.toLowerCase() === wrongWord.word.toLowerCase());
+        });
+
         // 1. 合格したセクションリストに現在のセクション番号を追加
         if (!completedSections.includes(currentSection)) {
             completedSections.push(currentSection);
@@ -1217,12 +1217,13 @@ function showTestResult() {
             currentSection = currentSection + 1; 
         }
         
-        // 3. クラウド（Firebase）のデータを最新の数値で直接上書き保存
+        // 3. クラウド（Firebase）のデータを最新の数値（新しく削られた reviewWrongWords も含む）で直接上書き保存
         if (currentUser && typeof update === 'function' && typeof ref === 'function') {
             update(ref(db, 'users/' + currentUser), {
                 currentSection: currentSection,
                 completedSections: completedSections,
-                lastCompletedSection: lastCompletedSection
+                lastCompletedSection: lastCompletedSection,
+                reviewWrongWords: reviewWrongWords // 💡 綺麗になった復習リストを保存
             }).then(() => {
                 saveProgress(); 
             });
@@ -1232,13 +1233,14 @@ function showTestResult() {
         if (typeof window.renderSectionButtons === 'function') window.renderSectionButtons();
         if (typeof updateHomeDashboard === 'function') updateHomeDashboard();
 
-        // 5. 結果画面：合格を祝福し、「🏠 合格してホームに戻る」ボタンだけを表示
+        // 5. 結果画面：合格を祝福し、「🏠 合格してホームに戻る」ボタンを表示
         resultView.innerHTML = `
             <h3 id="resultTitle" style="color:#ff9800; margin-top:0; font-size:24px;">✨ 合格！テスト完了 ✨</h3>
             <p id="resultScore" style="font-size:32px; font-weight:bold; margin:15px 0; color:#ff9800;">全問正解！素晴らしい！</p>
             <p style="margin-bottom:20px; color:#666; font-size:14px; padding:0 10px;">
                 おめでとうございます！このセクションをクリアしました。<br>
-                目標セクションが自動的に【 <strong>Section ${currentSection}</strong> 】に更新されました！
+                目標セクションが自動的に【 <strong>Section ${currentSection}</strong> 】に更新されました！<br>
+                <span style="color:#2e7d32; font-weight:bold;">※この範囲の「復習が必要な単語」もすべてクリアされました！</span>
             </p>
             <button onclick="window.showPage('homePage')" class="btn-primary" style="width: 100%; height: 50px; background: #ff9800; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 4px 10px rgba(255,152,0,0.3);">
                 🏠 合格してホームに戻る
@@ -1287,7 +1289,7 @@ function showTestResult() {
             </button>
         `;
     }
-    // 😢 【D】本番のチェックテスト（赤ボタン）で「不合格」だった場合の処理
+    // 😢 【D】本番のチェックテスト（赤ボタン）で不合格だった場合の処理
     else {
         let listHtml = "";
         testLog.forEach(item => {
@@ -1307,7 +1309,6 @@ function showTestResult() {
         `;
     }
     
-    // 出題数管理フラグの初期化
     window.currentCheckTestLength = undefined;
 }
 window.exitToListViewFromReview = function() {

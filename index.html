@@ -1174,44 +1174,73 @@ function showTestResult() {
 
     const resultView = document.getElementById("quizResultView");
 
-    // 判定フラグを整理
-    const isFromTodayLesson = (!isSelfPracticeMode && !isAllWordsMode && !isPracticeModeGlobal); // 「今日の学習」ボタンから始まった復習テストかどうか
+    // 💡【フラグ判定を完全に安全な形に再構築】
+    const isPracticeTest = (isSelfPracticeMode === true);
+    // 確実に赤ボタンから遷移したときだけ true になるように固定
+    const isCheckTest = (window.isActualCheckTestMode === true);
+    // 練習でもなく、チェックテストでもない場合 ＝ ホームからの「今日の学習（復習テスト）」
+    const isFromTodayLesson = (!isPracticeTest && !isCheckTest);
 
-    // 🏆 【A】本番の「チェックテスト」で満点合格した場合のみ、セクションを繰り上げてホームに戻る
-    if (isPerfect && !isSelfPracticeMode && !isAllWordsMode && !isFromTodayLesson) {
+    // 🏆 【A】本番の「チェックテスト（赤ボタン）」で全問正解（満点合格）した場合の処理
+    if (isPerfect && isCheckTest && !isPracticeTest && !isFromTodayLesson && !isAllWordsMode) {
+        
+        // 💡 合格したセクションに含まれる単語を「復習が必要な単語リスト」から【確実に】一括削除する
+        let offset = (currentSection - 1) * SECTION_SIZE;
+        let currentSectionWords = words.slice(offset, offset + SECTION_SIZE);
+        
+        reviewWrongWords = reviewWrongWords.filter(wrongWord => {
+            if (!wrongWord) return false;
+            // wrongWordがオブジェクトなら .word を、文字列ならそのままの文字を抽出
+            const wrongSpell = (typeof wrongWord === 'object' && wrongWord.word) ? wrongWord.word.toLowerCase() : String(wrongWord).toLowerCase();
+            
+            // 現在のセクション単語に一致するものがあれば削除
+            const isMatch = currentSectionWords.some(sectionWord => {
+                return sectionWord && sectionWord.word && sectionWord.word.toLowerCase() === wrongSpell;
+            });
+            return !isMatch; 
+        });
+
+        // 1. 合格リストにセクション番号を追加
         if (!completedSections.includes(currentSection)) {
             completedSections.push(currentSection);
         }
         lastCompletedSection = currentSection;
 
+        // 2. 目標を次のセクションに進める
         const maxSection = Math.ceil(words.length / SECTION_SIZE);
         if (currentSection < maxSection) {
             currentSection = currentSection + 1; 
         }
         
+        // 3. クラウド（Firebase）へ進捗を同期保存
         if (currentUser && typeof update === 'function' && typeof ref === 'function') {
             update(ref(db, 'users/' + currentUser), {
                 currentSection: currentSection,
                 completedSections: completedSections,
-                lastCompletedSection: lastCompletedSection
+                lastCompletedSection: lastCompletedSection,
+                reviewWrongWords: reviewWrongWords 
             }).then(() => {
                 saveProgress(); 
             });
         }
 
         if (typeof window.renderSectionButtons === 'function') window.renderSectionButtons();
-        updateHomeDashboard();
+        if (typeof updateHomeDashboard === 'function') updateHomeDashboard();
 
         resultView.innerHTML = `
-            <h3 id="resultTitle" style="color:#ff9800; margin-top:0;">✨ 合格！テスト完了 ✨</h3>
-            <p id="resultScore" style="font-size:32px; font-weight:bold; margin:15px 0;">全問正解！素晴らしい！</p>
-            <p style="margin-bottom:20px; color:#666; font-size:14px; padding:0 10px;">目標セクションが【Section ${currentSection}】に更新されました！</p>
-            <button onclick="window.showPage('homePage')" class="btn-primary" style="width: 100%; height: 50px; background: #ff9800; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+            <h3 id="resultTitle" style="color:#ff9800; margin-top:0; font-size:24px;">✨ 合格！テスト完了 ✨</h3>
+            <p id="resultScore" style="font-size:32px; font-weight:bold; margin:15px 0; color:#ff9800;">全問正解！素晴らしい！</p>
+            <p style="margin-bottom:20px; color:#666; font-size:14px; padding:0 10px;">
+                おめでとうございます！このセクションをクリアしました。<br>
+                目標セクションが自動的に【 <strong>Section ${currentSection}</strong> 】に更新されました！<br>
+                <span style="color:#2e7d32; font-weight:bold;">※この範囲の「復習が必要な単語」もすべてクリアされました！</span>
+            </p>
+            <button onclick="window.showPage('homePage')" class="btn-primary" style="width: 100%; height: 50px; background: #ff9800; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 4px 10px rgba(255,152,0,0.3);">
                 🏠 合格してホームに戻る
             </button>
         `;
     } 
-    // 🚀 【B】「今日の学習（復習テスト）」から来た場合
+    // 🚀 【B】ホームの「今日の学習（最初の復習テスト）」ルートから来た場合
     else if (isFromTodayLesson) {
         let listHtml = "";
         testLog.forEach(item => {
@@ -1234,8 +1263,8 @@ function showTestResult() {
             </button>
         `;
     } 
-    // 📝 【C】💡修正：練習用の「この範囲をテスト（isSelfPracticeMode === true）」が終わった場合
-    else if (isSelfPracticeMode) {
+    // 📝 【C】練習用の「この範囲をテスト（青ボタン）」が終わった場合
+    else if (isPracticeTest) {
         let listHtml = "";
         testLog.forEach(item => {
             const mark = item.status === "correct" ? "○" : "×";
@@ -1253,7 +1282,7 @@ function showTestResult() {
             </button>
         `;
     }
-    // 😢 【D】その他の本番不合格（チェックテストで間違えがあった場合など）
+    // 😢 【D】本番のチェックテスト（赤ボタン）で不合格だった場合の処理
     else {
         let listHtml = "";
         testLog.forEach(item => {
@@ -1265,14 +1294,18 @@ function showTestResult() {
         resultView.innerHTML = `
             <h3 id="resultTitle" style="color:#c62828; margin-top:0;">❌ チェックテスト不合格</h3>
             <p id="resultScore" style="font-size:32px; font-weight:bold; margin:15px 0;">${totalCount}問中 ${correctCount}問 正解</p>
-            <div id="resultList" style="text-align:left; max-height:180px; overflow-y:auto; border:1px solid #eee; padding:10px; margin-bottom:20px; font-size:14px; background:#fafafa;">${listHtml}</div>
-            <button onclick="window.showPage('homePage')" class="btn-primary" style="width: 100%; height: 50px; background: #c62828; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-                🏠 ホームに戻る
+            <div id="resultList" style="text-align:left; max-height:150px; overflow-y:auto; border:1px solid #eee; padding:10px; margin-bottom:20px; font-size:14px; background:#fafafa;">${listHtml}</div>
+            <p style="margin-bottom:15px; color:#666; font-size:14px;">残念！合格には全問正解が必要です。もう一度このセクションを覚え直して再挑戦しよう！</p>
+            <button onclick="window.exitToListView()" class="btn-primary" style="width: 100%; height: 50px; background: #c62828; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 2px 5px rgba(198,40,40,0.1);">
+                👉 学習画面（一覧）に戻る
             </button>
         `;
     }
+    
+    // 立てていた各種セーフティフラグをリセット
+    window.currentCheckTestLength = undefined;
+    window.isActualCheckTestMode = undefined;
 }
-
 window.exitToListViewFromReview = function() {
     isReviewMode = false;
     isSelfPracticeMode = false;
@@ -1426,25 +1459,30 @@ window.goToQuizFromList = function(isPractice) {
     testLog = [];
     isReviewMode = true; 
     isPracticeModeGlobal = isPractice;
-
-    // 💡 修正：ボタンの種類によって本番か練習かを正しく切り替える
-    // isPractice = true （この範囲をテスト） -> 自習練習モード
-    // isPractice = false（チェックテスト） -> 本番テスト（合格・繰り上げ対象！）
     isSelfPracticeMode = isPractice; 
 
+    // 現在のセクションの単語を抽出
     let offset = (currentSection - 1) * SECTION_SIZE;
     let sectionPool = words.slice(offset, offset + SECTION_SIZE);
+    
+    // 「復習が必要な単語」を前に、「セクションの単語」を後ろにして合流
     let combined = [...new Set([...reviewWrongWords, ...sectionPool])];
 
     if (isPractice) {
+        // 【青ボタン（練習）の場合】
         combined = combined.filter(w => progress[w.word.toLowerCase()] !== "correct");
         if (combined.length === 0) { alert("未習得の単語はありません！"); return; }
+        reviewPool = combined.sort(() => Math.random() - 0.5).slice(0, TEST_QUESTION_COUNT);
+        window.isActualCheckTestMode = false; // 練習なので本番フラグはOFF
     } else {
-        // 本番のチェックテストは、そのセクションの全単語（最大SECTION_SIZE問）を出題
-        combined = sectionPool;
+        // 【赤ボタン（チェックテスト）の場合】
+        reviewPool = combined.sort(() => Math.random() - 0.5).slice(0, TEST_QUESTION_COUNT);
+        window.currentCheckTestLength = reviewPool.length;
+        
+        // 💡【重要】これが一覧画面から手動で始めた「本番のチェックテスト」であることを証明するフラグを立てる！
+        window.isActualCheckTestMode = true;
     }
 
-    reviewPool = combined.sort(() => Math.random() - 0.5);
     renderQuestion();
     showPage("quiz");
 };

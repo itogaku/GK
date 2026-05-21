@@ -1426,37 +1426,56 @@ window.renderSectionButtons = function() {
   container.appendChild(allBtn);
 };
 window.renderList = function() {
-    const table = document.getElementById("wordTable");
-    const filter = document.getElementById("filter").value;
-    table.innerHTML = "<tr><th>No</th><th>単語</th><th>意味</th><th>状態</th></tr>";
+    const table = document.getElementById("wordTable");
+    const filter = document.getElementById("filter").value;
+    table.innerHTML = "<tr><th>No</th><th>単語</th><th>意味</th><th>状態</th></tr>";
 
-    if (!isAllWordsMode && reviewWrongWords.length > 0 && filter !== "correct") {
-        table.innerHTML += `<tr><td colspan="4" style="background:#fff3e0; color:#e65100; font-weight:bold; text-align:center;">復習が必要な単語</td></tr>`;
-        reviewWrongWords.forEach(w => {
+    // 💡 復習リストの中身が本当になければ、このエリア自体を完全にスルーする
+    if (!isAllWordsMode && typeof reviewWrongWords !== 'undefined' && reviewWrongWords && reviewWrongWords.length > 0 && filter !== "correct") {
+        let hasDisplayedHeader = false;
+        
+        reviewWrongWords.forEach(w => {
+            if (!w) return;
             const spell = (typeof w === 'object' && w.word) ? w.word : String(w);
-            const state = progress[spell.toLowerCase()];
-            table.innerHTML += `<tr style="background:#fff9f0;"><td>!</td><td><strong>${spell}</strong></td><td>${(words.find(x => x.word.toLowerCase() === spell.toLowerCase()) || {meaning:"-"}).meaning}</td><td style="text-align:center">${state==='correct'?'〇':'×'}</td></tr>`;
-        });
-    }
-    
-    let pool = [];
-    let offset = 0;
-    
-    if (isAllWordsMode) {
-        pool = words;
-    } else {
-        offset = (currentSection - 1) * SECTION_SIZE;
-        pool = words.slice(offset, offset + SECTION_SIZE);
-    }
+            
+            // マスターデータ（words）から該当単語を安全に探す
+            const found = words.find(x => x && x.word && x.word.toLowerCase() === spell.toLowerCase());
+            if (!found) return; // 💡 マスターデータに対応する単語がなければ描画をスキップ（安全対策）
 
-    pool.forEach((w, index) => {
-        const state = progress[w.word.toLowerCase()];
-        if (filter === "correct" && state !== "correct") return;
-        if (filter === "wrong" && state !== "wrong") return;
-        
-        const displayIndex = isAllWordsMode ? (index + 1) : (offset + index + 1);
-        table.innerHTML += `<tr><td>${displayIndex}</td><td><strong>${w.word}</strong></td><td>${w.meaning}</td><td style="text-align:center">${state==='correct'?'〇':state==='wrong'?'×':'-'}</td></tr>`;
-    });
+            if (!hasDisplayedHeader) {
+                table.innerHTML += `<tr><td colspan="4" style="background:#fff3e0; color:#e65100; font-weight:bold; text-align:center;">復習が必要な単語</td></tr>`;
+                hasDisplayedHeader = true;
+            }
+
+            const state = progress[spell.toLowerCase()];
+            table.innerHTML += `<tr style="background:#fff9f0;"><td>!</td><td><strong>${spell}</strong></td><td>${found.meaning || "-"}</td><td style="text-align:center">${state==='correct'?'〇':'×'}</td></tr>`;
+        });
+    }
+    
+    let pool = [];
+    let offset = 0;
+    
+    if (isAllWordsMode) {
+        pool = words;
+    } else {
+        offset = (currentSection - 1) * SECTION_SIZE;
+        // 💡 範囲外のインデックスを指定してもクラッシュしないように安全に切り出す
+        if (offset < words.length) {
+            pool = words.slice(offset, offset + SECTION_SIZE);
+        } else {
+            pool = [];
+        }
+    }
+
+    pool.forEach((w, index) => {
+        if (!w || !w.word) return;
+        const state = progress[w.word.toLowerCase()];
+        if (filter === "correct" && state !== "correct") return;
+        if (filter === "wrong" && state !== "wrong") return;
+        
+        const displayIndex = isAllWordsMode ? (index + 1) : (offset + index + 1);
+        table.innerHTML += `<tr><td>${displayIndex}</td><td><strong>${w.word}</strong></td><td>${w.meaning || "-"}</td><td style="text-align:center">${state==='correct'?'〇':state==='wrong'?'×':'-'}</td></tr>`;
+    });
 };
 window.changeListSection = (val) => { 
     if (val === "all") {

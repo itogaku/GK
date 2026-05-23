@@ -298,8 +298,13 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
       </select>
     </div>
 
-    <button onclick="saveSettings()" class="btn-primary" style="width: 100%; padding: 12px; margin-bottom: 12px; border-radius: 6px;">
+    <button onclick="saveSettings()" class="btn-primary" style="width: 100%; padding: 12px; margin-bottom: 16px; border-radius: 6px; font-weight: bold;">
       設定を保存する
+    </button>
+    
+    <!-- 💡ここを追加：アカウント一括削除ボタン（赤色で警告を強調） -->
+    <button onclick="window.deleteCurrentUserAccount()" style="width: 100%; padding: 12px; background: #f44336; color: white; border: none; border-radius: 6px; font-weight: bold; margin-bottom: 25px; box-shadow: 0 4px 10px rgba(244,67,54,0.2);">
+      ⚠️ このアカウントを完全に削除する
     </button>
     
     <button onclick="window.showPage('homePage')" style="width: 100%; padding: 12px; background: #555; color: white; border: none; border-radius: 6px; font-weight: bold;">
@@ -1639,6 +1644,53 @@ document.getElementById("keyboardSelect").onchange = (e) => {
   buildKeyboard();
 };
 
+window.deleteCurrentUserAccount = async function() {
+    if (!currentUser) {
+        alert("ログイン中のユーザー情報が見つかりません。");
+        return;
+    }
+
+    // 💡 押し間違い・誤操作を防ぐ2段階チェック
+    const confirm1 = confirm(`【重大な警告】\n現在ログイン中の生徒「 ${currentUser} 」のアカウントを完全に削除しますか？\nこの操作は取り消せません。`);
+    if (!confirm1) return;
+
+    const confirm2 = confirm(`本当に本当によろしいですか？\nクラウド上のパスワード、合格履歴、すべての学習ログ、苦手単語データが完全に消去され、元に戻せなくなります。`);
+    if (!confirm2) return;
+
+    try {
+        // 1. Firebase（クラウド）上の該当ユーザーデータを完全に抹消（null上書き）
+        await set(ref(db, 'users/' + currentUser), null);
+
+        // 2. ブラウザ内のローカル自動ログインキャッシュも一掃
+        localStorage.removeItem("currentUser");
+        
+        let localUsers = JSON.parse(localStorage.getItem("users") || "{}");
+        if (localUsers[currentUser]) {
+            delete localUsers[currentUser];
+            localStorage.setItem("users", JSON.stringify(localUsers));
+        }
+
+        // 3. アプリ内のグローバル変数をすべて初期状態にクリア
+        const deletedUserName = currentUser;
+        currentUser = null;
+        progress = {};
+        studyCount = 0;
+        reviewWrongWords = [];
+        completedSections = [];
+        currentSection = 1;
+
+        alert(`生徒「 ${deletedUserName} 」のアカウントを完全に消去しました。`);
+
+        // 4. 生徒一覧を再描画して、最初のログイン・ユーザー管理画面へ強制的に送還する
+        if (typeof window.renderUserList === 'function') await window.renderUserList();
+        window.showPage("userPage");
+
+    } catch (e) {
+        console.error("Account Delete Error:", e);
+        alert("アカウントの削除中に通信エラーが発生しました。インターネット接続を確認してください。");
+    }
+};
+    
 // --- 初期化 ---
 async function init() {
   const listSelect = document.getElementById("listSectionSelect");

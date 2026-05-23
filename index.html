@@ -1020,11 +1020,15 @@ window.login = async function() {
     }
 };
 window.logout = function() {
-  localStorage.removeItem("currentUser");
-  currentUser = null;
-  showPage("userPage");
-};
+    // 💡 ボタンの押し間違いを防ぐ確認メッセージを挟む
+    const confirmLogout = confirm("アプリからログアウトして生徒選択画面に戻りますか？");
+    if (!confirmLogout) return; // 「キャンセル」が押されたら処理を中断してそのまま残る
 
+    // 「OK」が押された場合のみ、ログアウト処理を実行
+    localStorage.removeItem("currentUser");
+    currentUser = null;
+    showPage("userPage");
+};
 // --- クイズロジック ---
 window.startTodayLesson = async function() {
     if (!currentUser) return;

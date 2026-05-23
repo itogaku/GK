@@ -1190,7 +1190,7 @@ function showTestResult() {
 
     const resultView = document.getElementById("quizResultView");
 
-    // フラグ判定の定義
+    // 各種判定フラグの整理
     const isPracticeTest = (isSelfPracticeMode === true);
     const isCheckTest = (window.isActualCheckTestMode === true);
     const isFromTodayLesson = (window.isTodayReviewTestMode === true);
@@ -1198,19 +1198,8 @@ function showTestResult() {
     // 🏆 【A】本番の「チェックテスト（赤ボタン）」で全問正解（満点合格）した場合の処理
     if (isPerfect && isCheckTest && !isPracticeTest && !isFromTodayLesson && !isAllWordsMode) {
         
-        // 💡 合格したセクションに含まれる単語を「復習が必要な単語リスト」から一括削除する
-        let offset = (currentSection - 1) * SECTION_SIZE;
-        let currentSectionWords = words.slice(offset, offset + SECTION_SIZE);
-        
-        reviewWrongWords = reviewWrongWords.filter(wrongWord => {
-            if (!wrongWord) return false;
-            const wrongSpell = (typeof wrongWord === 'object' && wrongWord.word) ? wrongWord.word.toLowerCase() : String(wrongWord).toLowerCase();
-            
-            const isMatch = currentSectionWords.some(sectionWord => {
-                return sectionWord && sectionWord.word && sectionWord.word.toLowerCase() === wrongSpell;
-            });
-            return !isMatch; // 一致しなかったものだけを残す
-        });
+        // 💡【今回の最重要修正】過去のセクションのものも含めて「復習が必要な単語」を完全に全消去する
+        reviewWrongWords = []; // ローカル配列を完全に空にする
 
         // 1. 合格したセクションリストに現在のセクション番号を追加
         if (!completedSections.includes(currentSection)) {
@@ -1224,11 +1213,11 @@ function showTestResult() {
             currentSection = currentSection + 1; 
         }
         
-        // 3. 💡【最重要バグ修正】Firebase Realtime Databaseの空配列無視対策
+        // 3. クラウド（Firebase）のデータも強制的に「空っぽ」で上書き保存する
         if (currentUser && typeof update === 'function' && typeof ref === 'function') {
             const userRef = ref(db, 'users/' + currentUser);
             
-            // 基本データをアップデート
+            // 進捗や合格情報を通常アップデート
             update(userRef, {
                 currentSection: currentSection,
                 completedSections: completedSections,
@@ -1236,12 +1225,9 @@ function showTestResult() {
                 progress: progress 
             });
 
-            // ⚠️ reviewWrongWordsが空配列になった場合は、無視されないように個別に強制上書き（set）する
-            if (reviewWrongWords.length === 0) {
-                set(ref(db, 'users/' + currentUser + '/reviewWrongWords'), ""); // クラウド側を完全にクリア
-            } else {
-                update(userRef, { reviewWrongWords: reviewWrongWords });
-            }
+            // ⚠️ reviewWrongWords の部屋そのものを強制的に「null（完全に削除）」で上書きする
+            // これにより、Firebaseの配列アップデートバグを100%回避して完全に消去できます
+            set(ref(db, 'users/' + currentUser + '/reviewWrongWords'), null);
         }
 
         if (typeof window.renderSectionButtons === 'function') window.renderSectionButtons();
@@ -1253,7 +1239,7 @@ function showTestResult() {
             <p style="margin-bottom:20px; color:#666; font-size:14px; padding:0 10px;">
                 おめでとうございます！このセクションをクリアしました。<br>
                 目標セクションが自動的に【 <strong>Section ${currentSection}</strong> 】に更新されました！<br>
-                <span style="color:#2e7d32; font-weight:bold;">※この範囲の「復習が必要な単語」もすべてクリアされました！</span>
+                <span style="color:#2e7d32; font-weight:bold;">※これまでの「復習が必要な単語」もすべてリセットされました！</span>
             </p>
             <button onclick="window.showPage('homePage')" class="btn-primary" style="width: 100%; height: 50px; background: #ff9800; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 4px 10px rgba(255,152,0,0.3);">
                 🏠 合格してホームに戻る

@@ -1114,19 +1114,31 @@ function getNextWord() {
 }
 
 function renderQuestion() {
-  current = isReviewMode ? (reviewPool.pop() || null) : getNextWord();
-  if (!current) { showTestResult(); return; }
+    current = isReviewMode ? (reviewPool.pop() || null) : getNextWord();
+    if (!current) { showTestResult(); return; }
 
-  document.getElementById("meaning").textContent = current.meaning;
-  document.getElementById("exampleEn").textContent = current.example || "";
-  document.getElementById("exampleJa").textContent = current.exampleJa || "";
-  document.getElementById("judge").textContent = "";
-  document.getElementById("correctWord").textContent = "";
-  document.getElementById("answerExample").textContent = "";
-  document.getElementById("answerInput").value = "";
-  document.getElementById("resultArea").className = "";
-  document.getElementById("checkBtn").classList.remove("hidden");
-  document.getElementById("nextBtn").classList.add("hidden");
+    // 💡【重要】「今日の復習テスト」の最中（window.isTodayReviewTestMode が true）かどうかを判定
+    const quizBottomBackBtn = document.querySelector("#quiz > div > button[onclick='goBackToListFromQuiz()']");
+    if (quizBottomBackBtn && quizBottomBackBtn.parentElement) {
+        if (window.isTodayReviewTestMode === true) {
+            // 🚀 復習テスト中なら「一覧に戻る」のボタンエリアごと完全に非表示にする！
+            quizBottomBackBtn.parentElement.style.display = "none";
+        } else {
+            // 📝 練習テストや本番チェックテストの時は、通常通り表示する
+            quizBottomBackBtn.parentElement.style.display = "block";
+        }
+    }
+
+    document.getElementById("meaning").textContent = current.meaning;
+    document.getElementById("exampleEn").textContent = current.example || "";
+    document.getElementById("exampleJa").textContent = current.exampleJa || "";
+    document.getElementById("judge").textContent = "";
+    document.getElementById("correctWord").textContent = "";
+    document.getElementById("answerExample").textContent = "";
+    document.getElementById("answerInput").value = "";
+    document.getElementById("resultArea").className = "";
+    document.getElementById("checkBtn").classList.remove("hidden");
+    document.getElementById("nextBtn").classList.add("hidden");
 }
 
 // ボタンイベントのリスナー登録

@@ -876,11 +876,15 @@ window.addUser = async function() {
   try {
     const email = `${name}@juku.com`;
     
-    // 1. まず公式認証にアカウントを作成（ここで自動的にログイン状態になる）
+    // 💡【重要】見張り番の誤作動を防ぐため、アカウント作成前に名前をキープしておく
+    currentUser = name;
+    localStorage.setItem("secure_currentUserName", name);
+
+    // 1. 公式認証にアカウントを作成
     const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
     const uid = userCredential.user.uid;
 
-    // 2. 💡 新しいルールに基づき、名簿と本人の部屋へデータを安全に書き込む
+    // 2. 新しいルールに基づき、名簿と本人の部屋へデータを書き込む
     await set(ref(db, 'public_users/' + name), uid);
     await set(ref(db, 'users/' + uid), {
         userName: name,
@@ -888,17 +892,13 @@ window.addUser = async function() {
         studyCount: 0
     });
     
-    // 3. ローカル変数に名前を確定させ、自動ログインキャッシュを保存
-    currentUser = name;
-    localStorage.setItem("secure_currentUserName", currentUser);
-
     alert(`生徒「${name}」のアカウントを安全に作成しました！`);
     
-    // 4. 入力欄をクリア
+    // 3. 入力欄をクリア
     document.getElementById("newName").value = "";
     document.getElementById("newPass").value = "";
     
-    // 5. 本人のデータを読み込んでホーム画面へ移動
+    // 4. 本人のデータを読み込んでホーム画面へ移動
     await loadUserData(uid);
     if (!currentSection) currentSection = determineTodaySection();
     updateHomeDashboard();
@@ -906,6 +906,9 @@ window.addUser = async function() {
 
   } catch (e) { 
     console.error("Create Account Error:", e);
+    // 失敗した場合はキープした名前をクリアする
+    currentUser = null;
+    localStorage.removeItem("secure_currentUserName");
     alert("アカウントの作成に失敗しました。すでに同じ名前が使われているか、パスワードが短すぎます（6文字以上必要です）。"); 
   }
 };
@@ -1631,18 +1634,19 @@ async function init() {
     listSelect.appendChild(allOpt);
   }
   
-  // 💡【重要】まず登録されている生徒一覧を画面に出す
+  // まず登録されている生徒一覧を画面に出す
   window.renderUserList();
   buildKeyboard();
 
-  // 💡 認証状態の監視（新規作成時のフライングを完全に無視する安全ガード版）
+  // 💡 認証状態の監視（新規作成・手動ログイン時の競合を完全に回避する安全版）
   auth.onAuthStateChanged(async (user) => {
       if (user) {
-          // 画面上にすでに名前が決まっている（手動ログインまたは新規作成直後）なら、見張り番は余計な上書きをしない
+          // 💡 すでにアプリ側で名前が確定している（新規作成中、またはログインボタンを押した直後）なら、見張り番は干渉せずスルーする
           if (currentUser) {
               return; 
           }
-          // アプリをパッと開いた瞬間に、すでに前回のログイン情報が残っていた（自動ログイン）時だけデータをロードする
+          
+          // アプリを今パッと開いた瞬間（再起動時）に、すでに自動ログイン情報が残っていた場合
           const savedName = localStorage.getItem("secure_currentUserName");
           if (savedName) {
               currentUser = savedName;
@@ -1650,7 +1654,7 @@ async function init() {
               updateHomeDashboard();
               window.showPage("homePage");
           } else {
-              // キャッシュがなければ安全のため一度サインアウトさせる
+              // 誰だか分からない状態ならサインアウトして最初の画面へ
               await auth.signOut();
               window.showPage("userPage");
           }

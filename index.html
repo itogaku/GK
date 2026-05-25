@@ -867,39 +867,46 @@ function determineTodaySection() {
 
 // --- 🔒 セキュリティ強化版ユーザー管理 ---
 window.addUser = async function() {
-  const name = document.getElementById("newName").value.trim();
+  const name = document.getElementById("newName").value.trim().toLowerCase();
   const pass = document.getElementById("newPass").value.trim();
   if(!name || !pass) return alert("名前とパスワードを入力してください");
   if(pass.length < 6) return alert("セキュリティ保護のため、パスワードは6文字以上にしてください。");
   if(/[.$#[\]@ ]/.test(name)) return alert("名前には記号やスペースは使用できません。");
   
   try {
-    // 💡 生徒名からシステム用のダミーメールアドレスを作成して強固に認証登録
-    const email = `${name.toLowerCase()}@juku.com`;
+    const email = `${name}@juku.com`;
+    // 1. まず公式認証にアカウントを作成
     const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
     const uid = userCredential.user.uid;
 
-    // クラウドの公開インデックス用の名簿を作成
-    await set(ref(db, 'public_users/' + name.toLowerCase()), uid);
-
-    // 本人の部屋の初期化
+    // 2. 💡【修正】名簿と本人の部屋への書き込みが【完全に終わるまで】awaitで確実に待つ！
+    await set(ref(db, 'public_users/' + name), uid);
     await set(ref(db, 'users/' + uid), {
         userName: name,
         currentSection: 1,
         studyCount: 0
     });
     
+    // 3. ローカル変数に名前を確定させ、自動ログインのキャッシュを保存
+    currentUser = name;
+    localStorage.setItem("secure_currentUserName", currentUser);
+
     alert(`生徒「${name}」のアカウントを安全に作成しました！`);
-    window.renderUserList();
     
+    // 4. 入力欄をクリアして、フライングさせずに安全にホーム画面へ直接移動
     document.getElementById("newName").value = "";
     document.getElementById("newPass").value = "";
+    
+    await loadUserData(uid);
+    if (!currentSection) currentSection = determineTodaySection();
+    updateHomeDashboard();
+    window.showPage("homePage");
+
   } catch (e) { 
     console.error("Create Account Error:", e);
-    alert("アカウントの作成に失敗しました。すでに同じ名前が使われている可能性があります。"); 
+    alert("アカウントの作成に失敗しました。すでに同じ名前が使われているか、FirebaseのAuthentication機能が有効になっていない可能性があります。"); 
   }
 };
-
 window.renderUserList = async function() {
   const container = document.getElementById("userList");
   container.innerHTML = "読み込み中...";
@@ -1622,18 +1629,30 @@ async function init() {
     listSelect.appendChild(allOpt);
   }
   
+  // 💡【重要】まず登録されている生徒一覧を画面に出す
   window.renderUserList();
   buildKeyboard();
 
-  // 💡 認証状態の監視
+  // 💡 認証状態の監視（新規作成時のフライングを完全に無視する安全ガード版）
   auth.onAuthStateChanged(async (user) => {
       if (user) {
-          // ログイン中ならデータを同期してホームへ
-          await loadUserData(user.uid);
-          updateHomeDashboard();
-          window.showPage("homePage");
+          // 画面上にすでに名前が決まっている（手動ログインまたは新規作成直後）なら、見張り番は余計な上書きをしない
+          if (currentUser) {
+              return; 
+          }
+          // アプリをパッと開いた瞬間に、すでに前回のログイン情報が残っていた（自動ログイン）時だけデータをロードする
+          const savedName = localStorage.getItem("secure_currentUserName");
+          if (savedName) {
+              currentUser = savedName;
+              await loadUserData(user.uid);
+              updateHomeDashboard();
+              window.showPage("homePage");
+          } else {
+              // キャッシュがなければ安全のため一度サインアウトさせる
+              await auth.signOut();
+              window.showPage("userPage");
+          }
       } else {
-          // 未ログインなら最初の画面へ
           window.showPage("userPage");
       }
   });

@@ -875,11 +875,12 @@ window.addUser = async function() {
   
   try {
     const email = `${name}@juku.com`;
-    // 1. まず公式認証にアカウントを作成
+    
+    // 1. まず公式認証にアカウントを作成（ここで自動的にログイン状態になる）
     const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
     const uid = userCredential.user.uid;
 
-    // 2. 💡【修正】名簿と本人の部屋への書き込みが【完全に終わるまで】awaitで確実に待つ！
+    // 2. 💡 新しいルールに基づき、名簿と本人の部屋へデータを安全に書き込む
     await set(ref(db, 'public_users/' + name), uid);
     await set(ref(db, 'users/' + uid), {
         userName: name,
@@ -887,16 +888,17 @@ window.addUser = async function() {
         studyCount: 0
     });
     
-    // 3. ローカル変数に名前を確定させ、自動ログインのキャッシュを保存
+    // 3. ローカル変数に名前を確定させ、自動ログインキャッシュを保存
     currentUser = name;
     localStorage.setItem("secure_currentUserName", currentUser);
 
     alert(`生徒「${name}」のアカウントを安全に作成しました！`);
     
-    // 4. 入力欄をクリアして、フライングさせずに安全にホーム画面へ直接移動
+    // 4. 入力欄をクリア
     document.getElementById("newName").value = "";
     document.getElementById("newPass").value = "";
     
+    // 5. 本人のデータを読み込んでホーム画面へ移動
     await loadUserData(uid);
     if (!currentSection) currentSection = determineTodaySection();
     updateHomeDashboard();
@@ -904,7 +906,7 @@ window.addUser = async function() {
 
   } catch (e) { 
     console.error("Create Account Error:", e);
-    alert("アカウントの作成に失敗しました。すでに同じ名前が使われているか、FirebaseのAuthentication機能が有効になっていない可能性があります。"); 
+    alert("アカウントの作成に失敗しました。すでに同じ名前が使われているか、パスワードが短すぎます（6文字以上必要です）。"); 
   }
 };
 window.renderUserList = async function() {

@@ -1006,12 +1006,11 @@ window.startTodayLesson = async function() {
         return; 
     }
 
-    studyCount++; 
-
     let uniquePool = [];
     if (isAllWordsMode) {
         uniquePool = [...words];
     } else {
+        // 1. 苦手単語リスト（過去に間違えた単語）をプールに入れる
         if (reviewWrongWords && Array.isArray(reviewWrongWords)) {
             reviewWrongWords.forEach(w => {
                 const sp = (typeof w === 'object' && w.word) ? w.word : String(w);
@@ -1019,6 +1018,7 @@ window.startTodayLesson = async function() {
                 if(found) uniquePool.push(found);
             });
         }
+        // 2. 直前に合格したセクションの単語を優先して復習に入れる
         if (lastCompletedSection > 0) {
             let start = (lastCompletedSection - 1) * SECTION_SIZE; 
             let priority2 = words.slice(start, start + SECTION_SIZE);
@@ -1028,6 +1028,7 @@ window.startTodayLesson = async function() {
                 }
             });
         }
+        // 3. それでも足りない場合は既習単語からランダムに補充する
         if (uniquePool.length < TEST_QUESTION_COUNT) {
             let learnedWords = words.filter(w => {
                 const hasProgress = progress[w.word.toLowerCase()] !== undefined;
@@ -1042,13 +1043,25 @@ window.startTodayLesson = async function() {
         }
     }
     
+    // 💡【重要追加】復習すべき単語が1問もない（初めての学習、または完全にすべての単語をマスターしている）場合
+    if (uniquePool.length === 0) {
+        alert(`【お知らせ】\n現在、復習が必要な単語はありません！✨\n\n今回は復習テストをスキップして、本日の学習範囲の暗記に進みます。\n\n※次回以降、テストで間違えた単語がある場合は、このボタンを押したときに自動で「復習テスト」が生成されてスタートします。`);
+        
+        // 復習テストはスキップして、そのまま今日のセクションの単語一覧画面へ流す
+        window.exitToListViewFromReview();
+        return;
+    }
+
+    // 🚀 問題がある場合は通常通りカウントを増やしてテストを開始
+    studyCount++; 
+    
     reviewPool = uniquePool.sort(() => 0.5 - Math.random()).slice(0, TEST_QUESTION_COUNT);
     testLog = [];
     isReviewMode = true;
     isSelfPracticeMode = false;
     isPracticeModeGlobal = false;
     window.isActualCheckTestMode = false;
-    window.isTodayReviewTestMode = true; // 🚀復習テストフラグON
+    window.isTodayReviewTestMode = true;
 
     await saveProgress(); 
     if (typeof updateHomeDashboard === 'function') updateHomeDashboard();

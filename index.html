@@ -2546,43 +2546,89 @@ document.getElementById("keyboardSelect").onchange = (e) => {
   buildKeyboard();
 };
 
-// --- 初期化 ---
-async function init() {
-  const listSelect = document.getElementById("listSectionSelect");
-  if (listSelect) {
-    listSelect.innerHTML = ""; 
+window.renderListSectionSelect = function() {
+    const listSelect = document.getElementById("listSectionSelect");
+    if (!listSelect) return;
+
+    // プルダウンを一度クリア
+    listSelect.innerHTML = "";
+
+    // 🟢 最上部に「全単語（全範囲）」の選択肢を追加
+    const allOption = document.createElement("option");
+    allOption.value = "all";
+    allOption.textContent = "📖 全範囲単語マスター（1,006語）";
+    if (isAllWordsMode) allOption.selected = true;
+    listSelect.appendChild(allOption);
+
+    // 🎨 レベルごとのグループ（見出し枠）を作成
+    const g1 = document.createElement("optgroup"); g1.label = "🌱 【中1】基礎クラス（Sec 1 - 22）";
+    const g2 = document.createElement("optgroup"); g2.label = "🌿 【中2】標準クラス（Sec 23 - 53）";
+    const g3 = document.createElement("optgroup"); g3.label = "🔥 【中3】入試応用クラス（Sec 54 - 74）";
+    const g4 = document.createElement("optgroup"); g4.label = "👑 【入試直前】最上位テーマ（Sec 75 - 101）";
+
+    // 1,006語から全セクション数を計算（101個）
     const count = Math.ceil(words.length / SECTION_SIZE);
+    
     for (let i = 1; i <= count; i++) {
         const opt = document.createElement("option");
-        opt.value = i; opt.textContent = `Section ${i}`;
-        listSelect.appendChild(opt);
+        opt.value = i;
+        opt.textContent = `Section ${i}`;
+        
+        // 現在開いているセクションなら初期選択状態にする
+        if (!isAllWordsMode && i === currentSection) {
+            opt.selected = true;
+        }
+
+        // 💡 セクション番号の根拠に基づいて、各グループの中に放り込む！
+        if (i <= 22) {
+            g1.appendChild(opt);
+        } else if (i <= 53) {
+            g2.appendChild(opt);
+        } else if (i <= 74) {
+            g3.appendChild(opt);
+        } else {
+            g4.appendChild(opt);
+        }
     }
-    const allOpt = document.createElement("option");
-    allOpt.value = "all"; allOpt.textContent = "全単語（全範囲）";
-    listSelect.appendChild(allOpt);
+
+    // 完成した4つのグループをプルダウンに順番にドッキング
+    listSelect.appendChild(g1);
+    listSelect.appendChild(g2);
+    listSelect.appendChild(g3);
+    listSelect.appendChild(g4);
+};
+    
+// --- 初期化 ---
+async function init() {
+  // 💡 古いループ処理を削除し、レベル別グループ化対応のプルダウン生成関数を呼び出す
+  if (typeof window.renderListSectionSelect === 'function') {
+      window.renderListSectionSelect();
   }
   
-  // まず登録されている生徒一覧を画面に出す
+  // 登録されている生徒一覧を画面に出す
   window.renderUserList();
   buildKeyboard();
 
-  // 💡 認証状態の監視（新規作成・手動ログイン時の競合を完全に回避する安全版）
+  // 💡 認証状態の監視（セキュリティ管理）
   auth.onAuthStateChanged(async (user) => {
       if (user) {
-          // 💡 すでにアプリ側で名前が確定している（新規作成中、またはログインボタンを押した直後）なら、見張り番は干渉せずスルーする
           if (currentUser) {
               return; 
           }
           
-          // アプリを今パッと開いた瞬間（再起動時）に、すでに自動ログイン情報が残っていた場合
           const savedName = localStorage.getItem("secure_currentUserName");
           if (savedName) {
               currentUser = savedName;
               await loadUserData(user.uid);
+              
+              // 💡 ログインが完了し、現在のセクション（currentSection）が確定した段階で、プルダウンの選択位置を再同期する
+              if (typeof window.renderListSectionSelect === 'function') {
+                  window.renderListSectionSelect();
+              }
+              
               updateHomeDashboard();
               window.showPage("homePage");
           } else {
-              // 誰だか分からない状態ならサインアウトして最初の画面へ
               await auth.signOut();
               window.showPage("userPage");
           }

@@ -1525,6 +1525,127 @@ const LEVEL_CONFIG = {
     saijoi: { start: 75, end: 101, name: "入試直前最上位" }
 };
 
+let isDiagnosticMode = false;
+let diagnosticStage = 1;     // 現在のステージ (1=中1, 2=中2, 3=中3)
+let diagnosticStageCorrect = 0; // 現在のステージでの正解数
+
+// 🚀 実力診断テストを「ステージ1（中1）」から開始する関数
+window.startDiagnosticTest = function() {
+    if (!words || words.length === 0) return;
+    
+    // 他のモードをすべてリセット
+    isDiagnosticMode = true;
+    isReviewMode = false;
+    isSelfPracticeMode = false;
+    window.isActualCheckTestMode = false;
+    window.isTodayReviewTestMode = false;
+    
+    diagnosticStage = 1;
+    diagnosticStageCorrect = 0;
+    testLog = [];
+    studyCount++;
+    
+    // ステージ1（中1範囲：1〜219語目）から10問をランダム抽出
+    generateDiagnosticPoolForStage(1);
+    
+    renderQuestion();
+    window.showPage("quiz");
+};
+
+// 📦 各ステージに応じた問題プール（10問）を生成する内部関数
+function generateDiagnosticPoolForStage(stage) {
+    let stageWords = [];
+    
+    if (stage === 1) {
+        // 中1範囲 (1語目〜219語目)
+        stageWords = words.slice(0, 219);
+    } else if (stage === 2) {
+        // 中2範囲 (220語目〜532語目)
+        stageWords = words.slice(219, 532);
+    } else {
+        // 中3範囲 (533語目〜735語目)
+        stageWords = words.slice(532, 735);
+    }
+    
+    // シャッフルして10問をピックアップ
+    reviewPool = stageWords.sort(() => 0.5 - Math.random()).slice(0, 10);
+}
+
+// 🏁 ステージごとの合否判定と、最終スタート位置を決定する関数
+function handleDiagnosticStageClear() {
+    // 今回の10問中、何問正解したかをカウント
+    const stageTotal = 10;
+    const passThreshold = 8; // 🎯 合格基準：8問以上正解
+    
+    if (diagnosticStageCorrect >= passThreshold) {
+        // 🟢 基準をクリアして「合格」した場合
+        if (diagnosticStage === 1) {
+            alert(`🌱 ステージ1【中1基礎】クリア！ (${diagnosticStageCorrect}/${stageTotal})\n\n素晴らしい！中1レベルは合格です。\n続いて、ステージ2【中2標準】テストに進みます！`);
+            diagnosticStage = 2;
+            diagnosticStageCorrect = 0;
+            generateDiagnosticPoolForStage(2);
+            renderQuestion(); // 次のステージを開始
+        } else if (diagnosticStage === 2) {
+            alert(`🌿 ステージ2【中2標準】クリア！ (${diagnosticStageCorrect}/${stageTotal})\n\nすごい！中2レベルも合格です。\n最終ステージ3【中3入試応用】テストに進みます！`);
+            diagnosticStage = 3;
+            diagnosticStageCorrect = 0;
+            generateDiagnosticPoolForStage(3);
+            renderQuestion(); // 次のステージを開始
+        } else if (diagnosticStage === 3) {
+            // ステージ3もクリア＝完全制覇！
+            setFinalDiagnosticLevel("saijoi");
+        }
+    } else {
+        // 🔴 基準を超えられず「不合格」だった場合はそこで即終了！
+        if (diagnosticStage === 1) {
+            setFinalDiagnosticLevel("chui1");
+        } else if (diagnosticStage === 2) {
+            setFinalDiagnosticLevel("chui2");
+        } else {
+            setFinalDiagnosticLevel("chui3");
+        }
+    }
+}
+
+// 💾 最終的な判定クラスを確定させてデータを保存し、ホームへ戻す関数
+function setFinalDiagnosticLevel(levelKey) {
+    isDiagnosticMode = false;
+    let recommendedIndex = 0;
+    let levelMessage = "";
+
+    if (levelKey === "chui1") {
+        recommendedIndex = 0; // Section 1から
+        levelMessage = "【中1・基礎クラス】\nまずは基本の英単語の綴り（文法の骨組み）からじっくり固めていこう！";
+    } else if (levelKey === "chui2") {
+        recommendedIndex = 218; // Section 23から
+        levelMessage = "【中2・標準クラス】\n中1の基礎はバッチリ！表現を広げる重要語や主要文法の単語からスタートしよう！";
+    } else if (levelKey === "chui3") {
+        recommendedIndex = 531; // Section 54から
+        levelMessage = "【中3・入試応用クラス】\n日常の単語はクリア！入試長文の核になる中3の応用語から勝負だ！";
+    } else if (levelKey === "saijoi") {
+        recommendedIndex = 735; // Section 75から
+        levelMessage = "【入試直前・最上位クラス】\n全ステージ完全クリア！お見事！\n長文で最も差がつく最高難度の「抽象名詞・時事現代テーマ」から挑戦しよう！";
+    }
+
+    // 生徒の progress を、おすすめの位置の手前まで自動的に「合格（correct）」にする
+    for (let i = 0; i < recommendedIndex; i++) {
+        const w = words[i];
+        if (w) progress[w.word.toLowerCase()] = "correct"; 
+    }
+    
+    // おすすめセクションの数値を計算
+    const targetSection = Math.floor(recommendedIndex / 10) + 1;
+    currentSection = targetSection;
+
+    alert(`🎉 実力診断テストがすべて完了しました！\n\n判定：${levelMessage}\n\nアプリの進捗を自動調整しました。「セクション ${targetSection}」から本日の学習を開始してください！`);
+    
+    // 画面とデータベースの同期・保存
+    if (typeof saveProgress === 'function') saveProgress();
+    if (typeof initLevelAndSection === 'function') initLevelAndSection(); // プルダウンの位置を同期
+    if (typeof updateHomeDashboard === 'function') updateHomeDashboard();
+    window.showPage("homePage");
+}
+    
 function getLevelInfoByNumber(num) {
     if (num <= 219) {
         return { text: "【中1】基礎クラス", sub: "英語の土台・日常の基本表現", color: "#1a73e8", bg: "#e3f2fd" };
@@ -2031,10 +2152,111 @@ document.getElementById("checkBtn").addEventListener("click", async () => {
     document.getElementById("nextBtn").classList.remove("hidden");
 });
 
-document.getElementById("nextBtn").addEventListener("click", () => renderQuestion());
+document.getElementById("checkBtn").nextButtonListener = document.getElementById("nextBtn").addEventListener("click", () => {
+    // 💡 診断モードかつ、すでに手持ちの問題（reviewPool）が空っぽの場合
+    if (isDiagnosticMode && reviewPool.length === 0 && !current) {
+        // 次の問題を描画するのではなく、その場でステージの合否リザルト（showTestResult）を呼び出す
+        showTestResult();
+    } else {
+        // まだ問題が残っている場合は、通常通り次の問題を画面に出す
+        renderQuestion();
+    }
+});
 
 function showTestResult() {
     isSuspended = false;
+
+    // ========================================================
+    // 🚀 【最優先割り込み】実力診断（サバイバルステージ）モードの判定処理
+    // ========================================================
+    if (isDiagnosticMode) {
+        document.getElementById("quizQuestionArea").classList.add("hidden");
+        document.getElementById("answerControlArea").classList.add("hidden");
+        document.getElementById("quizKeyboard").classList.add("hidden");
+        document.getElementById("quizResultView").classList.remove("hidden");
+
+        const quizBottomBackBtn = document.querySelector("#quiz > div > button[onclick='goBackToListFromQuiz()']");
+        if (quizBottomBackBtn && quizBottomBackBtn.parentElement) {
+            quizBottomBackBtn.parentElement.style.display = "none";
+        }
+
+        const resultView = document.getElementById("quizResultView");
+        const passThreshold = 8; // 🎯 昇格基準：10問中8問正解
+        
+        // 今回の10問中、何問正解したかをログから正確にカウント
+        const stageCorrectCount = testLog.filter(i => i.status === "correct").length;
+        const isStagePassed = (stageCorrectCount >= passThreshold);
+
+        // 共通の解答リストテーブルを生成
+        let listHtml = "";
+        testLog.forEach(item => {
+            const mark = item.status === "correct" ? "○" : "×";
+            const color = item.status === "correct" ? "#2e7d32" : "#c62828";
+            listHtml += `<div style="color:${color}; border-bottom:1px solid #eee; padding:5px 0;">${mark} ${item.word} (${item.meaning})</div>`;
+        });
+
+        if (isStagePassed) {
+            // 🟢 ステージ合格時の分岐
+            if (diagnosticStage < 3) {
+                // 次のステージがまだ残っている場合（ステージ1または2を突破）
+                const nextStageNum = diagnosticStage + 1;
+                const currentStageName = diagnosticStage === 1 ? "【中1基礎】" : "【中2標準】";
+                const nextStageName = nextStageNum === 2 ? "ステージ2【中2標準】" : "最終ステージ3【中3入試応用】";
+
+                resultView.innerHTML = `
+                    <h3 id="resultTitle" style="color:#4caf50; margin-top:0; font-size:22px;">🌱 ステージ${diagnosticStage} ${currentStageName} クリア！</h3>
+                    <p id="resultScore" style="font-size:32px; font-weight:bold; margin:15px 0; color:#4caf50;">10問中 ${stageCorrectCount}問 正解</p>
+                    <div id="resultList" style="text-align:left; max-height:150px; overflow-y:auto; border:1px solid #eee; padding:10px; margin-bottom:20px; font-size:14px; background:#fafafa;">${listHtml}</div>
+                    <p style="margin-bottom:20px; color:#666; font-size:14px; padding:0 10px;">
+                        素晴らしい！基準（8割）をクリアしたため上のレベルへ昇格します。<br>
+                        次は <strong>${nextStageName}</strong> に挑戦です！
+                    </p>
+                    <button onclick="handleDiagnosticStageClear()" class="btn-primary" style="width: 100%; height: 50px; background: #9c27b0; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 4px 12px rgba(156,39,176,0.25);">
+                        🔥 次のステージのテストを開始する
+                    </button>
+                `;
+            } else {
+                // ステージ3も突破＝完全制覇！
+                resultView.innerHTML = `
+                    <h3 id="resultTitle" style="color:#ff9800; margin-top:0; font-size:24px;">👑 全ステージ完全制覇！ 👑</h3>
+                    <p id="resultScore" style="font-size:32px; font-weight:bold; margin:15px 0; color:#ff9800;">10問中 ${stageCorrectCount}問 正解</p>
+                    <div id="resultList" style="text-align:left; max-height:150px; overflow-y:auto; border:1px solid #eee; padding:10px; margin-bottom:20px; font-size:14px; background:#fafafa;">${listHtml}</div>
+                    <p style="margin-bottom:20px; color:#666; font-size:14px; padding:0 10px;">
+                        とてつもない単語力です！中1から中3すべての防衛ラインを突破しました。<br>
+                        あなたには入試で最も差がつく最難関の「最上位テーマ」がお似合いです！
+                    </p>
+                    <button onclick="handleDiagnosticStageClear()" class="btn-primary" style="width: 100%; height: 50px; background: #ff9800; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 4px 10px rgba(255,152,0,0.3);">
+                        🏁 診断結果を確定してホームに戻る
+                    </button>
+                `;
+            }
+        } else {
+            // 🔴 基準に届かず不合格（ここでサバイバル終了）
+            const failedStageName = diagnosticStage === 1 ? "【中1基礎】" : diagnosticStage === 2 ? "【中2標準】" : "【中3入試応用】";
+            
+            resultView.innerHTML = `
+                <h3 id="resultTitle" style="color:#c62828; margin-top:0; font-size:22px;">🏁 実力診断テスト終了</h3>
+                <p id="resultScore" style="font-size:32px; font-weight:bold; margin:15px 0; color:#c62828;">10問中 ${stageCorrectCount}問 正解</p>
+                <div id="resultList" style="text-align:left; max-height:150px; overflow-y:auto; border:1px solid #eee; padding:10px; margin-bottom:20px; font-size:14px; background:#fafafa;">${listHtml}</div>
+                <p style="margin-bottom:20px; color:#666; font-size:14px; padding:0 10px;">
+                    ステージ${diagnosticStage} ${failedStageName} にて不合格となりました（合格基準は8割以上です）。<br>
+                    ここまでのタイピング正解データから、あなたの最適な開始レベルを自動判定します！
+                </p>
+                <button onclick="handleDiagnosticStageClear()" class="btn-primary" style="width: 100%; height: 50px; background: #ff9800; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 4px 10px rgba(255,152,0,0.3);">
+                    📊 診断結果を確定してホームに戻る
+                </button>
+            `;
+        }
+
+        // 診断テストとしての全消去処理を行い、通常リザルトの後半処理はスキップさせる
+        window.currentCheckTestLength = undefined;
+        window.isActualCheckTestMode = undefined;
+        return;
+    }
+
+    // ========================================================
+    // 📝 以下の通常リザルト処理（A〜D）は完全にそのまま維持されます
+    // ========================================================
     document.getElementById("quizQuestionArea").classList.add("hidden");
     document.getElementById("answerControlArea").classList.add("hidden");
     document.getElementById("quizKeyboard").classList.add("hidden");
@@ -2057,8 +2279,6 @@ function showTestResult() {
 
     // 🏆 【A】本番のチェックテストで「満点合格」した場合の処理
     if (isPerfect && isCheckTest && !isPracticeTest && !isFromTodayLesson && !isAllWordsMode) {
-        
-        // 💡 過去のセクションも含めて、苦手単語リストを完全に全消去(リセット)する
         reviewWrongWords = []; 
 
         if (!completedSections.includes(currentSection)) {
@@ -2073,7 +2293,6 @@ function showTestResult() {
         
         const user = auth.currentUser;
         if (user) {
-            // 🔒 本人の部屋の苦手データを完全に初期化上書き（null削除）
             update(ref(db, 'users/' + user.uid), {
                 currentSection: currentSection,
                 completedSections: completedSections,
@@ -2164,7 +2383,6 @@ function showTestResult() {
     window.currentCheckTestLength = undefined;
     window.isActualCheckTestMode = undefined;
 }
-
 window.exitToListViewFromReview = function() {
     isReviewMode = false;
     isSelfPracticeMode = false;

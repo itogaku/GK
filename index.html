@@ -1524,6 +1524,18 @@ const LEVEL_CONFIG = {
     saijoi: { start: 75, end: 101, name: "入試直前最上位" }
 };
 
+function getLevelInfoByNumber(num) {
+    if (num <= 219) {
+        return { text: "【中1】基礎クラス", sub: "英語の土台・日常の基本表現", color: "#1a73e8", bg: "#e3f2fd" };
+    } else if (num <= 532) {
+        return { text: "【中2】標準クラス", sub: "表現を広げる重要語・主要文法", color: "#2e7d32", bg: "#e8f5e9" };
+    } else if (num <= 735) {
+        return { text: "【中3】入試応用クラス", sub: "長文読解の核・論理変化と必須動詞", color: "#ef6c00", bg: "#fff3e0" };
+    } else {
+        return { text: "【入試直前】最上位テーマ", sub: "差がつく最上位抽象語・時事現代論説", color: "#8e24aa", bg: "#f3e5f5" };
+    }
+}
+    
 function getLevelBadgeHtmlByNumber(num) {
     let text = "";
     let bgColor = "";
@@ -2209,109 +2221,126 @@ window.exitToListView = function() {
 };
 
 window.renderSectionButtons = function() {
-  const container = document.getElementById("sectionContainer");
-  container.innerHTML = "";
-  const count = Math.ceil(words.length / SECTION_SIZE);
-   
-  for (let i = 1; i <= count; i++) {
-    const btn = document.createElement("button");
-    btn.className = "section-btn";
+    const group1 = document.getElementById("sectionGroup_chui1");
+    const group2 = document.getElementById("sectionGroup_chui2");
+    const group3 = document.getElementById("sectionGroup_chui3");
+    const group4 = document.getElementById("sectionGroup_saijoi");
     
-    if (completedSections && completedSections.includes(i)) { 
-        btn.classList.add("completed"); 
+    if(group1) group1.innerHTML = "";
+    if(group2) group2.innerHTML = "";
+    if(group3) group3.innerHTML = "";
+    if(group4) group4.innerHTML = "";
+
+    const count = Math.ceil(words.length / SECTION_SIZE);
+     
+    for (let i = 1; i <= count; i++) {
+        const btn = document.createElement("button");
+        btn.className = "section-btn";
+        if (completedSections && completedSections.includes(i)) { btn.classList.add("completed"); }
+        btn.innerHTML = `Section ${i}`;
+        
+        btn.onclick = async () => { 
+            isAllWordsMode = false;
+            currentSection = i;
+            const listSelect = document.getElementById("listSectionSelect");
+            if (listSelect) listSelect.value = i;
+            await saveProgress();
+            window.showPage("homePage");
+        };
+        
+        if (i <= 22) { if(group1) group1.appendChild(btn); } 
+        else if (i <= 53) { if(group2) group2.appendChild(btn); } 
+        else if (i <= 74) { if(group3) group3.appendChild(btn); } 
+        else { if(group4) group4.appendChild(btn); }
     }
-    
-    btn.innerHTML = `Section ${i}`;
-    btn.onclick = async () => { 
-      isAllWordsMode = false;
-      currentSection = i;
-      
-      const listSelect = document.getElementById("listSectionSelect");
-      if (listSelect) listSelect.value = i;
-      
-      await saveProgress();
-      window.showPage("homePage");
+
+    const allBtn = document.createElement("button");
+    allBtn.className = "section-btn";
+    allBtn.style.borderColor = "#4caf50"; allBtn.style.color = "#4caf50";
+    allBtn.style.gridColumn = "span 3"; allBtn.style.marginTop = "10px";
+    allBtn.innerHTML = "全単語（全範囲）";
+    allBtn.onclick = async () => {
+        isAllWordsMode = true;
+        const listSelect = document.getElementById("listSectionSelect");
+        if (listSelect) listSelect.value = "all"; 
+        await saveProgress();
+        window.showPage("homePage");
     };
-    container.appendChild(btn);
-  }
-
-  const allBtn = document.createElement("button");
-  allBtn.className = "section-btn";
-  allBtn.style.borderColor = "#4caf50"; allBtn.style.color = "#4caf50";
-  allBtn.innerHTML = "全単語（全範囲）";
-  allBtn.onclick = async () => {
-      isAllWordsMode = true;
-      const listSelect = document.getElementById("listSectionSelect");
-      if (listSelect) listSelect.value = "all"; 
-      await saveProgress();
-      window.showPage("homePage");
-  };
-  container.appendChild(allBtn);
+    if(group4) group4.appendChild(allBtn);
 };
-
 window.renderList = function() {
     const table = document.getElementById("wordTable");
     const filter = document.getElementById("filter").value;
-    table.innerHTML = "<tr><th>No</th><th>単語</th><th>意味</th><th>状態</th></tr>";
+    let currentLevelHeaderHtml = "";
 
-    // 1️⃣ 【復習エリア】の描画
+    if (!isAllWordsMode) {
+        const sampleNum = (currentSection - 1) * SECTION_SIZE + 1;
+        const info = getLevelInfoByNumber(sampleNum); // 💡1番の関数をここで使っています！
+        currentLevelHeaderHtml = `
+            <tr>
+                <td colspan="4" style="background: ${info.bg}; color: ${info.color}; padding: 15px; text-align: center; border-radius: 8px;">
+                    <div style="font-weight: bold; font-size: 18px;">${info.text}</div>
+                    <div style="font-size: 13px; margin-top: 4px; opacity: 0.8;">${info.sub} ─── (Section ${currentSection})</div>
+                </td>
+            </tr>
+            <tr><td colspan="4" style="height:10px; background:transparent; border:none;"></td></tr>
+        `;
+    } else {
+        currentLevelHeaderHtml = `<tr><td colspan="4" style="background:#f5f5f7; color:#333; font-weight:bold; text-align:center; padding:12px;">📖 全範囲単語マスター（1,006語）</td></tr>`;
+    }
+
+    table.innerHTML = currentLevelHeaderHtml + "<tr><th>No</th><th>単語</th><th>意味</th><th>状態</th></tr>";
+
     if (!isAllWordsMode && typeof reviewWrongWords !== 'undefined' && reviewWrongWords && reviewWrongWords.length > 0 && filter !== "correct") {
         let hasDisplayedHeader = false;
-        
         reviewWrongWords.forEach(w => {
             if (!w) return;
             const spell = (typeof w === 'object' && w.word) ? w.word : String(w);
-            
-            // 元のマスターデータ（words）から何番目の単語かをインデックス検索
             const foundIndex = words.findIndex(x => x && x.word && x.word.toLowerCase() === spell.toLowerCase());
             if (foundIndex === -1) return;
             const found = words[foundIndex];
 
             if (!hasDisplayedHeader) {
-                table.innerHTML += `<tr><td colspan="4" style="background:#fff3e0; color:#e65100; font-weight:bold; text-align:center;">復習が必要な単語</td></tr>`;
+                table.innerHTML += `<tr><td colspan="4" style="background:#fff3e0; color:#e65100; font-weight:bold; text-align:center;">⚠️ 復習が必要な単語</td></tr>`;
                 hasDisplayedHeader = true;
             }
 
             const state = progress[spell.toLowerCase()];
-            // 💡 復習エリアの単語の前にバッジを注入
-            const badgeHtml = getLevelBadgeHtmlByNumber(foundIndex + 1);
+            const info = getLevelInfoByNumber(foundIndex + 1); // 💡1番の関数をここでも使っています！
+            const badgeHtml = `<span style="background: ${info.bg}; color: ${info.color}; font-size: 11px; font-weight: bold; padding: 2px 6px; border-radius: 4px; margin-right: 6px;">${info.text.split('】')[1]}</span>`;
 
             table.innerHTML += `<tr style="background:#fff9f0;"><td>!</td><td>${badgeHtml}<strong>${spell}</strong></td><td>${found.meaning || "-"}</td><td style="text-align:center">${state==='correct'?'〇':'×'}</td></tr>`;
         });
     }
     
-    // 2️⃣ 【通常リストエリア】のデータ抽出
     let pool = [];
     let offset = 0;
-    
-    if (isAllWordsMode) {
-        pool = words;
-    } else {
-        offset = (currentSection - 1) * SECTION_SIZE;
-        if (offset < words.length) {
-            pool = words.slice(offset, offset + SECTION_SIZE);
-        } else {
-            pool = [];
-        }
-    }
+    if (isAllWordsMode) { pool = words; } else { offset = (currentSection - 1) * SECTION_SIZE; if (offset < words.length) { pool = words.slice(offset, offset + SECTION_SIZE); } else { pool = []; } }
 
-    // 3️⃣ 【通常リストエリア】の描画
+    let lastDisplayedLevel = "";
     pool.forEach((w, index) => {
         if (!w || !w.word) return;
         const state = progress[w.word.toLowerCase()];
         if (filter === "correct" && state !== "correct") return;
         if (filter === "wrong" && state !== "wrong") return;
         
-        // 全単語モードかセクションモードかによってマスターデータ内での「通し番号（何語目か）」を正確に計算
         const displayIndex = isAllWordsMode ? (index + 1) : (offset + index + 1);
+        const info = getLevelInfoByNumber(displayIndex); // 💡1番の関数をここでも使っています！
+
+        if (isAllWordsMode && lastDisplayedLevel !== info.text) {
+            table.innerHTML += `
+                <tr><td colspan="4" style="height:15px; background:transparent; border:none;"></td></tr>
+                <tr><td colspan="4" style="background: ${info.bg}; color: ${info.color}; font-weight:bold; text-align:center; padding:10px; border-top:2px solid ${info.color};">${info.text}（ここから）</td></tr>
+            `;
+            lastDisplayedLevel = info.text;
+        }
         
-        // 💡 通し番号を元に学年レベルバッジを生成
-        const badgeHtml = getLevelBadgeHtmlByNumber(displayIndex);
+        const shortLevelName = info.text.split('】')[1] || info.text;
+        const badgeHtml = `<span style="background: ${info.bg}; color: ${info.color}; font-size: 11px; font-weight: bold; padding: 2px 6px; border-radius: 4px; margin-right: 6px; display: inline-block; vertical-align: middle;">${shortLevelName}</span>`;
 
         table.innerHTML += `<tr><td>${displayIndex}</td><td>${badgeHtml}<strong>${w.word}</strong></td><td>${w.meaning || "-"}</td><td style="text-align:center">${state==='correct'?'〇':state==='wrong'?'×':'-'}</td></tr>`;
     });
 };
-
 window.changeListSection = (val) => { 
     if (val === "all") {
         isAllWordsMode = true;

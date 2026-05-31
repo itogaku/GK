@@ -2206,7 +2206,7 @@ function showTestResult() {
                     </button>
                 `;
             } else {
-                // ステージ3も突破＝完全制覇！
+                // ✨【修正】ステージ3も突破＝完全制覇！その場で結果を確定させるボタンに変更
                 resultView.innerHTML = `
                     <h3 id="resultTitle" style="color:#ff9800; margin-top:0; font-size:24px;">👑 全ステージ完全制覇！ 👑</h3>
                     <p id="resultScore" style="font-size:32px; font-weight:bold; margin:15px 0; color:#ff9800;">10問中 ${stageCorrectCount}問 正解</p>
@@ -2215,14 +2215,15 @@ function showTestResult() {
                         とてつもない単語力です！中1から中3すべての防衛ラインを突破しました。<br>
                         あなたには入試で最も差がつく最難関の「最上位テーマ」がお似合いです！
                     </p>
-                    <button onclick="handleDiagnosticStageClear()" class="btn-primary" style="width: 100%; height: 50px; background: #ff9800; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 4px 10px rgba(255,152,0,0.3);">
+                    <button onclick="setFinalDiagnosticLevel('saijoi')" class="btn-primary" style="width: 100%; height: 50px; background: #ff9800; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 4px 10px rgba(255,152,0,0.3);">
                         🏁 診断結果を確定してホームに戻る
                     </button>
                 `;
             }
         } else {
-            // 🔴 基準に届かず不合格（ここでサバイバル終了）
+            // ✨【修正】🔴 7問以下で不合格（ここで終了）。その場で現在のレベルに応じた確定関数を叩く！
             const failedStageName = diagnosticStage === 1 ? "【中1基礎】" : diagnosticStage === 2 ? "【中2標準】" : "【中3入試応用】";
+            const currentStageKey = diagnosticStage === 1 ? "chui1" : diagnosticStage === 2 ? "chui2" : "chui3";
             
             resultView.innerHTML = `
                 <h3 id="resultTitle" style="color:#c62828; margin-top:0; font-size:22px;">🏁 実力診断テスト終了</h3>
@@ -2232,7 +2233,7 @@ function showTestResult() {
                     ステージ${diagnosticStage} ${failedStageName} にて不合格となりました（合格基準は8割以上です）。<br>
                     ここまでのタイピング正解データから、あなたの最適な開始レベルを自動判定します！
                 </p>
-                <button onclick="handleDiagnosticStageClear()" class="btn-primary" style="width: 100%; height: 50px; background: #ff9800; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 4px 10px rgba(255,152,0,0.3);">
+                <button onclick="setFinalDiagnosticLevel('${currentStageKey}')" class="btn-primary" style="width: 100%; height: 50px; background: #ff9800; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 4px 10px rgba(255,152,0,0.3);">
                     📊 診断結果を確定してホームに戻る
                 </button>
             `;

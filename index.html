@@ -105,6 +105,30 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
       </div>
     </div>
 
+    <div style="background: #fff3e0; border: 1px solid #ffe0b2; padding: 12px; border-radius: 12px; margin-bottom: 20px; text-align: left;">
+      <p style="margin: 0 0 8px 0; font-size: 13px; color: #e65100; font-weight: bold; text-align: center;">💡 初めてアプリを使う人はここから！</p>
+      <button onclick="startDiagnosticTest()" class="btn-primary" style="font-size: 14px; padding: 10px; width: 100%; border-radius: 50px; background: #ff9800; border: none; box-shadow: 0 4px 10px rgba(255,152,0,0.25);">
+        🔍 どこから始める？実力診断テスト
+      </button>
+    </div>
+
+    <div style="background: #f8f9fa; border: 1px solid #e9ecef; padding: 15px; border-radius: 12px; margin-bottom: 20px; text-align: left;">
+      <div style="margin-bottom: 10px;">
+        <label for="levelSelect" style="font-size: 13px; font-weight: bold; color: #495057; display: block; margin-bottom: 4px;">🎨 レベル（学年）を選ぶ :</label>
+        <select id="levelSelect" onchange="onLevelChange()" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ced4da; font-size: 15px; background: white; color: #333;">
+          <option value="chui1">【中1】基礎クラス（Sec 1 - 22）</option>
+          <option value="chui2">【中2】標準クラス（Sec 23 - 53）</option>
+          <option value="chui3">【中3】入試応用クラス（Sec 54 - 74）</option>
+          <option value="saijoi">【入試直前】最上位テーマ（Sec 75 - 101）</option>
+        </select>
+      </div>
+      <div>
+        <label for="sectionSelect" style="font-size: 13px; font-weight: bold; color: #495057; display: block; margin-bottom: 4px;">🔢 セクション（10単語ずつ）を選ぶ :</label>
+        <select id="sectionSelect" onchange="onSectionChange()" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ced4da; font-size: 15px; background: white; color: #333;">
+          </select>
+      </div>
+    </div>
+
     <div style="margin-bottom: 20px;">
       <p style="color: #666; font-size: 14px;">現在の目標：<span id="targetSectionName" style="font-weight:bold; color: #1a73e8;">Section 1</span></p>
     </div>
@@ -1449,6 +1473,58 @@ let completedSections = [];
 let lastCompletedSection = 0;
 let isAllWordsMode = false;
 let isSuspended = false;
+
+// --- ⚙️ レベルごとのセクション開始・終了位置の定義 ---
+const LEVEL_CONFIG = {
+    chui1: { start: 1, end: 22, name: "中1基礎" },
+    chui2: { start: 23, end: 53, name: "中2標準" },
+    chui3: { start: 54, end: 74, name: "中3入試応用" },
+    saijoi: { start: 75, end: 101, name: "入試直前最上位" }
+};
+
+// 🔄 レベルが切り替わったときに、セクションのプルダウンを再構築する関数
+window.onLevelChange = function() {
+    const levelKey = document.getElementById("levelSelect").value;
+    const config = LEVEL_CONFIG[levelKey];
+    const sectionSelect = document.getElementById("sectionSelect");
+    
+    // セクションの選択肢を一度クリア
+    sectionSelect.innerHTML = "";
+    
+    // そのレベルに該当するセクションだけをループで回して追加
+    for (let sec = config.start; sec <= config.end; sec++) {
+        const option = document.createElement("option");
+        option.value = sec;
+        
+        // 塾の進捗がわかりやすいように、各セクションの合格状況などもここに表記できます
+        option.textContent = `Section ${sec}`;
+        
+        // 最後に開いていたセクションがあれば、それを初期選択にする
+        if (sec === currentSection) {
+            option.selected = true;
+        }
+        
+        sectionSelect.appendChild(option);
+    }
+};
+
+// 🔢 セクションが切り替わったときの処理
+window.onSectionChange = function() {
+    currentSection = parseInt(document.getElementById("sectionSelect").value);
+    // 必要に応じてダッシュボードの表示更新などの処理をここに挟みます
+};
+
+// 🏠 ホーム画面が読み込まれた初期化処理（既存のinit等に組み込む）
+function initLevelAndSection() {
+    // 現在のcurrentSectionがどのレベルに属しているかを逆算して初期セット
+    let initialLevel = "chui1";
+    if (currentSection >= 23 && currentSection <= 53) initialLevel = "chui2";
+    if (currentSection >= 54 && currentSection <= 74) initialLevel = "chui3";
+    if (currentSection >= 75) initialLevel = "saijoi";
+    
+    document.getElementById("levelSelect").value = initialLevel;
+    onLevelChange(); // セクションのプルダウンを生成
+}
     
 function updateHomeDashboard() {
     const totalWords = words.length;

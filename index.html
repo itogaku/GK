@@ -161,10 +161,52 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
 </section>
 
 <section id="sectionPage" class="page">
-  <h2 style="text-align:center;">学習セクションを選択</h2>
-  <div id="sectionContainer"></div>
-</section>
+  <div class="card" style="padding: 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+      <h2 style="margin: 0;">📁 セクション選択</h2>
+      <button onclick="showPage('homePage')" style="padding: 6px 12px; border-radius: 8px; background: #e0e0e0; border: none; font-weight: bold;">戻る</button>
+    </div>
 
+    <p style="color: #666; font-size: 14px; margin-bottom: 20px;">学習したいセクション（10語ずつ）を選んでください。</p>
+
+    <!-- 🔢 セクションリストエリア -->
+    <div id="sectionContainer" style="max-height: 70vh; overflow-y: auto; padding-right: 5px;">
+      
+      <!-- 【中1基礎ヘッダー】 -->
+      <div style="background: #e3f2fd; color: #0d47a1; padding: 10px; border-radius: 8px; font-weight: bold; margin: 15px 0 10px 0; font-size: 14px; border-left: 5px solid #1a73e8;">
+        🌱 【中1】基礎クラス（Section 1 - 22）
+      </div>
+      <div id="sectionGroup_chui1" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+        <!-- JavaScriptで Section 1〜22 のボタンをここに生成して入れる、または既存の静的配置 -->
+      </div>
+
+      <!-- 【中2標準ヘッダー】 -->
+      <div style="background: #e8f5e9; color: #1b5e20; padding: 10px; border-radius: 8px; font-weight: bold; margin: 25px 0 10px 0; font-size: 14px; border-left: 5px solid #2e7d32;">
+        🌿 【中2】標準クラス（Section 23 - 53）
+      </div>
+      <div id="sectionGroup_chui2" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+        <!-- JavaScriptで Section 23〜53 のボタンをここに生成して入れる -->
+      </div>
+
+      <!-- 【中3入試応用ヘッダー】 -->
+      <div style="background: #fff3e0; color: #e65100; padding: 10px; border-radius: 8px; font-weight: bold; margin: 25px 0 10px 0; font-size: 14px; border-left: 5px solid #ef6c00;">
+        🔥 【中3】入試応用クラス（Section 54 - 74）
+      </div>
+      <div id="sectionGroup_chui3" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+        <!-- JavaScriptで Section 54〜74 のボタンをここに生成して入れる -->
+      </div>
+
+      <!-- 【入試直前最上位ヘッダー】 -->
+      <div style="background: #f3e5f5; color: #4a148c; padding: 10px; border-radius: 8px; font-weight: bold; margin: 25px 0 10px 0; font-size: 14px; border-left: 5px solid #8e24aa;">
+        👑 【入試直前】最上位テーマ（Section 75 - 101）
+      </div>
+      <div id="sectionGroup_saijoi" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+        <!-- JavaScriptで Section 75〜101 のボタンをここに生成して入れる -->
+      </div>
+
+    </div>
+  </div>
+</section>
 <section id="quiz" class="page">
   <div id="progressMini" style="text-align:center; font-size:13px; color:#666; margin-bottom:5px;"></div>
   
@@ -1482,6 +1524,32 @@ const LEVEL_CONFIG = {
     saijoi: { start: 75, end: 101, name: "入試直前最上位" }
 };
 
+function getLevelBadgeHtmlByNumber(num) {
+    let text = "";
+    let bgColor = "";
+    let textColor = "";
+
+    if (num <= 219) {
+        text = "中1基礎";
+        bgColor = "#e3f2fd";
+        textColor = "#1a73e8";
+    } else if (num <= 532) {
+        text = "中2標準";
+        bgColor = "#e8f5e9";
+        textColor = "#2e7d32";
+    } else if (num <= 735) {
+        text = "中3応用";
+        bgColor = "#fff3e0";
+        textColor = "#ef6c00";
+    } else {
+        text = "最上位";
+        bgColor = "#f3e5f5";
+        textColor = "#8e24aa";
+    }
+
+    return `<span style="background: ${bgColor}; color: ${textColor}; font-size: 11px; font-weight: bold; padding: 2px 6px; border-radius: 4px; margin-right: 6px; display: inline-block; vertical-align: middle;">${text}</span>`;
+}
+    
 // 🔄 レベルが切り替わったときに、セクションのプルダウンを再構築する関数
 window.onLevelChange = function() {
     const levelKey = document.getElementById("levelSelect").value;
@@ -2186,14 +2254,18 @@ window.renderList = function() {
     const filter = document.getElementById("filter").value;
     table.innerHTML = "<tr><th>No</th><th>単語</th><th>意味</th><th>状態</th></tr>";
 
+    // 1️⃣ 【復習エリア】の描画
     if (!isAllWordsMode && typeof reviewWrongWords !== 'undefined' && reviewWrongWords && reviewWrongWords.length > 0 && filter !== "correct") {
         let hasDisplayedHeader = false;
         
         reviewWrongWords.forEach(w => {
             if (!w) return;
             const spell = (typeof w === 'object' && w.word) ? w.word : String(w);
-            const found = words.find(x => x && x.word && x.word.toLowerCase() === spell.toLowerCase());
-            if (!found) return;
+            
+            // 元のマスターデータ（words）から何番目の単語かをインデックス検索
+            const foundIndex = words.findIndex(x => x && x.word && x.word.toLowerCase() === spell.toLowerCase());
+            if (foundIndex === -1) return;
+            const found = words[foundIndex];
 
             if (!hasDisplayedHeader) {
                 table.innerHTML += `<tr><td colspan="4" style="background:#fff3e0; color:#e65100; font-weight:bold; text-align:center;">復習が必要な単語</td></tr>`;
@@ -2201,10 +2273,14 @@ window.renderList = function() {
             }
 
             const state = progress[spell.toLowerCase()];
-            table.innerHTML += `<tr style="background:#fff9f0;"><td>!</td><td><strong>${spell}</strong></td><td>${found.meaning || "-"}</td><td style="text-align:center">${state==='correct'?'〇':'×'}</td></tr>`;
+            // 💡 復習エリアの単語の前にバッジを注入
+            const badgeHtml = getLevelBadgeHtmlByNumber(foundIndex + 1);
+
+            table.innerHTML += `<tr style="background:#fff9f0;"><td>!</td><td>${badgeHtml}<strong>${spell}</strong></td><td>${found.meaning || "-"}</td><td style="text-align:center">${state==='correct'?'〇':'×'}</td></tr>`;
         });
     }
     
+    // 2️⃣ 【通常リストエリア】のデータ抽出
     let pool = [];
     let offset = 0;
     
@@ -2219,14 +2295,20 @@ window.renderList = function() {
         }
     }
 
+    // 3️⃣ 【通常リストエリア】の描画
     pool.forEach((w, index) => {
         if (!w || !w.word) return;
         const state = progress[w.word.toLowerCase()];
         if (filter === "correct" && state !== "correct") return;
         if (filter === "wrong" && state !== "wrong") return;
         
+        // 全単語モードかセクションモードかによってマスターデータ内での「通し番号（何語目か）」を正確に計算
         const displayIndex = isAllWordsMode ? (index + 1) : (offset + index + 1);
-        table.innerHTML += `<tr><td>${displayIndex}</td><td><strong>${w.word}</strong></td><td>${w.meaning || "-"}</td><td style="text-align:center">${state==='correct'?'〇':state==='wrong'?'×':'-'}</td></tr>`;
+        
+        // 💡 通し番号を元に学年レベルバッジを生成
+        const badgeHtml = getLevelBadgeHtmlByNumber(displayIndex);
+
+        table.innerHTML += `<tr><td>${displayIndex}</td><td>${badgeHtml}<strong>${w.word}</strong></td><td>${w.meaning || "-"}</td><td style="text-align:center">${state==='correct'?'〇':state==='wrong'?'×':'-'}</td></tr>`;
     });
 };
 

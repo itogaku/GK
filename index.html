@@ -1625,7 +1625,6 @@ function setFinalDiagnosticLevel(levelKey) {
     
     // 画面とデータベースの同期・保存
     if (typeof saveProgress === 'function') saveProgress();
-    if (typeof initLevelAndSection === 'function') initLevelAndSection(); // プルダウンの位置を同期
     if (typeof updateHomeDashboard === 'function') updateHomeDashboard();
     window.showPage("homePage");
 }
@@ -1692,10 +1691,7 @@ window.onSectionChange = function() {
     // 必要に応じてダッシュボードの表示更新などの処理をここに挟みます
 };
 
-// 🏠 ホーム画面が読み込まれた初期化処理（既存のinit等に組み込む）
-function initLevelAndSection() {
-    // ホーム画面の自動切り替え処理は不要になったため、何もしない
-}
+
     
 function updateHomeDashboard() {
     const totalWords = words.length;

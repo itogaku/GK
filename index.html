@@ -1694,14 +1694,7 @@ window.onSectionChange = function() {
 
 // 🏠 ホーム画面が読み込まれた初期化処理（既存のinit等に組み込む）
 function initLevelAndSection() {
-    // 現在のcurrentSectionがどのレベルに属しているかを逆算して初期セット
-    let initialLevel = "chui1";
-    if (currentSection >= 23 && currentSection <= 53) initialLevel = "chui2";
-    if (currentSection >= 54 && currentSection <= 74) initialLevel = "chui3";
-    if (currentSection >= 75) initialLevel = "saijoi";
-    
-    document.getElementById("levelSelect").value = initialLevel;
-    onLevelChange(); // セクションのプルダウンを生成
+    // ホーム画面の自動切り替え処理は不要になったため、何もしない
 }
     
 function updateHomeDashboard() {

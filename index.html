@@ -167,46 +167,48 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
       <button onclick="showPage('homePage')" style="padding: 8px 16px; border-radius: 20px; background: #f1f3f4; border: 1px solid #dadce0; font-weight: bold; color: #3c4043; cursor: pointer;">戻る</button>
     </div>
 
-    <p style="color: #5f6368; font-size: 13px; margin-bottom: 20px;">学習したいレベルをタップして、セクションを選んでください。</p>
+    <p style="color: #5f6368; font-size: 13px; margin-bottom: 20px;">レベルをタップすると、下にセクションボタンが広がります。</p>
 
     <div id="sectionContainer" style="max-height: 70vh; overflow-y: auto; padding-right: 5px;">
       
-      <div onclick="toggleSectionAccordion('chui1')" style="background: #e3f2fd; color: #0d47a1; padding: 12px 15px; border-radius: 10px; font-weight: bold; margin-top: 12px; font-size: 14px; border-left: 5px solid #1a73e8; display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
+      <div onclick="toggleSectionAccordion('chui1')" style="background: #e3f2fd; color: #0d47a1; padding: 14px 15px; border-radius: 12px; font-weight: bold; margin-top: 12px; font-size: 14px; border-left: 5px solid #1a73e8; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none;">
         <span>🌱 【中1】基礎クラス（Sec 1 - 22）</span>
-        <span id="arrow_chui1">▼</span>
+        <span id="arrow_chui1" style="font-size: 12px;">▼</span>
       </div>
-      <div id="wrapper_chui1" style="margin-top: 10px;">
-        <div id="sectionGroup_chui1" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 5px;"></div>
+      <div id="wrapper_chui1" style="margin-top: 12px; display: none;">
+        <div id="sectionGroup_chui1" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 4px;"></div>
       </div>
 
-      <div onclick="toggleSectionAccordion('chui2')" style="background: #e8f5e9; color: #1b5e20; padding: 12px 15px; border-radius: 10px; font-weight: bold; margin-top: 15px; font-size: 14px; border-left: 5px solid #2e7d32; display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
+      <div onclick="toggleSectionAccordion('chui2')" style="background: #e8f5e9; color: #1b5e20; padding: 14px 15px; border-radius: 12px; font-weight: bold; margin-top: 15px; font-size: 14px; border-left: 5px solid #2e7d32; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none;">
         <span>🌿 【中2】標準クラス（Sec 23 - 53）</span>
-        <span id="arrow_chui2">▼</span>
+        <span id="arrow_chui2" style="font-size: 12px;">▼</span>
       </div>
-      <div id="wrapper_chui2" style="margin-top: 10px;">
-        <div id="sectionGroup_chui2" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 5px;"></div>
+      <div id="wrapper_chui2" style="margin-top: 12px; display: none;">
+        <div id="sectionGroup_chui2" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 4px;"></div>
       </div>
 
-      <div onclick="toggleSectionAccordion('chui3')" style="background: #fff3e0; color: #e65100; padding: 12px 15px; border-radius: 10px; font-weight: bold; margin-top: 15px; font-size: 14px; border-left: 5px solid #ef6c00; display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
+      <div onclick="toggleSectionAccordion('chui3')" style="background: #fff3e0; color: #e65100; padding: 14px 15px; border-radius: 12px; font-weight: bold; margin-top: 15px; font-size: 14px; border-left: 5px solid #ef6c00; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none;">
         <span>🔥 【中3】入試応用クラス（Sec 54 - 74）</span>
-        <span id="arrow_chui3">▼</span>
+        <span id="arrow_chui3" style="font-size: 12px;">▼</span>
       </div>
-      <div id="wrapper_chui3" style="margin-top: 10px;">
-        <div id="sectionGroup_chui3" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 5px;"></div>
+      <div id="wrapper_chui3" style="margin-top: 12px; display: none;">
+        <div id="sectionGroup_chui3" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 4px;"></div>
       </div>
 
-      <div onclick="toggleSectionAccordion('saijoi')" style="background: #f3e5f5; color: #4a148c; padding: 12px 15px; border-radius: 10px; font-weight: bold; margin-top: 15px; font-size: 14px; border-left: 5px solid #8e24aa; display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
+      <div onclick="toggleSectionAccordion('saijoi')" style="background: #f3e5f5; color: #4a148c; padding: 14px 15px; border-radius: 12px; font-weight: bold; margin-top: 15px; font-size: 14px; border-left: 5px solid #8e24aa; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none;">
         <span>👑 【入試直前】最上位テーマ（Sec 75 - 101）</span>
-        <span id="arrow_saijoi">▼</span>
+        <span id="arrow_saijoi" style="font-size: 12px;">▼</span>
       </div>
-      <div id="wrapper_saijoi" style="margin-top: 10px;">
-        <div id="sectionGroup_saijoi" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 5px;"></div>
+      <div id="wrapper_saijoi" style="margin-top: 12px; display: none;">
+        <div id="wrapper_saijoi_inner" style="display: flex; flex-direction: column; gap: 12px;">
+          <div id="sectionGroup_saijoi" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 4px;"></div>
+          <div id="sectionGroup_all_button_area"></div>
+        </div>
       </div>
 
     </div>
   </div>
 </section>
-
 <section id="quiz" class="page">
   <div id="progressMini" style="text-align:center; font-size:13px; color:#666; margin-bottom:5px;"></div>
   
@@ -2225,37 +2227,41 @@ window.renderSectionButtons = function() {
     const group2 = document.getElementById("sectionGroup_chui2");
     const group3 = document.getElementById("sectionGroup_chui3");
     const group4 = document.getElementById("sectionGroup_saijoi");
+    const allBtnArea = document.getElementById("sectionGroup_all_button_area");
     
     if(group1) group1.innerHTML = "";
     if(group2) group2.innerHTML = "";
     if(group3) group3.innerHTML = "";
     if(group4) group4.innerHTML = "";
+    if(allBtnArea) allBtnArea.innerHTML = "";
 
     const count = Math.ceil(words.length / SECTION_SIZE);
      
     for (let i = 1; i <= count; i++) {
         const btn = document.createElement("button");
         
-        // 🎨 ボタンのデザインをよりモダンに（枠線を丸くし、立体的な影を付与）
+        // 🎨 ボタンの形を、スマホで親指タップしやすい正方形に近い「ふっくらしたタイル」に変更
         btn.style.cssText = `
-            padding: 14px 8px;
-            border-radius: 10px;
+            width: 100%;
+            padding: 18px 5px;
+            border-radius: 12px;
             font-weight: bold;
-            font-size: 14px;
+            font-size: 15px;
             border: 1px solid #dadce0;
             background: #ffffff;
             color: #3c4043;
             cursor: pointer;
             transition: all 0.2s ease;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+            text-align: center;
         `;
         
-        // 合格済み（completed）のセクションは、塾らしく綺麗な「薄緑色」のバッジ風にする
+        // 合格済みセクションのスタイル（緑色）
         if (completedSections && completedSections.includes(i)) { 
             btn.style.background = "#e8f5e9";
             btn.style.color = "#2e7d32";
             btn.style.borderColor = "#a5d6a7";
-            btn.innerHTML = `Sec ${i}<br><span style="font-size:10px; font-weight:normal;">〇 合格</span>`;
+            btn.innerHTML = `Sec ${i}<br><span style="font-size:10px; font-weight:normal; opacity:0.8;">〇 合格</span>`;
         } else {
             btn.innerHTML = `Sec ${i}`;
         }
@@ -2269,33 +2275,35 @@ window.renderSectionButtons = function() {
             window.showPage("homePage");
         };
         
-        // セクションのレベル別自動振り分け
+        // 💡 セクション番号に応じて、下に流れるグリッドへ順番に格納（横にはみ出さず、3列で綺麗に下に回り込みます）
         if (i <= 22) { if(group1) group1.appendChild(btn); } 
         else if (i <= 53) { if(group2) group2.appendChild(btn); } 
         else if (i <= 74) { if(group3) group3.appendChild(btn); } 
         else { if(group4) group4.appendChild(btn); }
     }
 
-    // 🟢 「全単語（全範囲）」ボタンを最上位クラスの末尾へマージ
-    const allBtn = document.createElement("button");
-    allBtn.style.cssText = "grid-column: span 3; padding: 14px; border-radius: 10px; font-weight: bold; border: 2px dashed #4caf50; background: #f1f8e9; color: #4caf50; cursor: pointer; margin-top: 10px; font-size: 14px;";
-    allBtn.innerHTML = "📊 全単語をまとめて確認（全範囲）";
-    allBtn.onclick = async () => {
-        isAllWordsMode = true;
-        const listSelect = document.getElementById("listSectionSelect");
-        if (listSelect) listSelect.value = "all"; 
-        await saveProgress();
-        window.showPage("homePage");
-    };
-    if(group4) group4.appendChild(allBtn);
+    // 📊 「全単語（全範囲）」ボタンの生成と配置
+    if (allBtnArea) {
+        const allBtn = document.createElement("button");
+        allBtn.style.cssText = "width: 100%; padding: 16px; border-radius: 12px; font-weight: bold; border: 2px dashed #4caf50; background: #f1f8e9; color: #4caf50; cursor: pointer; font-size: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.04);";
+        allBtn.innerHTML = "📊 全単語をまとめて確認（全範囲）";
+        allBtn.onclick = async () => {
+            isAllWordsMode = true;
+            const listSelect = document.getElementById("listSectionSelect");
+            if (listSelect) listSelect.value = "all"; 
+            await saveProgress();
+            window.showPage("homePage");
+        };
+        allBtnArea.appendChild(allBtn);
+    }
 
-    // 💡 【おもてなし機能】生徒の現在の進捗に合わせて、開くべきアコーディオンを自動決定する
+    // 【おもてなし機能】生徒の現在の進捗に合わせて、デフォルトで開く学年を決定
     let activeKey = "chui1";
     if (currentSection >= 23 && currentSection <= 53) activeKey = "chui2";
     if (currentSection >= 54 && currentSection <= 74) activeKey = "chui3";
     if (currentSection >= 75) activeKey = "saijoi";
 
-    // 現在のレベル以外は初期状態で全部閉じる
+    // 初期開閉状態の同期
     ["chui1", "chui2", "chui3", "saijoi"].forEach(key => {
         const wrapper = document.getElementById(`wrapper_${key}`);
         const arrow = document.getElementById(`arrow_${key}`);
@@ -2310,7 +2318,6 @@ window.renderSectionButtons = function() {
         }
     });
 };
-
 window.toggleSectionAccordion = function(key) {
     const wrapper = document.getElementById(`wrapper_${key}`);
     const arrow = document.getElementById(`arrow_${key}`);

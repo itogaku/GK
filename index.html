@@ -1517,9 +1517,10 @@ let diagnosticStageCorrect = 0; // 現在のステージでの正解数
 window.startDiagnosticTest = function() {
     if (!words || words.length === 0) return;
     
-    // 他のモードをすべてリセット
+    // 💡 診断モードをオンにし、クイズ画面が問題プール（reviewPool）を読み込むように isReviewMode も true にします！
     isDiagnosticMode = true;
-    isReviewMode = false;
+    isReviewMode = true; 
+    
     isSelfPracticeMode = false;
     window.isActualCheckTestMode = false;
     window.isTodayReviewTestMode = false;
@@ -1529,13 +1530,12 @@ window.startDiagnosticTest = function() {
     testLog = [];
     studyCount++;
     
-    // ステージ1（中1範囲：1〜219語目）から10問をランダム抽出
+    // ステージ1（中1範囲）から10問を抽出
     generateDiagnosticPoolForStage(1);
     
     renderQuestion();
     window.showPage("quiz");
 };
-
 // 📦 各ステージに応じた問題プール（10問）を生成する内部関数
 function generateDiagnosticPoolForStage(stage) {
     let stageWords = [];
@@ -1551,36 +1551,38 @@ function generateDiagnosticPoolForStage(stage) {
         stageWords = words.slice(532, 735);
     }
     
-    // シャッフルして10問をピックアップ
-    reviewPool = stageWords.sort(() => 0.5 - Math.random()).slice(0, 10);
+    // 💡 元の配列を傷つけないようにコピーしてシャッフルし、確実に10問だけを reviewPool にセット
+    reviewPool = [...stageWords].sort(() => 0.5 - Math.random()).slice(0, 10);
 }
-
 // 🏁 ステージごとの合否判定と、最終スタート位置を決定する関数
 function handleDiagnosticStageClear() {
-    // 今回の10問中、何問正解したかをカウント
     const stageTotal = 10;
     const passThreshold = 8; // 🎯 合格基準：8問以上正解
     
+    // 今回のステージ（10問）の中での正解数をログから集計
+    // （全体ログの末尾10問、または現在のステージ単体の正解数をカウント）
     if (diagnosticStageCorrect >= passThreshold) {
         // 🟢 基準をクリアして「合格」した場合
         if (diagnosticStage === 1) {
             alert(`🌱 ステージ1【中1基礎】クリア！ (${diagnosticStageCorrect}/${stageTotal})\n\n素晴らしい！中1レベルは合格です。\n続いて、ステージ2【中2標準】テストに進みます！`);
             diagnosticStage = 2;
             diagnosticStageCorrect = 0;
+            testLog = []; // 次のステージ用に一回ログをクリア
             generateDiagnosticPoolForStage(2);
-            renderQuestion(); // 次のステージを開始
+            renderQuestion(); // 次のステージの1問目を描画
         } else if (diagnosticStage === 2) {
             alert(`🌿 ステージ2【中2標準】クリア！ (${diagnosticStageCorrect}/${stageTotal})\n\nすごい！中2レベルも合格です。\n最終ステージ3【中3入試応用】テストに進みます！`);
             diagnosticStage = 3;
             diagnosticStageCorrect = 0;
+            testLog = []; // 次のステージ用に一回ログをクリア
             generateDiagnosticPoolForStage(3);
-            renderQuestion(); // 次のステージを開始
+            renderQuestion(); // 次のステージの1問目を描画
         } else if (diagnosticStage === 3) {
             // ステージ3もクリア＝完全制覇！
             setFinalDiagnosticLevel("saijoi");
         }
     } else {
-        // 🔴 基準を超えられず「不合格」だった場合はそこで即終了！
+        // 🔴 不合格の場合はその場で終了
         if (diagnosticStage === 1) {
             setFinalDiagnosticLevel("chui1");
         } else if (diagnosticStage === 2) {
@@ -1590,7 +1592,6 @@ function handleDiagnosticStageClear() {
         }
     }
 }
-
 // 💾 最終的な判定クラスを確定させてデータを保存し、ホームへ戻す関数
 function setFinalDiagnosticLevel(levelKey) {
     isDiagnosticMode = false;
@@ -2085,6 +2086,11 @@ document.getElementById("checkBtn").addEventListener("click", async () => {
     testLog.push({ word: current.word, meaning: current.meaning, status: status });
     progress[current.word.toLowerCase()] = status;
 
+    // 💡【追加】実力診断テストモード中なら、正解数をカウントアップする！
+    if (isDiagnosticMode && status === "correct") {
+        diagnosticStageCorrect++;
+    }
+
     if (window.isTodayReviewTestMode === true) {
         if (!ok) {
             if (!reviewWrongWords.some(w => {
@@ -2117,17 +2123,13 @@ document.getElementById("checkBtn").addEventListener("click", async () => {
     document.getElementById("nextBtn").classList.remove("hidden");
 });
 
-document.getElementById("checkBtn").nextButtonListener = document.getElementById("nextBtn").addEventListener("click", () => {
-    // 💡 診断モードかつ、すでに手持ちの問題（reviewPool）が空っぽの場合
-    if (isDiagnosticMode && reviewPool.length === 0 && !current) {
-        // 次の問題を描画するのではなく、その場でステージの合否リザルト（showTestResult）を呼び出す
+document.getElementById("nextBtn").addEventListener("click", () => {
+    if (isDiagnosticMode && reviewPool.length === 0) {
         showTestResult();
     } else {
-        // まだ問題が残っている場合は、通常通り次の問題を画面に出す
         renderQuestion();
     }
 });
-
 function showTestResult() {
     isSuspended = false;
 

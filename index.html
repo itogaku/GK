@@ -1595,41 +1595,62 @@ function handleDiagnosticStageClear() {
     }
 }
 // 💾 最終的な判定クラスを確定させてデータを保存し、ホームへ戻す関数
-function setFinalDiagnosticLevel(levelKey) {
+async function setFinalDiagnosticLevel(levelKey) {
     isDiagnosticMode = false;
+    isReviewMode = false; // 💡 通常モードに戻す
     let recommendedIndex = 0;
     let levelMessage = "";
 
     if (levelKey === "chui1") {
         recommendedIndex = 0; // Section 1から
-        levelMessage = "【中1・基礎クラス】\nまずは基本の英単語の綴り（文法の骨組み）からじっくり固めていこう！";
+        levelMessage = "【中1・基礎クラス】\nまずは基本の英単語の綴りからじっくり固めていこう！";
     } else if (levelKey === "chui2") {
-        recommendedIndex = 218; // Section 23から
-        levelMessage = "【中2・標準クラス】\n中1の基礎はバッチリ！表現を広げる重要語や主要文法の単語からスタートしよう！";
+        recommendedIndex = 219; // Section 23から
+        levelMessage = "【中2・標準クラス】\n中1の基礎はバッチリ！表現を広げる重要語からスタートしよう！";
     } else if (levelKey === "chui3") {
-        recommendedIndex = 531; // Section 54から
+        recommendedIndex = 532; // Section 54から
         levelMessage = "【中3・入試応用クラス】\n日常の単語はクリア！入試長文の核になる中3の応用語から勝負だ！";
     } else if (levelKey === "saijoi") {
         recommendedIndex = 735; // Section 75から
-        levelMessage = "【入試直前・最上位クラス】\n全ステージ完全クリア！お見事！\n長文で最も差がつく最高難度の「抽象名詞・時事現代テーマ」から挑戦しよう！";
+        levelMessage = "【入試直前・最上位クラス】\n全ステージ完全クリア！お見事！\n最高難度の「最上位テーマ」から挑戦しよう！";
     }
 
     // 生徒の progress を、おすすめの位置の手前まで自動的に「合格（correct）」にする
     for (let i = 0; i < recommendedIndex; i++) {
         const w = words[i];
-        if (w) progress[w.word.toLowerCase()] = "correct"; 
+        if (w && w.word) progress[w.word.toLowerCase()] = "correct"; 
     }
     
     // おすすめセクションの数値を計算
     const targetSection = Math.floor(recommendedIndex / 10) + 1;
     currentSection = targetSection;
 
-    alert(`🎉 実力診断テストがすべて完了しました！\n\n判定：${levelMessage}\n\nアプリの進捗を自動調整しました。「セクション ${targetSection}」から本日の学習を開始してください！`);
+    // 🟢 先にアラートを出して生徒に通知する
+    alert(`🎉 実力診断テストがすべて完了しました！\n\n判定：${levelMessage}\n\n「セクション ${targetSection}」から本日の学習を開始してください！`);
     
-    // 画面とデータベースの同期・保存
-    if (typeof saveProgress === 'function') saveProgress();
-    if (typeof updateHomeDashboard === 'function') updateHomeDashboard();
-    window.showPage("homePage");
+    try {
+        // 💡 Firebaseの保存処理（もしエラーが起きても catch で拾ってフリーズを防ぐ）
+        if (typeof saveProgress === 'function') {
+            await saveProgress(); 
+        }
+    } catch (error) {
+        console.error("診断テスト後のデータ保存でエラーが発生しました:", error);
+    }
+
+    // 💡 同期処理と画面移動を確実に実行！
+    if (typeof updateHomeDashboard === 'function') {
+        updateHomeDashboard();
+    }
+    
+    // 🏠 強制的にホーム画面を表示する
+    if (typeof window.showPage === 'function') {
+        window.showPage("homePage");
+    } else {
+        // 万が一 showPage が動かない場合の保険
+        document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+        const home = document.getElementById("homePage");
+        if (home) home.classList.add("active");
+    }
 }
     
 function getLevelInfoByNumber(num) {

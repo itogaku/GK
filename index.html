@@ -1689,7 +1689,9 @@ function getLevelBadgeHtmlByNumber(num) {
 window.onLevelChange = function() {
     const levelSelect = document.getElementById("levelSelect");
     const sectionSelect = document.getElementById("sectionSelect");
-    if (!levelSelect || !sectionSelect) return; // パーツがなければ処理をスキップ
+    
+    // 💡【最重要ガード】ホーム画面からプルダウンを消去したため、パーツが存在しない場合は何もせず安全に終了する！
+    if (!levelSelect || !sectionSelect) return; 
     
     const levelKey = levelSelect.value;
     const config = LEVEL_CONFIG[levelKey];

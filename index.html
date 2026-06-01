@@ -1557,49 +1557,32 @@ function generateDiagnosticPoolForStage(stage) {
 // 🏁 ステージごとの合否判定と、最終スタート位置を決定する関数
 function handleDiagnosticStageClear() {
     const passThreshold = 8;
+    // 今回の10問中、何問正解したかを正確にカウント
     const stageCorrectCount = testLog.filter(i => i.status === "correct").length;
     const isStagePassed = (stageCorrectCount >= passThreshold);
 
     if (isStagePassed && diagnosticStage < 3) {
         // ========================================================
-        // 🟢 【合格】次のステージへ進む場合の確実なリセット処理
+        // 🟢 【合格】次のステージの10問をセットして画面を切り替える
         // ========================================================
         diagnosticStage++; // ステージを1つ進める (1→2、または2→3)
-        
-        // 🎯 次のステージに応じた単語データを強制的に再抽出する
-        let targetLevelKey = "chui1";
-        if (diagnosticStage === 2) targetLevelKey = "chui2";
-        if (diagnosticStage === 3) targetLevelKey = "chui3";
-        
-        // 次のレベルの単語をフィルタリングしてシャッフル
-        diagnosticWords = words.filter(w => w.level === targetLevelKey);
-        diagnosticWords.sort(() => Math.random() - 0.5);
-        // 10問に絞り込む
-        diagnosticWords = diagnosticWords.slice(0, 10);
-        
-        // 📝 テストの進行状況・ログを完全に初期化する
-        currentQuestionIndex = 0;
-        testLog = [];
-        score = 0;
-        wrongCount = 0;
-        isReviewMode = false;
-        
-        // 画面の表示を完全にリセット
-        document.getElementById("quizResultView").classList.add("hidden");
-        document.getElementById("quizQuestionArea").classList.remove("hidden");
-        document.getElementById("answerControlArea").classList.remove("hidden");
-        document.getElementById("quizKeyboard").classList.remove("hidden");
-        
-        // 🔍 回答入力欄や確定ボタンの表示状態を1問目の初期状態に戻す
-        document.getElementById("answerInput").value = "";
-        document.getElementById("answerInput").disabled = false;
-        document.getElementById("confirmBtn").classList.remove("hidden");
-        
-        const nextBtn = document.getElementById("nextBtn");
-        if (nextBtn) nextBtn.classList.add("hidden");
+        diagnosticStageCorrect = 0;
+        testLog = []; // ログを次のステージ用に一回復活リセット
 
-        // 💥 準備万端の状態で、次のステージの1問目を開始！
-        nextQuestion();
+        // 🎯 既存の関数を使って、次のステージの10問を reviewPool に強制再セット！
+        generateDiagnosticPoolForStage(diagnosticStage);
+        
+        // 📝 既存のUIリセット関数を叩いて、画面を綺麗なクイズ状態に戻す
+        if (typeof resetQuizUI === 'function') resetQuizUI();
+        
+        // 💡【塾用制限の復活】最初の復習テスト時と同じく、診断テスト中も「一覧に戻る」ボタンを隠す
+        const quizBottomBackBtn = document.querySelector("#quiz > div > button[onclick='goBackToListFromQuiz()']");
+        if (quizBottomBackBtn && quizBottomBackBtn.parentElement) {
+            quizBottomBackBtn.parentElement.style.display = "none";
+        }
+
+        // 💥 既存の描画関数を叩いて、次のステージの1問目を表示して即開始！
+        renderQuestion();
         
     } else {
         // ========================================================
@@ -1610,26 +1593,18 @@ function handleDiagnosticStageClear() {
 
         // 最終的な判定レベルを計算
         let finalLevelKey = "chui1";
-        let recommendedIndex = 0;
-        
         if (isStagePassed && diagnosticStage === 3) {
             finalLevelKey = "saijoi";
-            recommendedIndex = 735; // 最上位
         } else {
-            if (diagnosticStage === 1) { finalLevelKey = "chui1"; recommendedIndex = 0; }
-            else if (diagnosticStage === 2) { finalLevelKey = "chui2"; recommendedIndex = 219; }
-            else { finalLevelKey = "chui3"; recommendedIndex = 532; }
+            if (diagnosticStage === 1) finalLevelKey = "chui1";
+            else if (diagnosticStage === 2) finalLevelKey = "chui2";
+            else finalLevelKey = "chui3";
         }
 
-        // Firebaseへのデータ保存処理
-        try {
-            if (typeof setFinalDiagnosticLevel === 'function') {
-                setFinalDiagnosticLevel(finalLevelKey);
-            } else {
-                window.showPage("homePage");
-            }
-        } catch(e) {
-            console.error(e);
+        // 既存の確定関数にバトンタッチして直でホームへ戻る
+        if (typeof setFinalDiagnosticLevel === 'function') {
+            setFinalDiagnosticLevel(finalLevelKey);
+        } else {
             window.showPage("homePage");
         }
     }

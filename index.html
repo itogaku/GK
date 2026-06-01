@@ -2200,7 +2200,7 @@ function showTestResult() {
                     </button>
                 `;
             } else {
-                // ✨【修正】ステージ3も突破＝完全制覇！その場で結果を確定させるボタンに変更
+                // ✨【修正】ステージ3も突破＝完全制覇！ボタンのonclickをsetFinalDiagnosticLevelへ直接繋ぐ
                 resultView.innerHTML = `
                     <h3 id="resultTitle" style="color:#ff9800; margin-top:0; font-size:24px;">👑 全ステージ完全制覇！ 👑</h3>
                     <p id="resultScore" style="font-size:32px; font-weight:bold; margin:15px 0; color:#ff9800;">10問中 ${stageCorrectCount}問 正解</p>
@@ -2215,7 +2215,7 @@ function showTestResult() {
                 `;
             }
         } else {
-            // ✨【修正】🔴 7問以下で不合格（ここで終了）。その場で現在のレベルに応じた確定関数を叩く！
+            // ✨【修正】🔴 7問以下で不合格終了。現在のステージ番号から chui1〜3 を自動判定して直接確定処理へ送る
             const failedStageName = diagnosticStage === 1 ? "【中1基礎】" : diagnosticStage === 2 ? "【中2標準】" : "【中3入試応用】";
             const currentStageKey = diagnosticStage === 1 ? "chui1" : diagnosticStage === 2 ? "chui2" : "chui3";
             
@@ -2227,7 +2227,7 @@ function showTestResult() {
                     ステージ${diagnosticStage} ${failedStageName} にて不合格となりました（合格基準は8割以上です）。<br>
                     ここまでのタイピング正解データから、あなたの最適な開始レベルを自動判定します！
                 </p>
-                <button onclick="const currentStageKey = diagnosticStage === 1 ? 'chui1' : diagnosticStage === 2 ? 'chui2' : 'chui3'; setFinalDiagnosticLevel(currentStageKey);" class="btn-primary" style="width: 100%; height: 50px; background: #ff9800; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 4px 10px rgba(255,152,0,0.3);">
+                <button onclick="setFinalDiagnosticLevel('${currentStageKey}')" class="btn-primary" style="width: 100%; height: 50px; background: #ff9800; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 4px 10px rgba(255,152,0,0.3);">
                     📊 診断結果を確定してホームに戻る
                 </button>
             `;

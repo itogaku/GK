@@ -2173,7 +2173,7 @@ function showTestResult() {
         const stageCorrectCount = testLog.filter(i => i.status === "correct").length;
         const isStagePassed = (stageCorrectCount >= passThreshold);
 
-        // 共通の解答リストテーブルを生成
+        // 解答リストテーブルの生成
         let listHtml = "";
         testLog.forEach(item => {
             const mark = item.status === "correct" ? "○" : "×";
@@ -2181,60 +2181,91 @@ function showTestResult() {
             listHtml += `<div style="color:${color}; border-bottom:1px solid #eee; padding:5px 0;">${mark} ${item.word} (${item.meaning})</div>`;
         });
 
-        if (isStagePassed) {
-            // 🟢 ステージ合格時の分岐
-            if (diagnosticStage < 3) {
-                // 次のステージがまだ残っている場合（ステージ1または2を突破）
-                const nextStageNum = diagnosticStage + 1;
-                const currentStageName = diagnosticStage === 1 ? "【中1基礎】" : "【中2標準】";
-                const nextStageName = nextStageNum === 2 ? "ステージ2【中2標準】" : "最終ステージ3【中3入試応用】";
+        // 💡裏側でレベル分けの進捗データ書き換えとセクション計算を先に終わらせておく
+        let levelKey = "chui1";
+        let recommendedIndex = 0;
+        let className = "";
 
-                resultView.innerHTML = `
-                    <h3 id="resultTitle" style="color:#4caf50; margin-top:0; font-size:22px;">🌱 ステージ${diagnosticStage} ${currentStageName} クリア！</h3>
-                    <p id="resultScore" style="font-size:32px; font-weight:bold; margin:15px 0; color:#4caf50;">10問中 ${stageCorrectCount}問 正解</p>
-                    <div id="resultList" style="text-align:left; max-height:150px; overflow-y:auto; border:1px solid #eee; padding:10px; margin-bottom:20px; font-size:14px; background:#fafafa;">${listHtml}</div>
-                    <p style="margin-bottom:20px; color:#666; font-size:14px; padding:0 10px;">
-                        素晴らしい！基準（8割）をクリアしたため上のレベルへ昇格します。<br>
-                        次は <strong>${nextStageName}</strong> に挑戦です！
-                    </p>
-                    <button onclick="handleDiagnosticStageClear()" class="btn-primary" style="width: 100%; height: 50px; background: #9c27b0; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 4px 12px rgba(156,39,176,0.25);">
-                        🔥 次のステージのテストを開始する
-                    </button>
-                `;
-            } else {
-                // ステージ3も突破＝完全制覇！
-                resultView.innerHTML = `
-                    <h3 id="resultTitle" style="color:#ff9800; margin-top:0; font-size:24px;">👑 全ステージ完全制覇！ 👑</h3>
-                    <p id="resultScore" style="font-size:32px; font-weight:bold; margin:15px 0; color:#ff9800;">10問中 ${stageCorrectCount}問 正解</p>
-                    <div id="resultList" style="text-align:left; max-height:150px; overflow-y:auto; border:1px solid #eee; padding:10px; margin-bottom:20px; font-size:14px; background:#fafafa;">${listHtml}</div>
-                    <p style="margin-bottom:20px; color:#666; font-size:14px; padding:0 10px;">
-                        とてつもない単語力です！中1から中3すべての防衛ラインを突破しました。<br>
-                        あなたには入試で最も差がつく最難関の「最上位テーマ」がお似合いです！
-                    </p>
-                    <button onclick="handleDiagnosticStageClear()" class="btn-primary" style="width: 100%; height: 50px; background: #ff9800; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 4px 10px rgba(255,152,0,0.3);">
-                        🏁 診断結果を確定してホームに戻る
-                    </button>
-                `;
-            }
+        if (isStagePassed) {
+            if (diagnosticStage === 1) { levelKey = "chui2"; recommendedIndex = 219; className = "【中2・標準】"; }
+            else if (diagnosticStage === 2) { levelKey = "chui3"; recommendedIndex = 532; className = "【中3・入試応用】"; }
+            else if (diagnosticStage === 3) { levelKey = "saijoi"; recommendedIndex = 735; className = "【入試直前・最上位】"; }
         } else {
-            // 🔴 7問以下で不合格終了（構文エラーの起きていた危険なインライン記述を徹底排除！）
-            const failedStageName = diagnosticStage === 1 ? "【中1基礎】" : diagnosticStage === 2 ? "【中2標準】" : "【中3入試応用】";
-            
-            resultView.innerHTML = `
-                <h3 id="resultTitle" style="color:#c62828; margin-top:0; font-size:22px;">🏁 実力診断テスト終了</h3>
-                <p id="resultScore" style="font-size:32px; font-weight:bold; margin:15px 0; color:#c62828;">10問中 ${stageCorrectCount}問 正解</p>
-                <div id="resultList" style="text-align:left; max-height:150px; overflow-y:auto; border:1px solid #eee; padding:10px; margin-bottom:20px; font-size:14px; background:#fafafa;">${listHtml}</div>
-                <p style="margin-bottom:20px; color:#666; font-size:14px; padding:0 10px;">
-                    ステージ${diagnosticStage} ${failedStageName} にて不合格となりました（合格基準は8割以上です）。<br>
-                    ここまでのタイピング正解データから、あなたの最適な開始レベルを自動判定します！
-                </p>
-                <button onclick="handleDiagnosticStageClear()" class="btn-primary" style="width: 100%; height: 50px; background: #ff9800; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 4px 10px rgba(255,152,0,0.3);">
-                    📊 診断結果を確定してホームに戻る
-                </button>
-            `;
+            if (diagnosticStage === 1) { levelKey = "chui1"; recommendedIndex = 0; className = "【中1・基礎】"; }
+            else if (diagnosticStage === 2) { levelKey = "chui2"; recommendedIndex = 219; className = "【中2・標準】"; }
+            else { levelKey = "chui3"; recommendedIndex = 532; className = "【中3・入試応用】"; }
         }
 
-        // 診断テストとしての全消去処理を行い、通常リザルトの後半処理はスキップさせる
+        // progressの自動書き換え
+        for (let i = 0; i < recommendedIndex; i++) {
+            const w = words[i];
+            if (w && w.word) progress[w.word.toLowerCase()] = "correct"; 
+        }
+        currentSection = Math.floor(recommendedIndex / 10) + 1;
+
+        if (isStagePassed && diagnosticStage < 3) {
+            // 🟢 まだ次のステージがある場合（進出ボタンを表示）
+            const nextStageNum = diagnosticStage + 1;
+            const currentStageName = diagnosticStage === 1 ? "【中1基礎】" : "【中2標準】";
+            const nextStageName = nextStageNum === 2 ? "ステージ2【中2標準】" : "最終ステージ3【中3入試応用】";
+
+            resultView.innerHTML = `
+                <h3 id="resultTitle" style="color:#4caf50; margin-top:0; font-size:22px;">🌱 ステージ${diagnosticStage} ${currentStageName} クリア！</h3>
+                <p id="resultScore" style="font-size:32px; font-weight:bold; margin:15px 0; color:#4caf50;">10問中 ${stageCorrectCount}問 正解</p>
+                <div id="resultList" style="text-align:left; max-height:150px; overflow-y:auto; border:1px solid #eee; padding:10px; margin-bottom:20px; font-size:14px; background:#fafafa;">${listHtml}</div>
+                <p style="margin-bottom:20px; color:#666; font-size:14px; padding:0 10px;">
+                    基準（8割）をクリアしました！上のレベルへ昇格します。<br>
+                    次は <strong>${nextStageName}</strong> に挑戦です！
+                </p>
+                <button id="diagnosticNextStageActionBtn" class="btn-primary" style="width: 100%; height: 50px; background: #9c27b0; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 4px 12px rgba(156,39,176,0.25);">
+                    🔥 次のステージのテストを開始する
+                </button>
+            `;
+            // イベントを動的に安全バインド
+            document.getElementById("diagnosticNextStageActionBtn").onclick = () => {
+                handleDiagnosticStageClear();
+            };
+
+        } else {
+            // 🔴 不合格、または 👑 全ステージ完全制覇（テスト終了 ➔ 直でホームに戻るボタンを表示）
+            const titleColor = isStagePassed ? "#ff9800" : "#c62828";
+            const titleText = isStagePassed ? "👑 全ステージ完全制覇！ 👑" : "🏁 実力診断テスト終了";
+            const subMessage = isStagePassed 
+                ? `中1〜中3すべての防衛ラインを突破しました！最難関の「最上位テーマ」クラスに配属します。`
+                : `ステージ${diagnosticStage}にて終了となりました。あなたの学力に最適な位置からスタートします。`;
+
+            resultView.innerHTML = `
+                <h3 id="resultTitle" style="color:${titleColor}; margin-top:0; font-size:22px;">${titleText}</h3>
+                <p id="resultScore" style="font-size:32px; font-weight:bold; margin:15px 0; color:${titleColor};">10問中 ${stageCorrectCount}問 正解</p>
+                <div id="resultList" style="text-align:left; max-height:150px; overflow-y:auto; border:1px solid #eee; padding:10px; margin-bottom:20px; font-size:14px; background:#fafafa;">${listHtml}</div>
+                <p style="margin-bottom:20px; color:#666; font-size:14px; padding:0 10px; text-align:center;">
+                    確定クラス：<strong style="color:#1a73e8; font-size:16px;">${className}</strong><br>
+                    目標位置：<strong style="color:#1a73e8; font-size:16px;">Section ${currentSection}</strong><br>
+                    <span style="font-size:13px; display:inline-block; margin-top:8px;">${subMessage}</span>
+                </p>
+                <button id="diagnosticDirectHomeBackBtn" class="btn-primary" style="width: 100%; height: 50px; background: #ff9800; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 4px 10px rgba(255,152,0,0.3);">
+                    🏠 診断結果を確定してホーム画面へ
+                </button>
+            `;
+
+            // 💡【解決の核心】アラートを出さず、押した瞬間に同期・保存・移動を直で実行する
+            document.getElementById("diagnosticDirectHomeBackBtn").onclick = () => {
+                isDiagnosticMode = false;
+                isReviewMode = false;
+
+                // バックグラウンドでFirebaseへデータを投げる（完了を待たずに画面遷移へ）
+                try {
+                    if (typeof saveProgress === 'function') saveProgress();
+                } catch(e) { console.error(e); }
+
+                // ホームのメーターとテキスト表示を即時同期
+                if (typeof updateHomeDashboard === 'function') updateHomeDashboard();
+
+                // 直でホームへ戻す
+                window.showPage("homePage");
+            };
+        }
+
         window.currentCheckTestLength = undefined;
         window.isActualCheckTestMode = undefined;
         return;
@@ -2297,7 +2328,7 @@ function showTestResult() {
             <p style="margin-bottom:20px; color:#666; font-size:14px; padding:0 10px;">
                 おめでとうございます！このセクションをクリアしました。<br>
                 目標セクションが自動的に【 <strong>Section ${currentSection}</strong> 】に更新されました！<br>
-                <span style="color:#2e7d32; font-weight:bold;">※これまでの「復婚が必要な単語」もすべてリセットされました！</span>
+                <span style="color:#2e7d32; font-weight:bold;">※これまでの「復習が必要な単語」もすべてリセットされました！</span>
             </p>
             <button onclick="window.showPage('homePage')" class="btn-primary" style="width: 100%; height: 50px; background: #ff9800; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 4px 10px rgba(255,152,0,0.3);">
                 🏠 合格してホームに戻る

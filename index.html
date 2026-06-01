@@ -1556,33 +1556,81 @@ function generateDiagnosticPoolForStage(stage) {
 }
 // 🏁 ステージごとの合否判定と、最終スタート位置を決定する関数
 function handleDiagnosticStageClear() {
-    const stageTotal = 10;
-    const passThreshold = 8; // 🎯 昇格基準：10問中8問正解
-    
-    // 今回の10問の中での正解数をログから集計
+    const passThreshold = 8;
     const stageCorrectCount = testLog.filter(i => i.status === "correct").length;
     const isStagePassed = (stageCorrectCount >= passThreshold);
 
-    if (isStagePassed) {
-        // 🟢 8問以上正解で「合格」した場合
-        if (diagnosticStage < 3) {
-            diagnosticStage++;
-            diagnosticStageCorrect = 0;
-            testLog = []; 
-            generateDiagnosticPoolForStage(diagnosticStage);
-            renderQuestion(); 
-        } else {
-            // ステージ3もクリア ➔ 💡【修正】最上位クラスを確定させてホームへ戻る！
-            setFinalDiagnosticLevel("saijoi");
-        }
+    if (isStagePassed && diagnosticStage < 3) {
+        // ========================================================
+        // 🟢 【合格】次のステージへ進む場合の確実なリセット処理
+        // ========================================================
+        diagnosticStage++; // ステージを1つ進める (1→2、または2→3)
+        
+        // 🎯 次のステージに応じた単語データを強制的に再抽出する
+        let targetLevelKey = "chui1";
+        if (diagnosticStage === 2) targetLevelKey = "chui2";
+        if (diagnosticStage === 3) targetLevelKey = "chui3";
+        
+        // 次のレベルの単語をフィルタリングしてシャッフル
+        diagnosticWords = words.filter(w => w.level === targetLevelKey);
+        diagnosticWords.sort(() => Math.random() - 0.5);
+        // 10問に絞り込む
+        diagnosticWords = diagnosticWords.slice(0, 10);
+        
+        // 📝 テストの進行状況・ログを完全に初期化する
+        currentQuestionIndex = 0;
+        testLog = [];
+        score = 0;
+        wrongCount = 0;
+        isReviewMode = false;
+        
+        // 画面の表示を完全にリセット
+        document.getElementById("quizResultView").classList.add("hidden");
+        document.getElementById("quizQuestionArea").classList.remove("hidden");
+        document.getElementById("answerControlArea").classList.remove("hidden");
+        document.getElementById("quizKeyboard").classList.remove("hidden");
+        
+        // 🔍 回答入力欄や確定ボタンの表示状態を1問目の初期状態に戻す
+        document.getElementById("answerInput").value = "";
+        document.getElementById("answerInput").disabled = false;
+        document.getElementById("confirmBtn").classList.remove("hidden");
+        
+        const nextBtn = document.getElementById("nextBtn");
+        if (nextBtn) nextBtn.classList.add("hidden");
+
+        // 💥 準備万端の状態で、次のステージの1問目を開始！
+        nextQuestion();
+        
     } else {
-        // 🔴 7問以下で「不合格」だった場合は、現在のステージに応じたレベルで即確定！
-        if (diagnosticStage === 1) {
-            setFinalDiagnosticLevel("chui1");
-        } else if (diagnosticStage === 2) {
-            setFinalDiagnosticLevel("chui2");
+        // ========================================================
+        // 🔴 【不合格】または【全クリア】で終了する場合（直でホームに戻る）
+        // ========================================================
+        isDiagnosticMode = false;
+        isReviewMode = false;
+
+        // 最終的な判定レベルを計算
+        let finalLevelKey = "chui1";
+        let recommendedIndex = 0;
+        
+        if (isStagePassed && diagnosticStage === 3) {
+            finalLevelKey = "saijoi";
+            recommendedIndex = 735; // 最上位
         } else {
-            setFinalDiagnosticLevel("chui3");
+            if (diagnosticStage === 1) { finalLevelKey = "chui1"; recommendedIndex = 0; }
+            else if (diagnosticStage === 2) { finalLevelKey = "chui2"; recommendedIndex = 219; }
+            else { finalLevelKey = "chui3"; recommendedIndex = 532; }
+        }
+
+        // Firebaseへのデータ保存処理
+        try {
+            if (typeof setFinalDiagnosticLevel === 'function') {
+                setFinalDiagnosticLevel(finalLevelKey);
+            } else {
+                window.showPage("homePage");
+            }
+        } catch(e) {
+            console.error(e);
+            window.showPage("homePage");
         }
     }
 }

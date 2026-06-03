@@ -1611,26 +1611,14 @@ function handleDiagnosticStageClear() {
 }
 // 💾 最終的な判定クラスを確定させてデータを保存し、ホームへ戻す関数
 async function setFinalDiagnosticLevel(levelKey) {
-    // 💡 画面を切り替える前に、テスト用のモードフラグを完全に「オフ」にする！
     isDiagnosticMode = false;
     isReviewMode = false; 
     
     let recommendedIndex = 0;
-    let levelMessage = "";
-
-    if (levelKey === "chui1") {
-        recommendedIndex = 0; // Section 1から
-        levelMessage = "【中1・基礎クラス】\nまずは基本の英単語の綴りからじっくり固めていこう！";
-    } else if (levelKey === "chui2") {
-        recommendedIndex = 219; // Section 23から
-        levelMessage = "【中2・標準クラス】\n中1の基礎はバッチリ！表現を広げる重要語からスタートしよう！";
-    } else if (levelKey === "chui3") {
-        recommendedIndex = 532; // Section 54から
-        levelMessage = "【中3・入試応用クラス】\n日常の単語はクリア！入試長文の核になる中3の応用語から勝負だ！";
-    } else if (levelKey === "saijoi") {
-        recommendedIndex = 735; // Section 75から
-        levelMessage = "【入試直前・最上位クラス】\n全ステージ完全クリア！お見事！\n最高難度の「最上位テーマ」から挑戦しよう！";
-    }
+    if (levelKey === "chui1") recommendedIndex = 0;
+    else if (levelKey === "chui2") recommendedIndex = 219;
+    else if (levelKey === "chui3") recommendedIndex = 532;
+    else if (levelKey === "saijoi") recommendedIndex = 735;
 
     // 生徒の progress を、おすすめの位置の手前まで自動的に「合格（correct）」にする
     for (let i = 0; i < recommendedIndex; i++) {
@@ -1638,36 +1626,25 @@ async function setFinalDiagnosticLevel(levelKey) {
         if (w && w.word) progress[w.word.toLowerCase()] = "correct"; 
     }
     
-    // おすすめセクションの数値を計算
+    // 💡【新規追加】診断テストによって合格（スキップ）扱いになったセクションを自動計算して記録
+    window.diagnosticPassedSections = [];
     const targetSection = Math.floor(recommendedIndex / 10) + 1;
+    for (let s = 1; s < targetSection; s++) {
+        if (!window.diagnosticPassedSections.includes(s)) {
+            window.diagnosticPassedSections.push(s);
+        }
+    }
     currentSection = targetSection;
 
-    // 🟢 先に生徒へポップアップ通知を出す
-    alert(`🎉 実力診断テストがすべて完了しました！\n\n判定：${levelMessage}\n\n「セクション ${targetSection}」から本日の学習を開始してください！`);
-    
-    // 💡 Firebaseの保存処理（保存のラグで画面移動がフリーズするのを防ぐ非同期ガード）
+    // バックグラウンドで保存
     try {
-        if (typeof saveProgress === 'function') {
-            saveProgress(); // 🌟 await を外して、ネットの保存完了を待たずに次の処理へ進ませる！
-        }
+        if (typeof saveProgress === 'function') saveProgress();
     } catch (error) {
-        console.error("Firebase保存エラー（無視して画面を戻します）:", error);
+        console.error(error);
     }
 
-    // 💡 ダッシュボードの表示更新
-    if (typeof updateHomeDashboard === 'function') {
-        updateHomeDashboard();
-    }
-    
-    // 🏠 【最重要】強制的にホーム画面を表示する
-    if (typeof window.showPage === 'function') {
-        window.showPage("homePage");
-    } else {
-        // 保険：showPageがバグった時のための泥臭い強制切り替え処理
-        document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
-        const home = document.getElementById("homePage");
-        if (home) home.classList.add("active");
-    }
+    if (typeof updateHomeDashboard === 'function') updateHomeDashboard();
+    window.showPage("homePage");
 }
     
 function getLevelInfoByNumber(num) {
@@ -1770,7 +1747,6 @@ function updateHomeDashboard() {
 async function saveProgress() {
     const user = auth.currentUser;
     if (!user) return;
-    // 🔒 割り当てられた自分の鍵(user.uid)の部屋にのみデータを保存
     await update(ref(db, 'users/' + user.uid), {
         userName: currentUser,
         progress: progress,
@@ -1779,12 +1755,12 @@ async function saveProgress() {
         SECTION_SIZE: SECTION_SIZE,
         TEST_QUESTION_COUNT: TEST_QUESTION_COUNT,
         completedSections: completedSections,
+        diagnosticPassedSections: window.diagnosticPassedSections || [], // 💡追加
         currentSection: currentSection,
         lastCompletedSection: lastCompletedSection,
         isAllWordsMode: isAllWordsMode
     });
 }
-
 async function loadUserData(uid) {
     const snapshot = await get(child(ref(db), `users/${uid}`));
     if (snapshot.exists()) {
@@ -1796,6 +1772,7 @@ async function loadUserData(uid) {
         TEST_QUESTION_COUNT = data.TEST_QUESTION_COUNT || 10;
         reviewWrongWords = data.reviewWrongWords || [];
         completedSections = data.completedSections || []; 
+        window.diagnosticPassedSections = data.diagnosticPassedSections || []; // 💡追加
         currentSection = data.currentSection || 1;
         lastCompletedSection = data.lastCompletedSection || 0;
         isAllWordsMode = data.isAllWordsMode !== undefined ? data.isAllWordsMode : false;
@@ -2493,11 +2470,12 @@ window.renderSectionButtons = function() {
     if(allBtnArea) allBtnArea.innerHTML = "";
 
     const count = Math.ceil(words.length / SECTION_SIZE);
+    if (!window.diagnosticPassedSections) window.diagnosticPassedSections = [];
      
     for (let i = 1; i <= count; i++) {
         const btn = document.createElement("button");
         
-        // スマホの親指で非常に押し勝手の良い「ふっくらタイル」スタイル
+        // 基本のふっくらスタイル
         btn.style.cssText = `
             width: 100%;
             padding: 16px 5px;
@@ -2513,13 +2491,23 @@ window.renderSectionButtons = function() {
             text-align: center;
         `;
         
-        // 合格済みセクションの装飾（薄緑）
+        // 🎨 ⭐【ここが核心：色分けの優先判定】⭐
         if (completedSections && completedSections.includes(i)) { 
+            // 🟢 パターンA：満点チェックテスト合格（最優先：濃い緑色）
             btn.style.background = "#e8f5e9";
             btn.style.color = "#2e7d32";
             btn.style.borderColor = "#a5d6a7";
-            btn.innerHTML = `Sec ${i}<br><span style="font-size:10px; font-weight:normal; opacity:0.8;">〇 合格</span>`;
-        } else {
+            btn.innerHTML = `Sec ${i}<br><span style="font-size:10px; font-weight:normal; color:#2e7d32;">〇 合格</span>`;
+        } 
+        else if (window.diagnosticPassedSections && window.diagnosticPassedSections.includes(i)) {
+            // 🔵 パターンB：実力診断テストによるパス（綺麗な青色）
+            btn.style.background = "#e3f2fd";
+            btn.style.color = "#0d47a1";
+            btn.style.borderColor = "#90caf9";
+            btn.innerHTML = `Sec ${i}<br><span style="font-size:10px; font-weight:normal; color:#1a73e8;">🌐 診断パス</span>`;
+        } 
+        else {
+            // ⚪ パターンC：未クリア（通常状態・白色）
             btn.innerHTML = `Sec ${i}`;
         }
         
@@ -2532,14 +2520,13 @@ window.renderSectionButtons = function() {
             window.showPage("homePage");
         };
         
-        // レベル別グループのグリッドの中に、上から下へ、横へと自動折り返しで格納
         if (i <= 22) { if(group1) group1.appendChild(btn); } 
         else if (i <= 53) { if(group2) group2.appendChild(btn); } 
         else if (i <= 74) { if(group3) group3.appendChild(btn); } 
         else { if(group4) group4.appendChild(btn); }
     }
 
-    // 📊 一番下に単独で並ぶ「全単語（全範囲）」ボタンの生成
+    // 全単語ボタンの生成（既存のまま）
     if (allBtnArea) {
         const allBtn = document.createElement("button");
         allBtn.style.cssText = "width: 100%; padding: 16px; border-radius: 12px; font-weight: bold; border: 2px dashed #4caf50; background: #f1f8e9; color: #4caf50; cursor: pointer; font-size: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.03);";
@@ -2554,7 +2541,7 @@ window.renderSectionButtons = function() {
         allBtnArea.appendChild(allBtn);
     }
 
-    // ⭐ 【おもてなし機能】生徒が現在挑戦している学年のアコーディオンだけを自動で「展開」して起動する
+    // アコーディオンの自動開閉（既存のまま）
     let activeKey = "chui1";
     if (currentSection >= 23 && currentSection <= 53) activeKey = "chui2";
     if (currentSection >= 54 && currentSection <= 74) activeKey = "chui3";

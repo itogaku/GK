@@ -1742,8 +1742,11 @@ async function saveProgress() {
         studyCount: studyCount,
         reviewWrongWords: reviewWrongWords, 
         SECTION_SIZE: SECTION_SIZE,
-        TEST_QUESTION_COUNT: TEST_QUESTION_COUNT, // 💡連動された数値が保存されます
+        TEST_QUESTION_COUNT: TEST_QUESTION_COUNT,
         completedSections: completedSections,
+        completedSections0: window.completedSections0 || [], // 💡追加
+        completedSections1: window.completedSections1 || [], // 💡追加
+        completedSections2: window.completedSections2 || [], // 💡追加
         diagnosticPassedSections: window.diagnosticPassedSections || [],
         currentSection: currentSection,
         lastCompletedSection: lastCompletedSection,
@@ -1758,19 +1761,18 @@ async function loadUserData(uid) {
         progress = data.progress || {};
         studyCount = data.studyCount || 0;
         SECTION_SIZE = data.SECTION_SIZE || 10;
-        TEST_QUESTION_COUNT = data.TEST_QUESTION_COUNT || 5; // 💡自動連動された問題数が復元されます
+        TEST_QUESTION_COUNT = data.TEST_QUESTION_COUNT || 5; 
         reviewWrongWords = data.reviewWrongWords || [];
         completedSections = data.completedSections || []; 
+        window.completedSections0 = data.completedSections0 || []; // 💡追加
+        window.completedSections1 = data.completedSections1 || []; // 💡追加
+        window.completedSections2 = data.completedSections2 || []; // 💡追加
         window.diagnosticPassedSections = data.diagnosticPassedSections || [];
         currentSection = data.currentSection || 1;
         lastCompletedSection = data.lastCompletedSection || 0;
         isAllWordsMode = data.isAllWordsMode !== undefined ? data.isAllWordsMode : false;
         
-        // 💡設定画面を開いた時のプルダウン位置の同期（問題数用セレクトは消えたのでセクションサイズのみ同期）
-        if(document.getElementById("setSectionSize")) {
-            document.getElementById("setSectionSize").value = SECTION_SIZE;
-        }
-        
+        if(document.getElementById("setSectionSize")) document.getElementById("setSectionSize").value = SECTION_SIZE;
         return data;
     }
     return null;
@@ -2169,7 +2171,6 @@ function showTestResult() {
         const resultView = document.getElementById("quizResultView");
         const passThreshold = 8; // 🎯 昇格基準：10問中8問正解
         
-        // 今回の10問中、何問正解したかをログから正確にカウント
         const stageCorrectCount = testLog.filter(i => i.status === "correct").length;
         const isStagePassed = (stageCorrectCount >= passThreshold);
 
@@ -2181,19 +2182,18 @@ function showTestResult() {
             listHtml += `<div style="color:${color}; border-bottom:1px solid #eee; padding:5px 0;">${mark} ${item.word} (${item.meaning})</div>`;
         });
 
-        // 💡裏側でレベル分けの進捗データ書き換えとセクション計算を先に終わらせておく
-        let levelKey = "chui1";
+        // 進捗データ書き換えとセクション計算の事前処理
         let recommendedIndex = 0;
         let className = "";
 
         if (isStagePassed) {
-            if (diagnosticStage === 1) { levelKey = "chui2"; recommendedIndex = 219; className = "【中2・標準】"; }
-            else if (diagnosticStage === 2) { levelKey = "chui3"; recommendedIndex = 532; className = "【中3・入試応用】"; }
-            else if (diagnosticStage === 3) { levelKey = "saijoi"; recommendedIndex = 735; className = "【入試直前・最上位】"; }
+            if (diagnosticStage === 1) { recommendedIndex = 219; className = "【中2・標準】"; }
+            else if (diagnosticStage === 2) { recommendedIndex = 532; className = "【中3・入試応用】"; }
+            else if (diagnosticStage === 3) { recommendedIndex = 735; className = "【入試直前・最上位】"; }
         } else {
-            if (diagnosticStage === 1) { levelKey = "chui1"; recommendedIndex = 0; className = "【中1・基礎】"; }
-            else if (diagnosticStage === 2) { levelKey = "chui2"; recommendedIndex = 219; className = "【中2・標準】"; }
-            else { levelKey = "chui3"; recommendedIndex = 532; className = "【中3・入試応用】"; }
+            if (diagnosticStage === 1) { recommendedIndex = 0; className = "【中1・基礎】"; }
+            else if (diagnosticStage === 2) { recommendedIndex = 219; className = "【中2・標準】"; }
+            else { recommendedIndex = 532; className = "【中3・入試応用】"; }
         }
 
         // progressの自動書き換え
@@ -2202,6 +2202,14 @@ function showTestResult() {
             if (w && w.word) progress[w.word.toLowerCase()] = "correct"; 
         }
         currentSection = Math.floor(recommendedIndex / 10) + 1;
+
+        // 💡【新機能連動】診断テストで免除（パス）になったセクションを自動判定して箱に入れる
+        window.diagnosticPassedSections = [];
+        for (let s = 1; s < currentSection; s++) {
+            if (!window.diagnosticPassedSections.includes(s)) {
+                window.diagnosticPassedSections.push(s);
+            }
+        }
 
         if (isStagePassed && diagnosticStage < 3) {
             // 🟢 まだ次のステージがある場合（進出ボタンを表示）
@@ -2221,13 +2229,12 @@ function showTestResult() {
                     🔥 次のステージのテストを開始する
                 </button>
             `;
-            // イベントを動的に安全バインド
             document.getElementById("diagnosticNextStageActionBtn").onclick = () => {
                 handleDiagnosticStageClear();
             };
 
         } else {
-            // 🔴 不合格、または 👑 全ステージ完全制覇（テスト終了 ➔ 直でホームに戻るボタンを表示）
+            // 🔴 不合格、または 👑 全ステージ完全制覇
             const titleColor = isStagePassed ? "#ff9800" : "#c62828";
             const titleText = isStagePassed ? "👑 全ステージ完全制覇！ 👑" : "🏁 実力診断テスト終了";
             const subMessage = isStagePassed 
@@ -2248,20 +2255,15 @@ function showTestResult() {
                 </button>
             `;
 
-            // 💡【解決の核心】アラートを出さず、押した瞬間に同期・保存・移動を直で実行する
             document.getElementById("diagnosticDirectHomeBackBtn").onclick = () => {
                 isDiagnosticMode = false;
                 isReviewMode = false;
 
-                // バックグラウンドでFirebaseへデータを投げる（完了を待たずに画面遷移へ）
                 try {
                     if (typeof saveProgress === 'function') saveProgress();
                 } catch(e) { console.error(e); }
 
-                // ホームのメーターとテキスト表示を即時同期
                 if (typeof updateHomeDashboard === 'function') updateHomeDashboard();
-
-                // 直でホームへ戻す
                 window.showPage("homePage");
             };
         }
@@ -2272,7 +2274,7 @@ function showTestResult() {
     }
 
     // ========================================================
-    // 📝 以下の通常リザルト処理（A〜D）は完全にそのまま維持されます
+    // 📝 以下の通常リザルト処理（A〜D）
     // ========================================================
     document.getElementById("quizQuestionArea").classList.add("hidden");
     document.getElementById("answerControlArea").classList.add("hidden");
@@ -2284,9 +2286,9 @@ function showTestResult() {
         quizBottomBackBtn.parentElement.style.display = "none";
     }
 
-    const correctCount = testLog.filter(i => i.status === "correct").length;
     const totalCount = testLog.length;
-    const isPerfect = (correctCount === totalCount); 
+    const wrongWordsCount = testLog.filter(i => i.status === "wrong").length; // 💡ミスした数を数える
+    const correctCount = totalCount - wrongWordsCount;
 
     const resultView = document.getElementById("quizResultView");
 
@@ -2294,46 +2296,90 @@ function showTestResult() {
     const isCheckTest = (window.isActualCheckTestMode === true);
     const isFromTodayLesson = (window.isTodayReviewTestMode === true);
 
-    // 🏆 【A】本番のチェックテストで「満点合格」した場合の処理
-    if (isPerfect && isCheckTest && !isPracticeTest && !isFromTodayLesson && !isAllWordsMode) {
-        reviewWrongWords = []; 
-
-        if (!completedSections.includes(currentSection)) {
-            completedSections.push(currentSection);
-        }
-        lastCompletedSection = currentSection;
-
-        const maxSection = Math.ceil(words.length / SECTION_SIZE);
-        if (currentSection < maxSection) {
-            currentSection = currentSection + 1; 
-        }
+    // 🏆 【A】本番のチェックテスト（赤ボタン）の合格判定処理（2問ミスまで合格）
+    if (isCheckTest && !isPracticeTest && !isFromTodayLesson && !isAllWordsMode) {
         
-        const user = auth.currentUser;
-        if (user) {
-            update(ref(db, 'users/' + user.uid), {
-                currentSection: currentSection,
-                completedSections: completedSections,
-                lastCompletedSection: lastCompletedSection,
-                progress: progress,
-                reviewWrongWords: null
+        if (wrongWordsCount <= 2) { // 🎯 2問ミス以下なら合格！
+            reviewWrongWords = []; 
+
+            // 💡 記録用の配列がなければ初期化
+            if (!window.completedSections0) window.completedSections0 = [];
+            if (!window.completedSections1) window.completedSections1 = [];
+            if (!window.completedSections2) window.completedSections2 = [];
+
+            // 💡 ミス数に応じたフォルダにセクションを記録（重複を避けて追加）
+            if (wrongWordsCount === 0) {
+                if (!window.completedSections0.includes(currentSection)) window.completedSections0.push(currentSection);
+            } else if (wrongWordsCount === 1) {
+                if (!window.completedSections1.includes(currentSection)) window.completedSections1.push(currentSection);
+            } else if (wrongWordsCount === 2) {
+                if (!window.completedSections2.includes(currentSection)) window.completedSections2.push(currentSection);
+            }
+
+            if (!completedSections.includes(currentSection)) {
+                completedSections.push(currentSection);
+            }
+            lastCompletedSection = currentSection;
+
+            const maxSection = Math.ceil(words.length / SECTION_SIZE);
+            if (currentSection < maxSection) {
+                currentSection = currentSection + 1; 
+            }
+            
+            const user = auth.currentUser;
+            if (user) {
+                update(ref(db, 'users/' + user.uid), {
+                    currentSection: currentSection,
+                    completedSections: completedSections,
+                    completedSections0: window.completedSections0,
+                    completedSections1: window.completedSections1,
+                    completedSections2: window.completedSections2,
+                    lastCompletedSection: lastCompletedSection,
+                    progress: progress,
+                    reviewWrongWords: null
+                });
+            }
+
+            if (typeof window.renderSectionButtons === 'function') window.renderSectionButtons();
+            updateHomeDashboard();
+
+            // 🎨 スコア文言と色味の連動
+            let successScoreText = "全問正解！素晴らしい！";
+            let successBg = "#ff9800";
+            if (wrongWordsCount === 1) { successScoreText = "1問ミスで合格！"; successBg = "#4caf50"; }
+            if (wrongWordsCount === 2) { successScoreText = "2問ミスで合格！"; successBg = "#fbc02d"; }
+
+            resultView.innerHTML = `
+                <h3 id="resultTitle" style="color:${successBg}; margin-top:0; font-size:24px;">✨ 合格！テスト完了 ✨</h3>
+                <p id="resultScore" style="font-size:32px; font-weight:bold; margin:15px 0; color:${successBg};">${successScoreText}</p>
+                <p style="margin-bottom:20px; color:#666; font-size:14px; padding:0 10px;">
+                    おめでとうございます！このセクションをクリアしました。<br>
+                    目標セクションが自動的に【 <strong>Section ${currentSection}</strong> 】に更新されました！<br>
+                    <span style="color:#2e7d32; font-weight:bold;">※これまでの「復習が必要な単語」もすべてリセットされました！</span>
+                </p>
+                <button onclick="window.showPage('homePage')" class="btn-primary" style="width: 100%; height: 50px; background: ${successBg}; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 4px 10px rgba(0,0,0,0.15);">
+                    🏠 合格してホームに戻る
+                </button>
+            `;
+        } else {
+            // 😢 3問以上ミスで不合格時の処理
+            let listHtml = "";
+            testLog.forEach(item => {
+                const mark = item.status === "correct" ? "○" : "×";
+                const color = item.status === "correct" ? "#2e7d32" : "#c62828";
+                listHtml += `<div style="color:${color}; border-bottom:1px solid #eee; padding:5px 0;">${mark} ${item.word} (${item.meaning})</div>`;
             });
+            
+            resultView.innerHTML = `
+                <h3 id="resultTitle" style="color:#c62828; margin-top:0;">❌ チェックテスト不合格</h3>
+                <p id="resultScore" style="font-size:32px; font-weight:bold; margin:15px 0;">${totalCount}問中 ${correctCount}問 正解</p>
+                <div id="resultList" style="text-align:left; max-height:150px; overflow-y:auto; border:1px solid #eee; padding:10px; margin-bottom:20px; font-size:14px; background:#fafafa;">${listHtml}</div>
+                <p style="margin-bottom:15px; color:#666; font-size:14px;">残念！合格にはミスを2問以下に抑える必要があります。もう一度覚え直して再挑戦しよう！</p>
+                <button onclick="window.exitToListView()" class="btn-primary" style="width: 100%; height: 50px; background: #c62828; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 2px 5px rgba(198,40,40,0.1);">
+                    👉 復習画面へ戻る
+                </button>
+            `;
         }
-
-        if (typeof window.renderSectionButtons === 'function') window.renderSectionButtons();
-        updateHomeDashboard();
-
-        resultView.innerHTML = `
-            <h3 id="resultTitle" style="color:#ff9800; margin-top:0; font-size:24px;">✨ 合格！テスト完了 ✨</h3>
-            <p id="resultScore" style="font-size:32px; font-weight:bold; margin:15px 0; color:#ff9800;">全問正解！素晴らしい！</p>
-            <p style="margin-bottom:20px; color:#666; font-size:14px; padding:0 10px;">
-                おめでとうございます！このセクションをクリアしました。<br>
-                目標セクションが自動的に【 <strong>Section ${currentSection}</strong> 】に更新されました！<br>
-                <span style="color:#2e7d32; font-weight:bold;">※これまでの「復習が必要な単語」もすべてリセットされました！</span>
-            </p>
-            <button onclick="window.showPage('homePage')" class="btn-primary" style="width: 100%; height: 50px; background: #ff9800; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 4px 10px rgba(255,152,0,0.3);">
-                🏠 合格してホームに戻る
-            </button>
-        `;
     } 
     // 🚀 【B】「今日の学習（最初の復習テスト）」ルートから来た場合
     else if (isFromTodayLesson) {
@@ -2344,6 +2390,7 @@ function showTestResult() {
             listHtml += `<div style="color:${color}; border-bottom:1px solid #eee; padding:5px 0;">${mark} ${item.word} (${item.meaning})</div>`;
         });
 
+        const isPerfect = (wrongWordsCount === 0);
         const titleText = isPerfect ? "✨ 復習テスト全問正解！ ✨" : "📖 復習テスト完了";
         const scoreText = isPerfect ? "完璧です！苦手克服！" : `${totalCount}問中 ${correctCount}問 正解`;
         const titleColor = isPerfect ? "#4caf50" : "#2196f3";
@@ -2373,25 +2420,6 @@ function showTestResult() {
             <div id="resultList" style="text-align:left; max-height:150px; overflow-y:auto; border:1px solid #eee; padding:10px; margin-bottom:20px; font-size:14px; background:#fafafa;">${listHtml}</div>
             <p style="margin-bottom:15px; color:#666; font-size:14px;">間違えた単語を一覧でもう一度確認して覚え直しましょう！</p>
             <button onclick="window.exitToListView()" class="btn-primary" style="width: 100%; height: 50px; background: #9c27b0; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-                👉 学習画面（一覧）に戻る
-            </button>
-        `;
-    }
-    // 😢 【D】本番のチェックテスト（赤ボタン）で不合格だった場合の処理
-    else {
-        let listHtml = "";
-        testLog.forEach(item => {
-            const mark = item.status === "correct" ? "○" : "×";
-            const color = item.status === "correct" ? "#2e7d32" : "#c62828";
-            listHtml += `<div style="color:${color}; border-bottom:1px solid #eee; padding:5px 0;">${mark} ${item.word} (${item.meaning})</div>`;
-        });
-        
-        resultView.innerHTML = `
-            <h3 id="resultTitle" style="color:#c62828; margin-top:0;">❌ チェックテスト不合格</h3>
-            <p id="resultScore" style="font-size:32px; font-weight:bold; margin:15px 0;">${totalCount}問中 ${correctCount}問 正解</p>
-            <div id="resultList" style="text-align:left; max-height:150px; overflow-y:auto; border:1px solid #eee; padding:10px; margin-bottom:20px; font-size:14px; background:#fafafa;">${listHtml}</div>
-            <p style="margin-bottom:15px; color:#666; font-size:14px;">残念！合格には全問正解が必要です。もう一度このセクションを覚え直して再挑戦しよう！</p>
-            <button onclick="window.exitToListView()" class="btn-primary" style="width: 100%; height: 50px; background: #c62828; font-size:16px; border:none; border-radius:6px; font-weight:bold; box-shadow: 0 2px 5px rgba(198,40,40,0.1);">
                 👉 学習画面（一覧）に戻る
             </button>
         `;
@@ -2470,18 +2498,22 @@ window.renderSectionButtons = function() {
     if(allBtnArea) allBtnArea.innerHTML = "";
 
     const count = Math.ceil(words.length / SECTION_SIZE);
+    
+    // 安全用初期化
+    if (!window.completedSections0) window.completedSections0 = [];
+    if (!window.completedSections1) window.completedSections1 = [];
+    if (!window.completedSections2) window.completedSections2 = [];
     if (!window.diagnosticPassedSections) window.diagnosticPassedSections = [];
      
     for (let i = 1; i <= count; i++) {
         const btn = document.createElement("button");
         
-        // 基本のふっくらスタイル
         btn.style.cssText = `
             width: 100%;
             padding: 16px 5px;
             border-radius: 10px;
             font-weight: bold;
-            font-size: 15px;
+            font-size: 14px;
             border: 1px solid #dadce0;
             background: #ffffff;
             color: #3c4043;
@@ -2491,23 +2523,37 @@ window.renderSectionButtons = function() {
             text-align: center;
         `;
         
-        // 🎨 ⭐【ここが核心：色分けの優先判定】⭐
-        if (completedSections && completedSections.includes(i)) { 
-            // 🟢 パターンA：満点チェックテスト合格（最優先：濃い緑色）
-            btn.style.background = "#e8f5e9";
+        // 👑 塾長ご指定の「過去最高記録に基づく絶対優先度」色分け判定！
+        if (window.completedSections0.includes(i)) {
+            // 【優先度1位】0問ミス・全問正解 ➔ 金色（ゴールド）
+            btn.style.background = "#fff8e1"; 
+            btn.style.color = "#b78103";
+            btn.style.borderColor = "#ffe082";
+            btn.innerHTML = `Sec ${i}<br><span style="font-size:10px; font-weight:bold; color:#b78103;">👑 満点合格</span>`;
+        } 
+        else if (window.completedSections1.includes(i)) {
+            // 【優先度2位】1問ミス合格 ➔ 濃い緑（エメラルド）
+            btn.style.background = "#e8f5e9"; 
             btn.style.color = "#2e7d32";
             btn.style.borderColor = "#a5d6a7";
-            btn.innerHTML = `Sec ${i}<br><span style="font-size:10px; font-weight:normal; color:#2e7d32;">〇 合格</span>`;
+            btn.innerHTML = `Sec ${i}<br><span style="font-size:10px; font-weight:normal; color:#2e7d32;">🟢 1ミス合格</span>`;
         } 
-        else if (window.diagnosticPassedSections && window.diagnosticPassedSections.includes(i)) {
-            // 🔵 パターンB：実力診断テストによるパス（綺麗な青色）
+        else if (window.completedSections2.includes(i)) {
+            // 【優先度3位】2問ミス合格 ➔ 薄い黄色（ライトイエロー）
+            btn.style.background = "#fffde7"; 
+            btn.style.color = "#fbc02d";
+            btn.style.borderColor = "#fff59d";
+            btn.innerHTML = `Sec ${i}<br><span style="font-size:10px; font-weight:normal; color:#fbc02d;">🟡 2ミス合格</span>`;
+        } 
+        else if (window.diagnosticPassedSections.includes(i)) {
+            // 【優先度4位】実力診断テスト免除 ➔ 青色（スカイブルー）
             btn.style.background = "#e3f2fd";
             btn.style.color = "#0d47a1";
             btn.style.borderColor = "#90caf9";
             btn.innerHTML = `Sec ${i}<br><span style="font-size:10px; font-weight:normal; color:#1a73e8;">🌐 診断パス</span>`;
         } 
         else {
-            // ⚪ パターンC：未クリア（通常状態・白色）
+            // 未合格 ➔ 通常の白
             btn.innerHTML = `Sec ${i}`;
         }
         
@@ -2526,7 +2572,7 @@ window.renderSectionButtons = function() {
         else { if(group4) group4.appendChild(btn); }
     }
 
-    // 全単語ボタンの生成（既存のまま）
+    // 全単語確認ボタン（既存のまま）
     if (allBtnArea) {
         const allBtn = document.createElement("button");
         allBtn.style.cssText = "width: 100%; padding: 16px; border-radius: 12px; font-weight: bold; border: 2px dashed #4caf50; background: #f1f8e9; color: #4caf50; cursor: pointer; font-size: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.03);";
@@ -2541,7 +2587,7 @@ window.renderSectionButtons = function() {
         allBtnArea.appendChild(allBtn);
     }
 
-    // アコーディオンの自動開閉（既存のまま）
+    // アコーディオン自動開閉（既存のまま）
     let activeKey = "chui1";
     if (currentSection >= 23 && currentSection <= 53) activeKey = "chui2";
     if (currentSection >= 54 && currentSection <= 74) activeKey = "chui3";

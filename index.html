@@ -268,23 +268,12 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
   <div class="card" style="padding: 20px;">
     <h3 style="margin-top: 0; color: #333; border-bottom: 2px solid #1a73e8; padding-bottom: 8px;">⚙️ アプリ設定</h3>
     
-    <div style="margin-bottom: 20px; text-align: left;">
+    <div style="margin-bottom: 25px; text-align: left;">
       <label style="display: block; font-weight: bold; margin-bottom: 5px; color: #555;">1セクションあたりの単語数</label>
       <select id="setSectionSize" style="padding: 10px; width: 100%; border-radius: 6px; border: 1px solid #ccc;">
-        <option value="5">5問ずつ区切る</option>
-        <option value="10" selected>10問ずつ区切る</option>
-        <option value="15">15問ずつ区切る</option>
-        <option value="20">20問ずつ区切る</option>
-      </select>
-    </div>
-
-    <div style="margin-bottom: 25px; text-align: left;">
-      <label style="display: block; font-weight: bold; margin-bottom: 5px; color: #555;">テストの出題問題数</label>
-      <select id="setTestCount" style="padding: 10px; width: 100%; border-radius: 6px; border: 1px solid #ccc;">
-        <option value="5">5問テスト</option>
-        <option value="10" selected>10問テスト</option>
-        <option value="15">15問テスト</option>
-        <option value="20">20問テスト</option>
+        <option value="10" selected>10問ずつ区切る（テスト: 5問）</option>
+        <option value="20">20問ずつ区切る（テスト: 5問）</option>
+        <option value="40">40問ずつ区切る（テスト: 10問）</option>
       </select>
     </div>
 
@@ -1481,7 +1470,7 @@ const words = [
 /* ===== 定数・変数定義 ===== */
 /* ===== 変数定義 ===== */
 let SECTION_SIZE = 10;
-let TEST_QUESTION_COUNT = 10;
+let TEST_QUESTION_COUNT = 5;
 let progress = {};
 let current = null;
 let currentSection = 1;
@@ -1753,9 +1742,9 @@ async function saveProgress() {
         studyCount: studyCount,
         reviewWrongWords: reviewWrongWords, 
         SECTION_SIZE: SECTION_SIZE,
-        TEST_QUESTION_COUNT: TEST_QUESTION_COUNT,
+        TEST_QUESTION_COUNT: TEST_QUESTION_COUNT, // 💡連動された数値が保存されます
         completedSections: completedSections,
-        diagnosticPassedSections: window.diagnosticPassedSections || [], // 💡追加
+        diagnosticPassedSections: window.diagnosticPassedSections || [],
         currentSection: currentSection,
         lastCompletedSection: lastCompletedSection,
         isAllWordsMode: isAllWordsMode
@@ -1769,16 +1758,18 @@ async function loadUserData(uid) {
         progress = data.progress || {};
         studyCount = data.studyCount || 0;
         SECTION_SIZE = data.SECTION_SIZE || 10;
-        TEST_QUESTION_COUNT = data.TEST_QUESTION_COUNT || 10;
+        TEST_QUESTION_COUNT = data.TEST_QUESTION_COUNT || 5; // 💡自動連動された問題数が復元されます
         reviewWrongWords = data.reviewWrongWords || [];
         completedSections = data.completedSections || []; 
-        window.diagnosticPassedSections = data.diagnosticPassedSections || []; // 💡追加
+        window.diagnosticPassedSections = data.diagnosticPassedSections || [];
         currentSection = data.currentSection || 1;
         lastCompletedSection = data.lastCompletedSection || 0;
         isAllWordsMode = data.isAllWordsMode !== undefined ? data.isAllWordsMode : false;
         
-        if(document.getElementById("setSectionSize")) document.getElementById("setSectionSize").value = SECTION_SIZE;
-        if(document.getElementById("setTestCount")) document.getElementById("setTestCount").value = TEST_QUESTION_COUNT;
+        // 💡設定画面を開いた時のプルダウン位置の同期（問題数用セレクトは消えたのでセクションサイズのみ同期）
+        if(document.getElementById("setSectionSize")) {
+            document.getElementById("setSectionSize").value = SECTION_SIZE;
+        }
         
         return data;
     }
@@ -1840,10 +1831,19 @@ window.showPage = function(id) {
 };
 
 window.saveSettings = async function() {
+    // 1. 選択されたセクションサイズを取得
     SECTION_SIZE = parseInt(document.getElementById("setSectionSize").value);
-    TEST_QUESTION_COUNT = parseInt(document.getElementById("setTestCount").value);
+    
+    // 2. 💡【塾長のご指定ルール】セクション数に連動してテスト問題数を自動決定！
+    if (SECTION_SIZE === 10 || SECTION_SIZE === 20) {
+        TEST_QUESTION_COUNT = 5;
+    } else if (SECTION_SIZE === 40) {
+        TEST_QUESTION_COUNT = 10;
+    }
+    
+    // 3. クラウドに保存して完了
     await saveProgress();
-    alert("設定を保存しました。");
+    alert(`設定を保存しました。\n（1セクション: ${SECTION_SIZE}語 / テスト: ${TEST_QUESTION_COUNT}問）`);
     showPage("homePage");
 };
     

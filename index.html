@@ -249,7 +249,7 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
   </div>
 
   <div style="margin-top: 20px; padding: 10px 0; border-top: 1px solid #eee;">
-    <button onclick="goBackToListFromQuiz()" style="padding: 12px 24px; background: #555; color: #fff; border: none; border-radius: 8px; font-weight: bold; width: 100%; font-size: 16px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+    <button id="quizCancelOrEndBtn" onclick="handleQuizCancelOrEndAction()" style="padding: 12px 24px; background: #555; color: #fff; border: none; border-radius: 8px; font-weight: bold; width: 100%; font-size: 16px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); transition: background 0.2s;">
       ⬅️ 一覧に戻る
     </button>
   </div>
@@ -2226,8 +2226,20 @@ function renderQuestion() {
   current = isReviewMode ? (reviewPool.pop() || null) : getNextWord();
   if (!current) { showTestResult(); return; }
 
-  // 💡【塾用制限機能】最初の復習テスト中は、一覧に戻るボタンを非表示にする
-  const quizBottomBackBtn = document.querySelector("#quiz > div > button[onclick='goBackToListFromQuiz()']");
+  // 💡【新規追加】実力診断テスト中なら、下のボタンを「テストを終了する」に強制変更！
+  const bottomBtn = document.getElementById("quizCancelOrEndBtn");
+  if (bottomBtn) {
+      if (isDiagnosticMode) {
+          bottomBtn.innerHTML = "🏁 実力診断テストを終了する";
+          bottomBtn.style.background = "#d32f2f"; // 緊張感のある警告の赤色
+      } else {
+          bottomBtn.innerHTML = "⬅️ 一覧に戻る";
+          bottomBtn.style.background = "#555"; // 通常のグレー
+      }
+  }
+
+  // --- 💡【塾用制限機能】最初の復習テスト中は、終了ボタン自体を完全に隠す（既存のまま維持） ---
+  const quizBottomBackBtn = document.getElementById("quizCancelOrEndBtn");
   if (quizBottomBackBtn && quizBottomBackBtn.parentElement) {
       if (window.isTodayReviewTestMode === true) {
           quizBottomBackBtn.parentElement.style.display = "none";
@@ -2236,6 +2248,7 @@ function renderQuestion() {
       }
   }
 
+  // (以下、既存の meaning や example の描画処理へとそのまま続きます)
   document.getElementById("meaning").textContent = current.meaning;
   document.getElementById("exampleEn").textContent = current.example || "";
   document.getElementById("exampleJa").textContent = current.exampleJa || "";
@@ -3012,6 +3025,44 @@ window.deleteCurrentUserAccount = async function() {
     } catch (e) {
         console.error("Account Delete Error:", e);
         alert("安全上の理由により、長期間再ログインしていないアカウントは即座に削除できません。一度ログアウトし、再ログインしてから再度削除を試してください。");
+    }
+};
+
+window.handleQuizCancelOrEndAction = function() {
+    // Aパターン：通常のクイズ画面なら、今まで通り一覧画面に戻すだけ
+    if (!isDiagnosticMode) {
+        if (typeof window.goBackToListFromQuiz === 'function') {
+            window.goBackToListFromQuiz();
+        }
+        return;
+    }
+
+    // Bパターン：実力診断テスト中の場合 ➔ 💡【塾長のご指定ルール】その時点でクリアしているクラスを合格にする！
+    const confirmEnd = confirm("ここで実力診断テストを終了し、現在のステージまでの結果で開始レベルを確定させますか？");
+    if (!confirmEnd) return;
+
+    // 現在の diagnosticStage (1=中1テスト中, 2=中2テスト中, 3=中3テスト中)
+    // ➔ 例：stageが2の時点でこのボタンを押した＝「ステージ1（中1基礎）はすでに合格クリアしている」という意味になります！
+    let finalLevelKey = "chui1"; 
+    
+    if (diagnosticStage === 1) {
+        // 中1のテストの途中でやめた ➔ まだどこもクリアしていないので中1基礎からスタート
+        finalLevelKey = "chui1";
+    } else if (diagnosticStage === 2) {
+        // 中2のテストの途中でやめた ➔ ステージ1（中1）は完全合格しているので、中2からスタート
+        finalLevelKey = "chui2";
+    } else if (diagnosticStage === 3) {
+        // 中3のテストの途中でやめた ➔ ステージ2（中2）までは完全合格しているので、中3からスタート
+        finalLevelKey = "chui3";
+    }
+
+    // 🚀 モードを解除し、確定関数をダイレクトに呼び出して「診断パス（青色）」を記録させてホームへ強制送還！
+    if (typeof setFinalDiagnosticLevel === 'function') {
+        setFinalDiagnosticLevel(finalLevelKey);
+    } else {
+        isDiagnosticMode = false;
+        isReviewMode = false;
+        window.showPage("homePage");
     }
 };
     

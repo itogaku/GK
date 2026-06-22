@@ -1656,21 +1656,55 @@ window.logout = function() {
 window.startDiagnosticTest = function() {
     if (!words || words.length === 0) return;
     
-    // 💡 診断モードをオンにし、クイズ画面が問題プール（reviewPool）を読み込むように isReviewMode も true にします！
+    // 💡【解決の核心2】過去の合格状況（緑・黄・青）から、クリア済みの学年を判定
+    if (!window.completedSections0) window.completedSections0 = [];
+    if (!window.completedSections1) window.completedSections1 = [];
+    if (!window.completedSections2) window.completedSections2 = [];
+    if (!window.diagnosticPassedSections) window.diagnosticPassedSections = [];
+
+    // 各学年の全セクションが合格しているかチェックする補助関数
+    const isStageAllCleared = (startSec, endSection) => {
+        for (let s = startSec; s <= endSection; s++) {
+            const hasPassed = window.completedSections0.includes(s) || 
+                              window.completedSections1.includes(s) || 
+                              window.completedSections2.includes(s) || 
+                              window.diagnosticPassedSections.includes(s);
+            if (!hasPassed) return false; // 1つでも未クリアがあればその学年は未クリア
+        }
+        return true;
+    };
+
+    let startStage = 1; // デフォルトは中1
+    
+    // 中1（1〜22）が全部クリア済みなら、ステージ2（中2）へ
+    if (isStageAllCleared(1, 22)) {
+        startStage = 2;
+        // さらに中2（23〜53）も全部クリア済みなら、ステージ3（中3）へ
+        if (isStageAllCleared(23, 53)) {
+            startStage = 3;
+            // もし中3（54〜74）まで全部終わっていたら、テスト不要
+            if (isStageAllCleared(54, 74)) {
+                alert("🎉 中1〜中3のすべてのクラスがすでにクリアされています！実力診断テストを受ける必要はありません。");
+                return;
+            }
+        }
+    }
+
+    // 診断モードの起動設定
     isDiagnosticMode = true;
     isReviewMode = true; 
-    
     isSelfPracticeMode = false;
     window.isActualCheckTestMode = false;
     window.isTodayReviewTestMode = false;
     
-    diagnosticStage = 1;
+    // スキップを反映したステージから開始！
+    diagnosticStage = startStage;
     diagnosticStageCorrect = 0;
     testLog = [];
     studyCount++;
     
-    // ステージ1（中1範囲）から10問を抽出
-    generateDiagnosticPoolForStage(1);
+    // 該当ステージの問題プールを生成
+    generateDiagnosticPoolForStage(diagnosticStage);
     
     renderQuestion();
     window.showPage("quiz");
@@ -2345,37 +2379,34 @@ function showTestResult() {
             listHtml += `<div style="color:${color}; border-bottom:1px solid #eee; padding:5px 0;">${mark} ${item.word} (${item.meaning})</div>`;
         });
 
-        // 進捗データ書き換えとセクション計算の事前処理
-        let recommendedIndex = 0;
-        let className = "";
-
-        if (isStagePassed) {
-            if (diagnosticStage === 1) { recommendedIndex = 219; className = "【中2・標準】"; }
-            else if (diagnosticStage === 2) { recommendedIndex = 532; className = "【中3・入試応用】"; }
-            else if (diagnosticStage === 3) { recommendedIndex = 735; className = "【入試直前・最上位】"; }
-        } else {
-            if (diagnosticStage === 1) { recommendedIndex = 0; className = "【中1・基礎】"; }
-            else if (diagnosticStage === 2) { recommendedIndex = 219; className = "【中2・標準】"; }
-            else { recommendedIndex = 532; className = "【中3・入試応用】"; }
-        }
-
-        // progressの自動書き換え
-        for (let i = 0; i < recommendedIndex; i++) {
-            const w = words[i];
-            if (w && w.word) progress[w.word.toLowerCase()] = "correct"; 
-        }
-        currentSection = Math.floor(recommendedIndex / 10) + 1;
-
-        // 💡【新機能連動】診断テストで免除（パス）になったセクションを自動判定して箱に入れる
-        window.diagnosticPassedSections = [];
-        for (let s = 1; s < currentSection; s++) {
-            if (!window.diagnosticPassedSections.includes(s)) {
-                window.diagnosticPassedSections.push(s);
-            }
-        }
-
         if (isStagePassed && diagnosticStage < 3) {
-            // 🟢 まだ次のステージがある場合（進出ボタンを表示）
+            // ========================================================
+            // 🟢 ステージ1 または 2 を突破（合格）した場合
+            // ========================================================
+            
+            // 💡【解決の核心1】「次へ」ボタンを押す前、このリザルト画面が出た瞬間に合格セクションを即時確定させる！
+            if (!window.diagnosticPassedSections) window.diagnosticPassedSections = [];
+            let endSectionForThisStage = (diagnosticStage === 1) ? 22 : 53;
+            let startSectionForThisStage = (diagnosticStage === 1) ? 1 : 23;
+            
+            for (let s = startSectionForThisStage; s <= endSectionForThisStage; s++) {
+                if (!window.diagnosticPassedSections.includes(s)) {
+                    window.diagnosticPassedSections.push(s);
+                }
+            }
+            // 目標位置も次のステージの先頭へ更新
+            currentSection = endSectionForThisStage + 1;
+
+            // 💡 該当範囲のwordsをすべて裏で「correct」に変える
+            let recommendedIndex = (diagnosticStage === 1) ? 219 : 532;
+            for (let i = 0; i < recommendedIndex; i++) {
+                const w = words[i];
+                if (w && w.word) progress[w.word.toLowerCase()] = "correct"; 
+            }
+
+            // 即時バックグラウンドセーブ
+            try { if (typeof saveProgress === 'function') saveProgress(); } catch(e) { console.error(e); }
+
             const nextStageNum = diagnosticStage + 1;
             const currentStageName = diagnosticStage === 1 ? "【中1基礎】" : "【中2標準】";
             const nextStageName = nextStageNum === 2 ? "ステージ2【中2標準】" : "最終ステージ3【中3入試応用】";
@@ -2397,7 +2428,32 @@ function showTestResult() {
             };
 
         } else {
-            // 🔴 不合格、または 👑 全ステージ完全制覇
+            // ========================================================
+            // 🔴 不合格、または 👑 ステージ3（最終）も完全制覇した場合
+            // ========================================================
+            let recommendedIndex = 0;
+            let className = "";
+
+            if (isStagePassed) {
+                // ステージ3クリア
+                recommendedIndex = 735; className = "【入試直前・最上位】";
+                if (!window.diagnosticPassedSections) window.diagnosticPassedSections = [];
+                for (let s = 1; s <= 74; s++) {
+                    if (!window.diagnosticPassedSections.includes(s)) window.diagnosticPassedSections.push(s);
+                }
+            } else {
+                // 途中で不合格
+                if (diagnosticStage === 1) { recommendedIndex = 0; className = "【中1・基礎】"; }
+                else if (diagnosticStage === 2) { recommendedIndex = 219; className = "【中2・標準】"; }
+                else { recommendedIndex = 532; className = "【中3・入試応用】"; }
+            }
+
+            for (let i = 0; i < recommendedIndex; i++) {
+                const w = words[i];
+                if (w && w.word) progress[w.word.toLowerCase()] = "correct"; 
+            }
+            currentSection = Math.floor(recommendedIndex / 10) + 1;
+
             const titleColor = isStagePassed ? "#ff9800" : "#c62828";
             const titleText = isStagePassed ? "👑 全ステージ完全制覇！ 👑" : "🏁 実力診断テスト終了";
             const subMessage = isStagePassed 
@@ -2421,11 +2477,7 @@ function showTestResult() {
             document.getElementById("diagnosticDirectHomeBackBtn").onclick = () => {
                 isDiagnosticMode = false;
                 isReviewMode = false;
-
-                try {
-                    if (typeof saveProgress === 'function') saveProgress();
-                } catch(e) { console.error(e); }
-
+                try { if (typeof saveProgress === 'function') saveProgress(); } catch(e) { console.error(e); }
                 if (typeof updateHomeDashboard === 'function') updateHomeDashboard();
                 window.showPage("homePage");
             };
@@ -2435,7 +2487,6 @@ function showTestResult() {
         window.isActualCheckTestMode = undefined;
         return;
     }
-
     // ========================================================
     // 📝 以下の通常リザルト処理（A〜D）
     // ========================================================

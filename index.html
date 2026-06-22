@@ -1580,7 +1580,7 @@ window.handleSecureRegister = async function() {
     }
 
     try {
-        // 🕵️ 事前にクラウド上の「users」リストを取得して、名前の重複を調べる
+        // 🕵️ 1. 事前にクラウド上の「users」リストを取得して、名前の重複を調べる
         const usersRef = ref(db, 'users');
         const snapshot = await get(usersRef);
         let isNameTaken = false;
@@ -1595,7 +1595,7 @@ window.handleSecureRegister = async function() {
             }
         }
 
-        // 🛑 【既存の名前を登録できないようにブロック】
+        // 🛑 他の生徒がすでに使っている名前なら登録をブロック
         if (isNameTaken) {
             alert(`❌ 「${nameInput.value.trim()}」という名前はすでに他の生徒が使用しています。\n別の名前で作成してください。`);
             return;
@@ -1603,14 +1603,14 @@ window.handleSecureRegister = async function() {
 
         const email = `${inputName}@juku.com`;
         
-        // 1. Firebase公式認証基盤にアカウントを安全作成
+        // 2. Firebaseの認証基盤（Auth）にアカウントを安全作成
         const userCredential = await createUserWithEmailAndPassword(auth, email, inputPass);
-        const uid = userCredential.user.uid;
+        const newUid = userCredential.user.uid; // 💡新しく発行された本人のUIDをここで直接キャッチ！
 
         currentUser = nameInput.value.trim();
         localStorage.setItem("secure_currentUserName", currentUser);
 
-        // 2. まっさらな初期セーブデータを生成してクラウドの本人の部屋に保存
+        // 3. まっさらな初期データをローカル側（変数）に用意
         progress = {};
         studyCount = 0;
         completedSections = [];
@@ -1622,7 +1622,22 @@ window.handleSecureRegister = async function() {
         lastCompletedSection = 0;
         isAllWordsMode = false;
 
-        await saveProgress();
+        // 💡【解決の核心】現在のログイン状態を無視して、今できたばかりの newUid の部屋へ直接セーブデータを書き込む！
+        await update(ref(db, 'users/' + newUid), {
+            userName: currentUser,
+            progress: progress,
+            studyCount: studyCount,
+            SECTION_SIZE: SECTION_SIZE,
+            TEST_QUESTION_COUNT: TEST_QUESTION_COUNT,
+            completedSections: completedSections,
+            completedSections0: window.completedSections0,
+            completedSections1: window.completedSections1,
+            completedSections2: window.completedSections2,
+            diagnosticPassedSections: window.diagnosticPassedSections,
+            currentSection: currentSection,
+            lastCompletedSection: lastCompletedSection,
+            isAllWordsMode: isAllWordsMode
+        });
 
         alert(`🎉 生徒「${currentUser}」のアカウントを安全に新規作成しました！`);
 
@@ -1637,7 +1652,7 @@ window.handleSecureRegister = async function() {
 
     } catch (error) {
         console.error("Registration Error:", error);
-        alert("アカウントの作成に失敗しました。通信環境が良い場所でもう一度お試しください。");
+        alert("アカウントの作成に失敗しました。名前が正しく入力されているか確認してください。");
     }
 };
 // 🚪 既存の logout 関数のみ、ページ移動先を 'userPage' に書き換えて維持します

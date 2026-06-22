@@ -1600,25 +1600,27 @@ window.handleSecureRegister = async function() {
             return;
         }
 
-        // 💡【競合完全ガード】
-        // 過去の削除データの残り（幽霊データ）でAuth作成がゴネた場合でも、
-        // キャッチして既存ログイン（signIn）に切り替えるか、身代わりUIDを発行してDBへ直接部屋を作ります。
-        let finalUid = "user_" + Date.now(); 
         const email = `${inputName}@juku.com`;
+        let userCredential;
 
+        // 💡【核心の修正】
+        // Firebaseのセキュリティルールを突破するため、まずは「公式認証（Auth）」に生徒を登録し、
+        // ブラウザを【正規のログイン状態】に昇格させます。
         try {
-            const userCredential = await createUserWithEmailAndPassword(auth, email, inputPass);
-            finalUid = userCredential.user.uid;
+            userCredential = await createUserWithEmailAndPassword(auth, email, inputPass);
         } catch (authError) {
-            console.warn("Auth基盤側で競合を検知。自動リカバリルートへ切り替えます:", authError);
+            console.warn("Auth新規作成エラー（過去のゴミデータが原因の可能性）。既存アカウントのログインを試みます:", authError);
+            // もし過去の削除残りが原因なら、signIn（ログイン）を叩いて強引にログイン状態を作ります
             try {
-                const loginCred = await signInWithEmailAndPassword(auth, email, inputPass);
-                finalUid = loginCred.user.uid;
-            } catch(e) {
-                // 両方弾かれた場合は、確実に書き込める固有UIDを強制生成
-                finalUid = "uid_" + inputName;
+                userCredential = await signInWithEmailAndPassword(auth, email, inputPass);
+            } catch (loginError) {
+                // 新規作成も既存ログインも両方弾かれた場合は、Firebase Authのシステムエラーです
+                throw new Error("Firebase Authenticationの登録に失敗しました。パスワードがシンプルすぎるか、通信が遮断されています。");
             }
         }
+
+        // 💡 ログイン状態が成立したため、公式の安全なUID（本物の鍵）を100%取得できます
+        const secureUid = userCredential.user.uid;
 
         // 3. ローカル変数をまっさらな初期状態にする
         currentUser = nameInput.value.trim();
@@ -1635,8 +1637,9 @@ window.handleSecureRegister = async function() {
         lastCompletedSection = 0;
         isAllWordsMode = false;
 
-        // 4. 新名簿の仕様に合わせて、クラウドの指定スロット（finalUid）へダイレクト書き込み！
-        await set(ref(db, 'users/' + finalUid), {
+        // 4. 【最重要】正規にログインした「secureUid」の部屋へデータを書き込み！
+        // これにより、Firebase側のセキュリティ壁（ルール）に弾かれることなく、100%書き込みが成功します。
+        await set(ref(db, 'users/' + secureUid), {
             userName: currentUser,
             progress: progress,
             studyCount: studyCount,
@@ -1658,7 +1661,7 @@ window.handleSecureRegister = async function() {
         nameInput.value = "";
         passInput.value = "";
 
-        // 5. 新しいセクションプルダウンやダッシュボードを同期してホームへ進む
+        // 5. 各種プルダウンやダッシュボードを同期してホームへ進む
         if (typeof window.renderListSectionSelect === 'function') window.renderListSectionSelect();
         if (typeof updateHomeDashboard === 'function') updateHomeDashboard();
         if (typeof window.renderSectionButtons === 'function') window.renderSectionButtons();
@@ -1667,7 +1670,7 @@ window.handleSecureRegister = async function() {
 
     } catch (error) {
         console.error("Fatal Registration Error:", error);
-        alert("システムエラーが発生しました。時間を置いてもう一度お試しください。");
+        alert("❌ アカウント作成に失敗しました。\n\n【原因】Firebaseのセキュリティサーバーへの接続が拒否されました。Wi-Fiの接続状況を確認するか、少し時間を置いて試してください。");
     }
 };
 // 🚪 既存の logout 関数のみ、ページ移動先を 'userPage' に書き換えて維持します

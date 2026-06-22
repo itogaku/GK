@@ -71,22 +71,28 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
 </div>
 
 <section id="userPage" class="page active">
-  <div class="card">
-    <h3>生徒アカウント新規作成</h3>
-    <p style="font-size:12px; color:#666; margin-top:-5px;">※すでに作成済みの名前は再作成できません</p>
-    <input id="newName" placeholder="名前 (例: tanaka)" style="padding:8px; width:100%; margin-bottom:10px;">
-    <input id="newPass" type="password" placeholder="パスワード (6文字以上)" style="padding:8px; width:100%; margin-bottom:10px;">
-    <button onclick="addUser()" class="btn-primary" style="width:100%;">アカウント作成</button>
-  </div>
-  <h3>登録されている生徒（クリックしてログイン）</h3>
-  <div id="userList">読み込み中...</div>
-  <div id="loginArea" class="hidden card" style="background:#e3f2fd;">
-    <p><strong id="selectedUserName"></strong> でログイン</p>
-    <input id="passwordInput" type="password" placeholder="パスワードを入力" style="padding:10px; width:100%; margin-bottom:10px;">
-    <button onclick="login()" class="btn-primary" style="width:100%;">ログイン</button>
+  <div class="card" style="padding: 25px; text-align: center; max-width: 450px; margin: auto; box-shadow: 0 4px 15px rgba(0,0,0,0.08);">
+    <h2 style="color: #1a73e8; margin-top: 0; margin-bottom: 8px; font-size: 24px;">📖 塾生ログイン / 新規作成</h2>
+    <p style="color: #666; font-size: 13px; margin-bottom: 25px;">あなたの名前を入力して進んでください。</p>
+    
+    <div style="margin-bottom: 20px; text-align: left;">
+      <label for="loginNameInput" style="display: block; font-weight: bold; margin-bottom: 8px; color: #444; font-size: 14px;">生徒名（アルファベット または ひらがな）</label>
+      <input type="text" id="loginNameInput" placeholder="例: tanaka" style="width: 100%; padding: 14px; border-radius: 8px; border: 2px solid #dadce0; font-size: 16px; box-sizing: border-box;">
+    </div>
+
+    <button onclick="handleNameLogin()" class="btn-primary" style="width: 100%; padding: 14px; border-radius: 8px; font-weight: bold; font-size: 16px; background: #1a73e8; border: none; color: white; cursor: pointer; box-shadow: 0 4px 12px rgba(26,115,232,0.2);">
+      ログインして学習を開始する
+    </button>
+    
+    <div style="margin-top: 20px; border-top: 1px dashed #eee; padding-top: 15px; text-align: left; background: #f8f9fa; border-radius: 8px; padding: 12px;">
+      <p style="margin: 0; font-size: 12px; color: #e65100; font-weight: bold;">⚠️ 塾からのお知らせ・ルール</p>
+      <ul style="margin: 5px 0 0 0; padding-left: 20px; font-size: 11px; color: #666; line-height: 1.5;">
+        <li>初めてお名前を入力した場合は、自動的に新しいアカウントが作成されます。</li>
+        <li><strong>すでに他の友達が登録している名前は使用できません（ブロックされます）。</strong></li>
+      </ul>
+    </div>
   </div>
 </section>
-
 <section id="homePage" class="page">
   <div class="card" style="text-align: center; padding: 20px;">
     <h2 id="welcomeUser" style="margin-top:0;">こんにちは！</h2>
@@ -1502,7 +1508,103 @@ let isDiagnosticMode = false;
 let diagnosticStage = 1;     // 現在のステージ (1=中1, 2=中2, 3=中3)
 let diagnosticStageCorrect = 0; // 現在のステージでの正解数
 
-// 🚀 実力診断テストを「ステージ1（中1）」から開始する関数
+window.handleNameLogin = async function() {
+    const nameInput = document.getElementById("loginNameInput");
+    if (!nameInput) return;
+    
+    const inputName = nameInput.value.trim().toLowerCase(); // 表記の揺れを防ぐため小文字に統一
+    
+    if (!inputName) {
+        alert("お名前を入力してください。");
+        return;
+    }
+    
+    if (/[.$#[\]@ ]/.test(inputName)) {
+        alert("名前には記号やスペースは使用できません。");
+        return;
+    }
+
+    // 🕵️ Firebase（Realtime Database）の全ユーザーデータを検索し、重複をチェック
+    try {
+        const usersRef = ref(db, 'users');
+        const snapshot = await get(usersRef);
+        
+        let existingUidForThisName = null;
+        let isNameTakenByOther = false;
+        const currentAuthUser = auth.currentUser;
+
+        if (snapshot.exists()) {
+            const allUsers = snapshot.val();
+            // クラウド上の全生徒のアカウントをスキャン
+            for (const uid in allUsers) {
+                if (allUsers[uid].userName && allUsers[uid].userName.trim().toLowerCase() === inputName) {
+                    existingUidForThisName = uid;
+                    // 名前の持ち主のUIDが、現在ログインしているAuthのUIDと異なる場合
+                    if (currentAuthUser && uid !== currentAuthUser.uid) {
+                        isNameTakenByOther = true;
+                    }
+                    break;
+                }
+            }
+        }
+
+        // 🛑 【既存の名前を登録できないようにブロックする核心処理】
+        if (isNameTakenByOther) {
+            alert(`❌ 「${nameInput.value.trim()}」という名前は、すでに別の生徒が登録しています。\n\n別の名前（例: 名字を足す、後ろに数字をつけるなど）で入力し直してください。`);
+            return;
+        }
+
+        // 🟢 重複チェック通過後のログイン・登録処理
+        currentUser = nameInput.value.trim(); // 表示用は入力されたケースを維持
+        localStorage.setItem("secure_currentUserName", currentUser);
+
+        if (currentAuthUser && existingUidForThisName === currentAuthUser.uid) {
+            // パターンA: 過去に自分が登録した名前と一致 ➔ 既存データのロード
+            await loadUserData(currentAuthUser.uid);
+        } else {
+            // パターンB: まだ誰も使っていない新しい名前 ➔ 新規登録（初期化してセーブデータ作成）
+            progress = {};
+            studyCount = 0;
+            completedSections = [];
+            window.completedSections0 = [];
+            window.completedSections1 = [];
+            window.completedSections2 = [];
+            window.diagnosticPassedSections = [];
+            currentSection = 1;
+            lastCompletedSection = 0;
+            isAllWordsMode = false;
+            
+            // 💡 認証情報の UID をキーにして、本人の部屋を新規作成
+            if (currentAuthUser) {
+                await saveProgress();
+            }
+        }
+
+        // 🏠 ホーム画面の描画・同期を行ってページ移動
+        if (typeof updateHomeDashboard === 'function') updateHomeDashboard();
+        if (typeof window.renderSectionButtons === 'function') window.renderSectionButtons();
+        
+        window.showPage("homePage");
+        
+    } catch (error) {
+        console.error("Login / Registration Error:", error);
+        alert("通信エラーが発生しました。インターネット接続を確認してもう一度お試しください。");
+    }
+};
+
+// 🚪 既存の logout 関数のみ、ページ移動先を 'userPage' に書き換えて維持します
+window.logout = function() {
+    const confirmLogout = confirm("アプリからログアウトしてログイン画面に戻りますか？");
+    if (!confirmLogout) return;
+
+    localStorage.removeItem("secure_currentUserName");
+    currentUser = null;
+    auth.signOut().then(() => {
+        showPage("userPage"); // userPage（ログイン画面）に戻す
+    });
+};
+    
+    // 🚀 実力診断テストを「ステージ1（中1）」から開始する関数
 window.startDiagnosticTest = function() {
     if (!words || words.length === 0) return;
     

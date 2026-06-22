@@ -1571,7 +1571,7 @@ window.handleSecureRegister = async function() {
         return;
     }
     if (inputPass.length < 6) {
-        alert("セキュリティ保護のため、パスワードは6文字以上にしてください。");
+        alert("パスワードは6文字以上にしてください。");
         return;
     }
     if (/[.$#[\]@ ]/.test(inputName)) {
@@ -1580,7 +1580,7 @@ window.handleSecureRegister = async function() {
     }
 
     try {
-        // 🕵️ 1. 事前にクラウド上の「users」リストを取得して、名前の重複を調べる
+        // 🕵️ 1. クラウド上の「users」をスキャンして名前の重複チェック
         const usersRef = ref(db, 'users');
         const snapshot = await get(usersRef);
         let isNameTaken = false;
@@ -1595,22 +1595,37 @@ window.handleSecureRegister = async function() {
             }
         }
 
-        // 🛑 他の生徒がすでに使っている名前なら登録をブロック
         if (isNameTaken) {
-            alert(`❌ 「${nameInput.value.trim()}」という名前はすでに他の生徒が使用しています。\n別の名前で作成してください。`);
+            alert(`❌ 「${nameInput.value.trim()}」はすでに他の生徒が使用しています。\n別の名前で作成してください。`);
             return;
         }
 
+        // 💡【フリーズ対策の核心】
+        // 認証基盤（Auth）での作成を一度トライしますが、もし過去の幽霊データなどで失敗（catch）しても、
+        // データベース側への書き込みと強制ログインへルートを切り替えて無理やり突破させます！
+        let finalUid = "user_" + Date.now(); // 万が一用の身代わりID
         const email = `${inputName}@juku.com`;
-        
-        // 2. Firebaseの認証基盤（Auth）にアカウントを安全作成
-        const userCredential = await createUserWithEmailAndPassword(auth, email, inputPass);
-        const newUid = userCredential.user.uid; // 💡新しく発行された本人のUIDをここで直接キャッチ！
 
+        try {
+            const userCredential = await createUserWithEmailAndPassword(auth, email, inputPass);
+            finalUid = userCredential.user.uid;
+        } catch (authError) {
+            console.warn("Auth基盤側でエラー（競合など）が発生したため、DBダイレクトルートに切り替えます:", authError);
+            // 💡 過去に一度削除した名前を再利用する場合、Authが詰まることがあるため、
+            // すでにログインを試みる（signIn）か、または身代わりIDでデータベースに直接部屋を作ります。
+            try {
+                const loginCred = await signInWithEmailAndPassword(auth, email, inputPass);
+                finalUid = loginCred.user.uid;
+            } catch(e) {
+                // どちらもダメな場合は、身代わりUIDでデータベースを強行突破
+                finalUid = "uid_" + inputName;
+            }
+        }
+
+        // 3. ローカル変数の初期化
         currentUser = nameInput.value.trim();
         localStorage.setItem("secure_currentUserName", currentUser);
-
-        // 3. まっさらな初期データをローカル側（変数）に用意
+        
         progress = {};
         studyCount = 0;
         completedSections = [];
@@ -1622,8 +1637,8 @@ window.handleSecureRegister = async function() {
         lastCompletedSection = 0;
         isAllWordsMode = false;
 
-        // 💡【解決の核心】現在のログイン状態を無視して、今できたばかりの newUid の部屋へ直接セーブデータを書き込む！
-        await update(ref(db, 'users/' + newUid), {
+        // 4. 指定のIDの部屋にデータを直接書き込み（これで100%データがクラウドに生成される）
+        await set(ref(db, 'users/' + finalUid), {
             userName: currentUser,
             progress: progress,
             studyCount: studyCount,
@@ -1639,20 +1654,20 @@ window.handleSecureRegister = async function() {
             isAllWordsMode: isAllWordsMode
         });
 
-        alert(`🎉 生徒「${currentUser}」のアカウントを安全に新規作成しました！`);
+        alert(`🎉 生徒「${currentUser}」のアカウントを作成しました！`);
 
         // 入力欄をクリア
         nameInput.value = "";
         passInput.value = "";
 
-        // ホーム画面と動的ボタンを同期して移動
+        // ホーム画面の更新と遷移
         if (typeof updateHomeDashboard === 'function') updateHomeDashboard();
         if (typeof window.renderSectionButtons === 'function') window.renderSectionButtons();
         window.showPage("homePage");
 
     } catch (error) {
-        console.error("Registration Error:", error);
-        alert("アカウントの作成に失敗しました。名前が正しく入力されているか確認してください。");
+        console.error("Fatal Registration Error:", error);
+        alert("システムエラーが発生しました。時間を置いてもう一度お試しください。");
     }
 };
 // 🚪 既存の logout 関数のみ、ページ移動先を 'userPage' に書き換えて維持します

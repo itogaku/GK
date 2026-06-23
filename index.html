@@ -1532,22 +1532,17 @@ window.handleSecureLogin = async function() {
     }
 
     try {
-        // 🕵️ データベースから全ユーザーをスキャンして名前とパスワードを照合
+        // 🕵️ 1. データベースから名前の一致する正式なUIDを探す
         const usersRef = ref(db, 'users');
         const snapshot = await get(usersRef);
         
         let foundUid = null;
-        let isPassCorrect = false;
 
         if (snapshot.exists()) {
             const allUsers = snapshot.val();
             for (const uid in allUsers) {
                 if (allUsers[uid].userName && allUsers[uid].userName.trim().toLowerCase() === inputName) {
                     foundUid = uid;
-                    // 保存されているパスワード（無ければ古いアカウントとしてパス）と照合
-                    if (!allUsers[uid].password || allUsers[uid].password === inputPass) {
-                        isPassCorrect = true;
-                    }
                     break;
                 }
             }
@@ -1558,17 +1553,15 @@ window.handleSecureLogin = async function() {
             return;
         }
 
-        if (!isPassCorrect) {
-            alert("❌ パスワードが違います。");
-            return;
-        }
+        // 💡【解決】Firebase Authの公式サインインメソッドを実行
+        const dummyEmail = `${inputName}@juku-app.local`;
+        await signInWithEmailAndPassword(auth, dummyEmail, inputPass);
 
-        // ログイン成功時の処理
+        // ログイン成功時のデータ同期処理
         currentUser = nameInput.value.trim();
         localStorage.setItem("secure_currentUserName", currentUser);
-        localStorage.setItem("secure_currentUserUid", foundUid); // 💡UIDをローカルに記憶
+        localStorage.setItem("secure_currentUserUid", foundUid); 
 
-        // クラウドから本人のセーブデータを読み込み
         await loadUserData(foundUid);
 
         if (typeof updateHomeDashboard === 'function') updateHomeDashboard();
@@ -1579,10 +1572,9 @@ window.handleSecureLogin = async function() {
 
     } catch (error) {
         console.error("Login Error:", error);
-        alert("通信エラーが発生しました。インターネット接続を確認してください。");
+        alert("❌ パスワードが違うか、ログイン処理に失敗しました。");
     }
 };
-
 // 🌱 【完全独立版】Firebase Authの拒否を100%回避し、確実にアカウントを追加する関数
 window.handleSecureRegister = async function() {
     const nameInput = document.getElementById("newName");
@@ -1626,14 +1618,14 @@ window.handleSecureRegister = async function() {
             return;
         }
 
-        // 💡【解決の核心】
-        // エラーの原因になる公式の「createUserWithEmailAndPassword」を完全に排除！
-        // データベースに弾かれないよう、独自の固有UIDを生成して直接データを書き込みます。
-        const secureUid = "juku_uid_" + inputName + "_" + Math.floor(Math.random() * 10000);
+        // 💡【解決】ダミーのメールアドレスを作成し、Firebase Authに正式にアカウントを作成
+        const dummyEmail = `${inputName}@juku-app.local`; 
+        const userCredential = await createUserWithEmailAndPassword(auth, dummyEmail, inputPass);
+        const secureUid = userCredential.user.uid; // Firebaseが発行した正式なUIDを取得
 
         currentUser = nameInput.value.trim();
         localStorage.setItem("secure_currentUserName", currentUser);
-        localStorage.setItem("secure_currentUserUid", secureUid); // 💡UIDをローカルに記憶
+        localStorage.setItem("secure_currentUserUid", secureUid); 
         
         progress = {};
         studyCount = 0;
@@ -1646,10 +1638,10 @@ window.handleSecureRegister = async function() {
         lastCompletedSection = 0;
         isAllWordsMode = false;
 
-        // 4. データベースの指定の部屋へ、パスワードも含めて直接セット！
+        // 3. 認証された正式なUIDの部屋へ、初期データを書き込み（これでルール違反にならない）
         await set(ref(db, 'users/' + secureUid), {
             userName: currentUser,
-            password: inputPass, // 💡パスワードもデータベース側に安全に保管
+            password: inputPass, // 念のため残す（不要なら消してもAuth側で管理されます）
             progress: progress,
             studyCount: studyCount,
             SECTION_SIZE: SECTION_SIZE,
@@ -1677,7 +1669,7 @@ window.handleSecureRegister = async function() {
 
     } catch (error) {
         console.error("Fatal Registration Error:", error);
-        alert("アカウント作成に失敗しました。Realtime Databaseのアクセス権限を確認してください。");
+        alert(`アカウント作成に失敗しました。\n理由: ${error.message}`);
     }
 };
 // 🚪 既存の logout 関数のみ、ページ移動先を 'userPage' に書き換えて維持します

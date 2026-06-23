@@ -1532,36 +1532,27 @@ window.handleSecureLogin = async function() {
     }
 
     try {
-        // 🕵️ 1. データベースから名前の一致する正式なUIDを探す
-        const usersRef = ref(db, 'users');
-        const snapshot = await get(usersRef);
+        // 🕵️ 1. 公開名簿 'public_users/ユーザー名' から直接UIDを一本釣りする（全体スキャンしない）
+        const userRef = ref(db, 'public_users/' + inputName);
+        const snapshot = await get(userRef);
         
-        let foundUid = null;
-
-        if (snapshot.exists()) {
-            const allUsers = snapshot.val();
-            for (const uid in allUsers) {
-                if (allUsers[uid].userName && allUsers[uid].userName.trim().toLowerCase() === inputName) {
-                    foundUid = uid;
-                    break;
-                }
-            }
-        }
-
-        if (!foundUid) {
+        if (!snapshot.exists()) {
             alert("❌ 生徒アカウントが見つかりません。\n下の「新規作成」からアカウントを作ってください。");
             return;
         }
 
-        // 💡【解決】Firebase Authの公式サインインメソッドを実行
+        const foundUid = snapshot.val(); // 名簿に登録されていたUIDを取得
+
+        // 💡 2. Firebase Authでサインイン（これで鍵が開き、users/$uid にアクセス可能になる）
         const dummyEmail = `${inputName}@juku-app.local`;
         await signInWithEmailAndPassword(auth, dummyEmail, inputPass);
 
-        // ログイン成功時のデータ同期処理
+        // ログイン成功後のデータ同期
         currentUser = nameInput.value.trim();
         localStorage.setItem("secure_currentUserName", currentUser);
         localStorage.setItem("secure_currentUserUid", foundUid); 
 
+        // 鍵が開いたので、個人部屋からデータをロードできる
         await loadUserData(foundUid);
 
         if (typeof updateHomeDashboard === 'function') updateHomeDashboard();
@@ -1592,29 +1583,22 @@ window.handleSecureRegister = async function() {
         alert("パスワードは6文字以上にしてください。");
         return;
     }
+    if (/[.$#[\]@ ]/.test(inputName)) {
+        alert("名前には記号やスペースは使用できません。");
+        return;
+    }
 
     try {
-        const usersRef = ref(db, 'users');
-        const snapshot = await get(usersRef);
-        let isNameTaken = false;
+        // 🕵️ 1. 【安全】誰でも読める 'public_users/ユーザー名' を直接ピンポイントで確認（名前重複チェック）
+        const nameCheckRef = ref(db, 'public_users/' + inputName);
+        const nameSnapshot = await get(nameCheckRef);
 
-        // 💡 データベースに「users」の部屋が存在するときだけ重複チェックをする
-        if (snapshot.exists() && snapshot.val() !== null) {
-            const allUsers = snapshot.val();
-            for (const uid in allUsers) {
-                if (allUsers[uid] && allUsers[uid].userName && allUsers[uid].userName.trim().toLowerCase() === inputName) {
-                    isNameTaken = true;
-                    break;
-                }
-            }
-        }
-
-        if (isNameTaken) {
-            alert(`❌ 「${nameInput.value.trim()}」はすでに使用されています。`);
+        if (nameSnapshot.exists()) {
+            alert(`❌ 「${nameInput.value.trim()}」はすでに他の生徒が使用しています。\n別の名前で作成してください。`);
             return;
         }
 
-        // Firebase Authに登録
+        // 💡 2. Firebase Authに正式にアカウントを作成（これで auth.uid が生成される）
         const dummyEmail = `${inputName}@juku-app.local`; 
         const userCredential = await createUserWithEmailAndPassword(auth, dummyEmail, inputPass);
         const secureUid = userCredential.user.uid; 
@@ -1626,27 +1610,49 @@ window.handleSecureRegister = async function() {
         progress = {};
         studyCount = 0;
         completedSections = [];
+        window.completedSections0 = [];
+        window.completedSections1 = [];
+        window.completedSections2 = [];
+        window.diagnosticPassedSections = [];
         currentSection = 1;
+        lastCompletedSection = 0;
+        isAllWordsMode = false;
 
-        // データベースに初期書き込み
+        // 🤝 3. 公開名簿 'public_users/ユーザー名' に UID を紐付け登録（誰でも書き込み可エリア）
+        await set(ref(db, 'public_users/' + inputName), secureUid);
+
+        // 🔒 4. 本人の特権部屋 'users/auth.uid' に初期データを書き込み（Auth認証が通っているので合格）
         await set(ref(db, 'users/' + secureUid), {
             userName: currentUser,
-            password: inputPass,
+            password: inputPass, 
             progress: progress,
             studyCount: studyCount,
             SECTION_SIZE: SECTION_SIZE,
             TEST_QUESTION_COUNT: TEST_QUESTION_COUNT,
             completedSections: completedSections,
-            currentSection: currentSection
+            completedSections0: window.completedSections0,
+            completedSections1: window.completedSections1,
+            completedSections2: window.completedSections2,
+            diagnosticPassedSections: window.diagnosticPassedSections,
+            currentSection: currentSection,
+            lastCompletedSection: lastCompletedSection,
+            isAllWordsMode: isAllWordsMode
         });
 
-        alert(`🎉 生徒「${currentUser}」のアカウントを作成しました！`);
+        alert(`🎉 生徒「${currentUser}」のアカウントを正常に新規作成しました！`);
+
+        nameInput.value = "";
+        passInput.value = "";
+
+        if (typeof window.renderListSectionSelect === 'function') window.renderListSectionSelect();
+        if (typeof updateHomeDashboard === 'function') updateHomeDashboard();
+        if (typeof window.renderSectionButtons === 'function') window.renderSectionButtons();
+        
         window.showPage("homePage");
 
     } catch (error) {
         console.error("Fatal Registration Error:", error);
-        // エラーの本当の理由（Permission Deniedなど）を画面に出す
-        alert(`アカウント作成に失敗しました。\nエラー内容: ${error.message}\n\n※Firebaseコンソールの「ルール」が「true」になっているか確認してください。`);
+        alert(`アカウント作成に失敗しました。\nエラー: ${error.message}`);
     }
 };
 // 🚪 既存の logout 関数のみ、ページ移動先を 'userPage' に書き換えて維持します

@@ -1592,21 +1592,17 @@ window.handleSecureRegister = async function() {
         alert("パスワードは6文字以上にしてください。");
         return;
     }
-    if (/[.$#[\]@ ]/.test(inputName)) {
-        alert("名前には記号やスペースは使用できません。");
-        return;
-    }
 
     try {
-        // 🕵️ 1. クラウド上の「users」をスキャンして名前の重複チェック
         const usersRef = ref(db, 'users');
         const snapshot = await get(usersRef);
         let isNameTaken = false;
 
-        if (snapshot.exists()) {
+        // 💡 データベースに「users」の部屋が存在するときだけ重複チェックをする
+        if (snapshot.exists() && snapshot.val() !== null) {
             const allUsers = snapshot.val();
             for (const uid in allUsers) {
-                if (allUsers[uid].userName && allUsers[uid].userName.trim().toLowerCase() === inputName) {
+                if (allUsers[uid] && allUsers[uid].userName && allUsers[uid].userName.trim().toLowerCase() === inputName) {
                     isNameTaken = true;
                     break;
                 }
@@ -1614,14 +1610,14 @@ window.handleSecureRegister = async function() {
         }
 
         if (isNameTaken) {
-            alert(`❌ 「${nameInput.value.trim()}」はすでに他の生徒が使用しています。\n別の名前で作成してください。`);
+            alert(`❌ 「${nameInput.value.trim()}」はすでに使用されています。`);
             return;
         }
 
-        // 💡【解決】ダミーのメールアドレスを作成し、Firebase Authに正式にアカウントを作成
+        // Firebase Authに登録
         const dummyEmail = `${inputName}@juku-app.local`; 
         const userCredential = await createUserWithEmailAndPassword(auth, dummyEmail, inputPass);
-        const secureUid = userCredential.user.uid; // Firebaseが発行した正式なUIDを取得
+        const secureUid = userCredential.user.uid; 
 
         currentUser = nameInput.value.trim();
         localStorage.setItem("secure_currentUserName", currentUser);
@@ -1630,46 +1626,27 @@ window.handleSecureRegister = async function() {
         progress = {};
         studyCount = 0;
         completedSections = [];
-        window.completedSections0 = [];
-        window.completedSections1 = [];
-        window.completedSections2 = [];
-        window.diagnosticPassedSections = [];
         currentSection = 1;
-        lastCompletedSection = 0;
-        isAllWordsMode = false;
 
-        // 3. 認証された正式なUIDの部屋へ、初期データを書き込み（これでルール違反にならない）
+        // データベースに初期書き込み
         await set(ref(db, 'users/' + secureUid), {
             userName: currentUser,
-            password: inputPass, // 念のため残す（不要なら消してもAuth側で管理されます）
+            password: inputPass,
             progress: progress,
             studyCount: studyCount,
             SECTION_SIZE: SECTION_SIZE,
             TEST_QUESTION_COUNT: TEST_QUESTION_COUNT,
             completedSections: completedSections,
-            completedSections0: window.completedSections0,
-            completedSections1: window.completedSections1,
-            completedSections2: window.completedSections2,
-            diagnosticPassedSections: window.diagnosticPassedSections,
-            currentSection: currentSection,
-            lastCompletedSection: lastCompletedSection,
-            isAllWordsMode: isAllWordsMode
+            currentSection: currentSection
         });
 
-        alert(`🎉 生徒「${currentUser}」のアカウントを正常に新規作成しました！`);
-
-        nameInput.value = "";
-        passInput.value = "";
-
-        if (typeof window.renderListSectionSelect === 'function') window.renderListSectionSelect();
-        if (typeof updateHomeDashboard === 'function') updateHomeDashboard();
-        if (typeof window.renderSectionButtons === 'function') window.renderSectionButtons();
-        
+        alert(`🎉 生徒「${currentUser}」のアカウントを作成しました！`);
         window.showPage("homePage");
 
     } catch (error) {
         console.error("Fatal Registration Error:", error);
-        alert(`アカウント作成に失敗しました。\n理由: ${error.message}`);
+        // エラーの本当の理由（Permission Deniedなど）を画面に出す
+        alert(`アカウント作成に失敗しました。\nエラー内容: ${error.message}\n\n※Firebaseコンソールの「ルール」が「true」になっているか確認してください。`);
     }
 };
 // 🚪 既存の logout 関数のみ、ページ移動先を 'userPage' に書き換えて維持します

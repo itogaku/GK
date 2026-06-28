@@ -2250,10 +2250,10 @@ window.exitToListView = function() {
 };
 
 window.renderSectionButtons = function() {
-    const group1 = document.getElementById("sectionGroup_chui1");
-    const group2 = document.getElementById("sectionGroup_chui2");
-    const group3 = document.getElementById("sectionGroup_chui3");
-    const group4 = document.getElementById("sectionGroup_saijoi");
+    const group1 = document.getElementById("sectionGroup_chui1"); // クラス1用
+    const group2 = document.getElementById("sectionGroup_chui2"); // クラス2用
+    const group3 = document.getElementById("sectionGroup_chui3"); // クラス3用
+    const group4 = document.getElementById("sectionGroup_saijoi"); // (将来の拡張用)
     const allBtnArea = document.getElementById("sectionGroup_all_button_area");
     
     if(group1) group1.innerHTML = "";
@@ -2288,37 +2288,24 @@ window.renderSectionButtons = function() {
             text-align: center;
         `;
         
-        // 👑 塾長ご指定の「過去最高記録に基づく絶対優先度」色分け判定！
+        // 色分け判定ロジック（既存のまま維持）
         if (window.completedSections0.includes(i)) {
-            // 【優先度1位】0問ミス・全問正解 ➔ 金色（ゴールド）
-            btn.style.background = "#fff8e1"; 
-            btn.style.color = "#b78103";
-            btn.style.borderColor = "#ffe082";
+            btn.style.background = "#fff8e1"; btn.style.color = "#b78103"; btn.style.borderColor = "#ffe082";
             btn.innerHTML = `Sec ${i}<br><span style="font-size:10px; font-weight:bold; color:#b78103;">👑 満点合格</span>`;
         } 
         else if (window.completedSections1.includes(i)) {
-            // 【優先度2位】1問ミス合格 ➔ 濃い緑（エメラルド）
-            btn.style.background = "#e8f5e9"; 
-            btn.style.color = "#2e7d32";
-            btn.style.borderColor = "#a5d6a7";
+            btn.style.background = "#e8f5e9"; btn.style.color = "#2e7d32"; btn.style.borderColor = "#a5d6a7";
             btn.innerHTML = `Sec ${i}<br><span style="font-size:10px; font-weight:normal; color:#2e7d32;">🟢 1ミス合格</span>`;
         } 
         else if (window.completedSections2.includes(i)) {
-            // 【優先度3位】2問ミス合格 ➔ 薄い黄色（ライトイエロー）
-            btn.style.background = "#fffde7"; 
-            btn.style.color = "#fbc02d";
-            btn.style.borderColor = "#fff59d";
+            btn.style.background = "#fffde7"; btn.style.color = "#fbc02d"; btn.style.borderColor = "#fff59d";
             btn.innerHTML = `Sec ${i}<br><span style="font-size:10px; font-weight:normal; color:#fbc02d;">🟡 2ミス合格</span>`;
         } 
         else if (window.diagnosticPassedSections.includes(i)) {
-            // 【優先度4位】実力診断テスト免除 ➔ 青色（スカイブルー）
-            btn.style.background = "#e3f2fd";
-            btn.style.color = "#0d47a1";
-            btn.style.borderColor = "#90caf9";
+            btn.style.background = "#e3f2fd"; btn.style.color = "#0d47a1"; btn.style.borderColor = "#90caf9";
             btn.innerHTML = `Sec ${i}<br><span style="font-size:10px; font-weight:normal; color:#1a73e8;">🌐 診断パス</span>`;
         } 
         else {
-            // 未合格 ➔ 通常の白
             btn.innerHTML = `Sec ${i}`;
         }
         
@@ -2331,13 +2318,25 @@ window.renderSectionButtons = function() {
             window.showPage("homePage");
         };
         
-        if (i <= 22) { if(group1) group1.appendChild(btn); } 
-        else if (i <= 53) { if(group2) group2.appendChild(btn); } 
-        else if (i <= 74) { if(group3) group3.appendChild(btn); } 
-        else { if(group4) group4.appendChild(btn); }
+        // ========================================================
+        // 💡 【ここを修正】固定のセクション番号ではなく、
+        // 「そのセクションの1語目が、全体の何語目にあたるか」で格納先を判定する
+        // ========================================================
+        const firstWordNumOfSection = (i - 1) * SECTION_SIZE + 1;
+
+        if (firstWordNumOfSection <= 426) {
+            // 1〜426語目が含まれるセクション ➔ クラス1のアコーディオンへ
+            if(group1) group1.appendChild(btn);
+        } else if (firstWordNumOfSection <= 566) {
+            // 427〜566語目が含まれるセクション ➔ クラス2のアコーディオンへ
+            if(group2) group2.appendChild(btn);
+        } else {
+            // 567語目以降が含まれるセクション ➔ クラス3のアコーディオンへ
+            if(group3) group3.appendChild(btn);
+        }
     }
 
-    // 全単語確認ボタン（既存のまま）
+    // 全単語確認ボタン（既存のまま維持）
     if (allBtnArea) {
         const allBtn = document.createElement("button");
         allBtn.style.cssText = "width: 100%; padding: 16px; border-radius: 12px; font-weight: bold; border: 2px dashed #4caf50; background: #f1f8e9; color: #4caf50; cursor: pointer; font-size: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.03);";
@@ -2352,11 +2351,14 @@ window.renderSectionButtons = function() {
         allBtnArea.appendChild(allBtn);
     }
 
-    // アコーディオン自動開閉（既存のまま）
+    // ========================================================
+    // 💡 【ここを修正】現在選択されているセクションの「1語目」を基準に
+    // どのアコーディオンを自動で開くか（▲にするか）を判定する
+    // ========================================================
+    const currentFirstWordNum = (currentSection - 1) * SECTION_SIZE + 1;
     let activeKey = "chui1";
-    if (currentSection >= 23 && currentSection <= 53) activeKey = "chui2";
-    if (currentSection >= 54 && currentSection <= 74) activeKey = "chui3";
-    if (currentSection >= 75) activeKey = "saijoi";
+    if (currentFirstWordNum > 426 && currentFirstWordNum <= 566) activeKey = "chui2";
+    if (currentFirstWordNum > 566) activeKey = "chui3";
 
     ["chui1", "chui2", "chui3", "saijoi"].forEach(key => {
         const wrapper = document.getElementById(`wrapper_${key}`);

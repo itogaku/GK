@@ -1049,10 +1049,9 @@ let isSuspended = false;
 
 // --- ⚙️ レベルごとのセクション開始・終了位置の定義 ---
 const LEVEL_CONFIG = {
-    chui1: { start: 1, end: 22, name: "中1基礎" },
-    chui2: { start: 23, end: 53, name: "中2標準" },
-    chui3: { start: 54, end: 74, name: "中3入試応用" },
-    saijoi: { start: 75, end: 101, name: "入試直前最上位" }
+    class1: { start: 1, end: 22, name: "クラス1（like 〜 nice）" },
+    class2: { start: 23, end: 53, name: "クラス2（continue 〜 fire）" },
+    class3: { start: 54, end: 101, name: "クラス3（introduce 〜 pet）" }
 };
 
 let isDiagnosticMode = false;
@@ -1377,38 +1376,30 @@ async function setFinalDiagnosticLevel(levelKey) {
 }
     
 function getLevelInfoByNumber(num) {
-    if (num <= 219) {
-        return { text: "【中1】基礎クラス", sub: "英語の土台・日常の基本表現", color: "#1a73e8", bg: "#e3f2fd" };
-    } else if (num <= 532) {
-        return { text: "【中2】標準クラス", sub: "表現を広げる重要語・主要文法", color: "#2e7d32", bg: "#e8f5e9" };
-    } else if (num <= 735) {
-        return { text: "【中3】入試応用クラス", sub: "長文読解の核・論理変化と必須動詞", color: "#ef6c00", bg: "#fff3e0" };
+    const sec = Math.floor((num - 1) / SECTION_SIZE) + 1;
+    
+    if (sec <= LEVEL_CONFIG.class1.end) {
+        return { text: `【${LEVEL_CONFIG.class1.name}】`, sub: "基礎固め", color: "#1a73e8", bg: "#e3f2fd" };
+    } else if (sec <= LEVEL_CONFIG.class2.end) {
+        return { text: `【${LEVEL_CONFIG.class2.name}】`, sub: "重要表現", color: "#2e7d32", bg: "#e8f5e9" };
     } else {
-        return { text: "【入試直前】最上位テーマ", sub: "差がつく最上位抽象語・時事現代論説", color: "#8e24aa", bg: "#f3e5f5" };
+        return { text: `【${LEVEL_CONFIG.class3.name}】`, sub: "入試応用・最上位", color: "#ef6c00", bg: "#fff3e0" };
     }
 }
     
+// 💡 画面の一覧やテスト結果に出るバッジのテキストをクラス名に自動連動させる
 function getLevelBadgeHtmlByNumber(num) {
+    const sec = Math.floor((num - 1) / SECTION_SIZE) + 1;
     let text = "";
     let bgColor = "";
     let textColor = "";
 
-    if (num <= 219) {
-        text = "中1基礎";
-        bgColor = "#e3f2fd";
-        textColor = "#1a73e8";
-    } else if (num <= 532) {
-        text = "中2標準";
-        bgColor = "#e8f5e9";
-        textColor = "#2e7d32";
-    } else if (num <= 735) {
-        text = "中3応用";
-        bgColor = "#fff3e0";
-        textColor = "#ef6c00";
+    if (sec <= LEVEL_CONFIG.class1.end) {
+        text = "クラス1"; bgColor = "#e3f2fd"; textColor = "#1a73e8";
+    } else if (sec <= LEVEL_CONFIG.class2.end) {
+        text = "クラス2"; bgColor = "#e8f5e9"; textColor = "#2e7d32";
     } else {
-        text = "最上位";
-        bgColor = "#f3e5f5";
-        textColor = "#8e24aa";
+        text = "クラス3"; bgColor = "#fff3e0"; textColor = "#ef6c00";
     }
 
     return `<span style="background: ${bgColor}; color: ${textColor}; font-size: 11px; font-weight: bold; padding: 2px 6px; border-radius: 4px; margin-right: 6px; display: inline-block; vertical-align: middle;">${text}</span>`;

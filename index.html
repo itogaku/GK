@@ -1376,27 +1376,29 @@ async function setFinalDiagnosticLevel(levelKey) {
 }
     
 function getLevelInfoByNumber(num) {
-    const sec = Math.floor((num - 1) / SECTION_SIZE) + 1;
-    
-    if (sec <= LEVEL_CONFIG.class1.end) {
-        return { text: `【${LEVEL_CONFIG.class1.name}】`, sub: "基礎固め", color: "#1a73e8", bg: "#e3f2fd" };
-    } else if (sec <= LEVEL_CONFIG.class2.end) {
-        return { text: `【${LEVEL_CONFIG.class2.name}】`, sub: "重要表現", color: "#2e7d32", bg: "#e8f5e9" };
-    } else {
-        return { text: `【${LEVEL_CONFIG.class3.name}】`, sub: "入試応用・最上位", color: "#ef6c00", bg: "#fff3e0" };
+    // クラス1：1語目 〜 219語目 (like 〜 nice)
+    if (num <= 219) {
+        return { text: "【クラス1】中1基礎", sub: "基本編（like 〜 nice）", color: "#1a73e8", bg: "#e3f2fd" };
+    } 
+    // クラス2：220語目 〜 539語目 (continue 〜 fire ＋ 追加の対義語・方角)
+    else if (num <= 539) {
+        return { text: "【クラス2】中2標準", sub: "発展編・前（continue 〜 fire）", color: "#2e7d32", bg: "#e8f5e9" };
+    } 
+    // クラス3：540語目以降 (introduce 〜 pet ＋ 追加のsmell等)
+    else {
+        return { text: "【クラス3】中3入試応用", sub: "発展編・後（introduce 〜 pet）", color: "#ef6c00", bg: "#fff3e0" };
     }
 }
     
-// 💡 画面の一覧やテスト結果に出るバッジのテキストをクラス名に自動連動させる
+// 💡 画面のバッジ表示も、単語の通し番号を基準に判定する
 function getLevelBadgeHtmlByNumber(num) {
-    const sec = Math.floor((num - 1) / SECTION_SIZE) + 1;
     let text = "";
     let bgColor = "";
     let textColor = "";
 
-    if (sec <= LEVEL_CONFIG.class1.end) {
+    if (num <= 219) {
         text = "クラス1"; bgColor = "#e3f2fd"; textColor = "#1a73e8";
-    } else if (sec <= LEVEL_CONFIG.class2.end) {
+    } else if (num <= 539) {
         text = "クラス2"; bgColor = "#e8f5e9"; textColor = "#2e7d32";
     } else {
         text = "クラス3"; bgColor = "#fff3e0"; textColor = "#ef6c00";

@@ -284,6 +284,17 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
         <option value="40">40問ずつ区切る（テスト: 10問）</option>
       </select>
     </div>
+    
+    <div style="margin-bottom: 25px; text-align: left;">
+      <label style="display: block; font-weight: bold; margin-bottom: 5px; color: #555;">全範囲実力テストの出題問題数</label>
+      <select id="setGlobalSampleSize" style="padding: 10px; width: 100%; border-radius: 6px; border: 1px solid #ccc;">
+        <option value="10">10問</option>
+        <option value="20" selected>20問</option>
+        <option value="30">30問</option>
+        <option value="50">50問</option>
+        <option value="100">100問</option>
+      </select>
+    </div> 
 
     <button onclick="saveSettings()" class="btn-primary" style="width: 100%; padding: 12px; margin-bottom: 16px; border-radius: 6px; font-weight: bold;">
       設定を保存する
@@ -1038,12 +1049,13 @@ let completedSections = [];
 let lastCompletedSection = 0;
 let isAllWordsMode = false;
 let isSuspended = false;
-
+let GLOBAL_SAMPLE_SIZE = 20; // 💡 デフォルトを20問に設定
+    
 // --- ⚙️ レベルごとのセクション開始・終了位置の定義 ---
 const LEVEL_CONFIG = {
-    class1: { start: 1, end: 22, name: "クラス1（like 〜 nice）" },
-    class2: { start: 23, end: 53, name: "クラス2（continue 〜 fire）" },
-    class3: { start: 54, end: 101, name: "クラス3（introduce 〜 pet）" }
+    class1: { name: "クラス1（like 〜 nice）" },
+    class2: { name: "クラス2（continue 〜 fire）" },
+    class3: { name: "クラス3（introduce 〜 pet）" }
 };
 
 let isDiagnosticMode = false;
@@ -1401,22 +1413,8 @@ function getLevelBadgeHtmlByNumber(num) {
     
 // 🔄 レベルが切り替わったときに、セクションのプルダウンを再構築する関数
 window.onLevelChange = function() {
-    const levelSelect = document.getElementById("levelSelect");
-    const sectionSelect = document.getElementById("sectionSelect");
-    
-    // 💡【最重要ガード】ホーム画面からプルダウンを消去したため、パーツが存在しない場合は何もせず安全に終了する！
-    if (!levelSelect || !sectionSelect) return; 
-    
-    const levelKey = levelSelect.value;
-    const config = LEVEL_CONFIG[levelKey];
-    sectionSelect.innerHTML = "";
-    for (let sec = config.start; sec <= config.end; sec++) {
-        const option = document.createElement("option");
-        option.value = sec;
-        option.textContent = `Section ${sec}`;
-        if (sec === currentSection) option.selected = true;
-        sectionSelect.appendChild(option);
-    }
+    // クラス単語基準移行に伴い、セクションプルダウンは window.renderListSectionSelect で一括自動生成されるため処理不要。安全に終了します。
+    return;
 };
 
 // 🔢 セクションが切り替わったときの処理
@@ -1470,6 +1468,7 @@ async function saveProgress() {
         reviewWrongWords: reviewWrongWords, 
         SECTION_SIZE: SECTION_SIZE,
         TEST_QUESTION_COUNT: TEST_QUESTION_COUNT,
+        GLOBAL_SAMPLE_SIZE: GLOBAL_SAMPLE_SIZE, // 💡追加
         completedSections: completedSections,
         completedSections0: window.completedSections0 || [],
         completedSections1: window.completedSections1 || [],
@@ -1480,6 +1479,7 @@ async function saveProgress() {
         isAllWordsMode: isAllWordsMode
     });
 }
+
 async function loadUserData(uid) {
     const snapshot = await get(child(ref(db), `users/${uid}`));
     if (snapshot.exists()) {
@@ -1489,17 +1489,19 @@ async function loadUserData(uid) {
         studyCount = data.studyCount || 0;
         SECTION_SIZE = data.SECTION_SIZE || 10;
         TEST_QUESTION_COUNT = data.TEST_QUESTION_COUNT || 5; 
+        GLOBAL_SAMPLE_SIZE = data.GLOBAL_SAMPLE_SIZE || 20; // 💡追加
         reviewWrongWords = data.reviewWrongWords || [];
         completedSections = data.completedSections || []; 
-        window.completedSections0 = data.completedSections0 || []; // 💡追加
-        window.completedSections1 = data.completedSections1 || []; // 💡追加
-        window.completedSections2 = data.completedSections2 || []; // 💡追加
+        window.completedSections0 = data.completedSections0 || [];
+        window.completedSections1 = data.completedSections1 || [];
+        window.completedSections2 = data.completedSections2 || [];
         window.diagnosticPassedSections = data.diagnosticPassedSections || [];
         currentSection = data.currentSection || 1;
         lastCompletedSection = data.lastCompletedSection || 0;
         isAllWordsMode = data.isAllWordsMode !== undefined ? data.isAllWordsMode : false;
         
         if(document.getElementById("setSectionSize")) document.getElementById("setSectionSize").value = SECTION_SIZE;
+        if(document.getElementById("setGlobalSampleSize")) document.getElementById("setGlobalSampleSize").value = GLOBAL_SAMPLE_SIZE; // 💡追加
         return data;
     }
     return null;
@@ -1560,8 +1562,9 @@ window.showPage = function(id) {
 };
 
 window.saveSettings = async function() {
-    // 1. 選択されたセクションサイズを取得
+    // 1. 選択された各設定値を取得
     SECTION_SIZE = parseInt(document.getElementById("setSectionSize").value);
+    GLOBAL_SAMPLE_SIZE = parseInt(document.getElementById("setGlobalSampleSize").value);
     
     // 2. 💡【塾長のご指定ルール】セクション数に連動してテスト問題数を自動決定！
     if (SECTION_SIZE === 10 || SECTION_SIZE === 20) {
@@ -1572,7 +1575,7 @@ window.saveSettings = async function() {
     
     // 3. クラウドに保存して完了
     await saveProgress();
-    alert(`設定を保存しました。\n（1セクション: ${SECTION_SIZE}語 / テスト: ${TEST_QUESTION_COUNT}問）`);
+    alert(`設定を保存しました。\n（1セクション: ${SECTION_SIZE}語 / 実力テスト: ${GLOBAL_SAMPLE_SIZE}問）`);
     showPage("homePage");
 };
     
@@ -2523,16 +2526,8 @@ window.startGlobalSampleTest = function() {
     const N = words.length;
     if (N === 0) return alert("単語データが登録されていません。");
 
-    const z = 1.96;
-    const e = 0.05;
-    const p = 0.5;
-    
-    const numerator = (z * z) * p * (1 - p);
-    const denominator = (e * e) + (numerator / N);
-    let sampleSize = Math.ceil(numerator / denominator);
-    
+    let sampleSize = GLOBAL_SAMPLE_SIZE;
     if (sampleSize > N) sampleSize = N;
-    if (sampleSize < 5 && N >= 5) sampleSize = 5;
 
     if (!confirm(`【全範囲実力テスト】\n\n全範囲からあなたの現在の実力を測定します。\n全 ${N} 語の中から【 ${sampleSize} 問 】をランダムに選んでテストを行います。挑戦しますか？`)) {
         return;
@@ -2700,23 +2695,20 @@ window.renderListSectionSelect = function() {
     const listSelect = document.getElementById("listSectionSelect");
     if (!listSelect) return;
 
-    // プルダウンを一度クリア
     listSelect.innerHTML = "";
 
-    // 🟢 最上部に「全単語（全範囲）」の選択肢を追加
+    // 最上部に「全単語（全範囲）」の選択肢を追加
     const allOption = document.createElement("option");
     allOption.value = "all";
     allOption.textContent = "📖 全範囲単語マスター（1,006語）";
     if (isAllWordsMode) allOption.selected = true;
     listSelect.appendChild(allOption);
 
-    // 🎨 レベルごとのグループ（見出し枠）を作成
-    const g1 = document.createElement("optgroup"); g1.label = "🌱 【中1】基礎クラス（Sec 1 - 22）";
-    const g2 = document.createElement("optgroup"); g2.label = "🌿 【中2】標準クラス（Sec 23 - 53）";
-    const g3 = document.createElement("optgroup"); g3.label = "🔥 【中3】入試応用クラス（Sec 54 - 74）";
-    const g4 = document.createElement("optgroup"); g4.label = "👑 【入試直前】最上位テーマ（Sec 75 - 101）";
+    // クラスごとの見出しグループを作成
+    const g1 = document.createElement("optgroup"); g1.label = "🌱 【クラス1】基本編（like 〜 nice）";
+    const g2 = document.createElement("optgroup"); g2.label = "🌿 【クラス2】標準編（continue 〜 fire）";
+    const g3 = document.createElement("optgroup"); g3.label = "🔥 【クラス3】応用編（introduce 〜 pet）";
 
-    // 1,006語から全セクション数を計算（101個）
     const count = Math.ceil(words.length / SECTION_SIZE);
     
     for (let i = 1; i <= count; i++) {
@@ -2724,28 +2716,25 @@ window.renderListSectionSelect = function() {
         opt.value = i;
         opt.textContent = `Section ${i}`;
         
-        // 現在開いているセクションなら初期選択状態にする
         if (!isAllWordsMode && i === currentSection) {
             opt.selected = true;
         }
 
-        // 💡 セクション番号の根拠に基づいて、各グループの中に放り込む！
-        if (i <= 22) {
+        // セクションの最初の単語が何語目かで格納する所属グループをパキッと自動判定
+        const firstWordNumOfSection = (i - 1) * SECTION_SIZE + 1;
+
+        if (firstWordNumOfSection <= 426) {
             g1.appendChild(opt);
-        } else if (i <= 53) {
+        } else if (firstWordNumOfSection <= 566) {
             g2.appendChild(opt);
-        } else if (i <= 74) {
-            g3.appendChild(opt);
         } else {
-            g4.appendChild(opt);
+            g3.appendChild(opt);
         }
     }
 
-    // 完成した4つのグループをプルダウンに順番にドッキング
     listSelect.appendChild(g1);
     listSelect.appendChild(g2);
     listSelect.appendChild(g3);
-    listSelect.appendChild(g4);
 };
     
 // --- 初期化 ---

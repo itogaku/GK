@@ -299,7 +299,7 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
     </div>
     
     <div style="margin-bottom: 25px; text-align: left;">
-      <label style="display: block; font-weight: bold; margin-bottom: 5px; color: #555;">全範囲実力テストの出題問題数</label>
+      <label style="display: block; font-weight: bold; margin-bottom: 5px; color: #555;">全範囲実力テストの出題問題数（全範囲・クラス別共通）</label>
       <select id="setGlobalSampleSize" style="padding: 10px; width: 100%; border-radius: 6px; border: 1px solid #ccc;">
         <option value="10">10問</option>
         <option value="20" selected>20問</option>
@@ -2677,12 +2677,12 @@ window.startClassSampleTest = function(classNumber) {
     let classWords = [];
     let className = "";
 
-    // 💡 単語の通し番号（getLevelInfoByNumberと同じ数値）を基準に、そのクラスの単語だけを抽出
+    // 💡 単語の通し番号を基準に、該当クラスの単語だけを切り出し
     if (classNumber === 1) {
-        classWords = words.slice(0, 426); // 1〜426語目
+        classWords = words.slice(0, 426); // 1〜426語目（全426語）
         className = "クラス1【基本編】";
     } else if (classNumber === 2) {
-        classWords = words.slice(426, 566); // 427〜566語目
+        classWords = words.slice(426, 566); // 427〜566語目（全140語）
         className = "クラス2【標準編】";
     } else if (classNumber === 3) {
         classWords = words.slice(566); // 567語目以降
@@ -2690,10 +2690,15 @@ window.startClassSampleTest = function(classNumber) {
     }
 
     const N = classWords.length;
-    let sampleSize = GLOBAL_SAMPLE_SIZE; // 設定画面で決めた問題数
-    if (sampleSize > N) sampleSize = N;  // 安全ガード
+    
+    // 💡 設定画面で指定された共通の実力テスト出題数（GLOBAL_SAMPLE_SIZE）をそのまま適用
+    let sampleSize = GLOBAL_SAMPLE_SIZE; 
+    
+    // ⚠️ 安全ガード：もし設定された問題数が、そのクラスの総単語数（N）より多ければ、そのクラスの全単語数に合わせる
+    // （例：設定が50問で、クラス2が残り140語なら50問のまま、もし将来単語数の極端に少ないクラスが増えてもバグりません）
+    if (sampleSize > N) sampleSize = N;
 
-    if (!confirm(`【${className} 実力テスト】\n\nこのクラスの範囲から現在の実力を測定します。\n範囲内の ${N} 語の中から【 ${sampleSize} 問 】をランダムに選んでテストを行います。挑戦しますか？`)) {
+    if (!confirm(`【${className} 実力テスト】\n\nこのクラスの範囲から現在の実力を測定します。\n範囲内の ${N} 語の中から、設定された【 ${sampleSize} 問 】をランダムに選んでテストを行います。挑戦しますか？`)) {
         return;
     }
 
@@ -2702,7 +2707,7 @@ window.startClassSampleTest = function(classNumber) {
     isSelfPracticeMode = true;
     isPracticeModeGlobal = true; 
 
-    // 指定クラスの単語だけをシャッフルして出題プールにセット
+    // 選択されたクラスの単語だけを完全にシャッフルし、設定された問題数分だけプールにセット
     reviewPool = [...classWords].sort(() => Math.random() - 0.5).slice(0, sampleSize);
     
     renderQuestion();

@@ -140,7 +140,20 @@ button { padding: 10px 15px; cursor: pointer; border-radius: 6px; border: 1px so
     <button onclick="startGlobalSampleTest()" class="btn-primary" style="font-size: 16px; padding: 12px; width: 100%; margin-bottom: 25px; border-radius: 50px; background: #9c27b0; box-shadow: 0 4px 12px rgba(156,39,176,0.3);">
       📝 全範囲実力テストを開始する
     </button>
+    
+    <div class="class-test-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 25px;">
+      <button onclick="startClassSampleTest(1)" style="padding: 10px 2px; border-radius: 8px; font-weight: bold; background: #e3f2fd; border: 1px solid #90caf9; color: #1a73e8; font-size: 12px;">
+        🎯 クラス1<br>実力テスト
+      </button>
+      <button onclick="startClassSampleTest(2)" style="padding: 10px 2px; border-radius: 8px; font-weight: bold; background: #e8f5e9; border: 1px solid #a5d6a7; color: #2e7d32; font-size: 12px;">
+        🎯 クラス2<br>実力テスト
+      </button>
+      <button onclick="startClassSampleTest(3)" style="padding: 10px 2px; border-radius: 8px; font-weight: bold; background: #fff3e0; border: 1px solid #ffcc80; color: #ef6c00; font-size: 12px;">
+        🎯 クラス3<br>実力テスト
+      </button>
+    </div>
 
+      
     <div style="border-top: 2px dashed #eee; margin: 20px 0;"></div>
 
     <div class="home-menu-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
@@ -2655,6 +2668,45 @@ window.handleQuizCancelOrEndAction = function() {
         isReviewMode = false;
         window.showPage("homePage");
     }
+};
+
+// 🏆 【新規追加】指定したクラスの範囲だけでランダム実力テストを開始する関数
+window.startClassSampleTest = function(classNumber) {
+    if (!words || words.length === 0) return alert("単語データが登録されていません。");
+
+    let classWords = [];
+    let className = "";
+
+    // 💡 単語の通し番号（getLevelInfoByNumberと同じ数値）を基準に、そのクラスの単語だけを抽出
+    if (classNumber === 1) {
+        classWords = words.slice(0, 426); // 1〜426語目
+        className = "クラス1【基本編】";
+    } else if (classNumber === 2) {
+        classWords = words.slice(426, 566); // 427〜566語目
+        className = "クラス2【標準編】";
+    } else if (classNumber === 3) {
+        classWords = words.slice(566); // 567語目以降
+        className = "クラス3【応用編】";
+    }
+
+    const N = classWords.length;
+    let sampleSize = GLOBAL_SAMPLE_SIZE; // 設定画面で決めた問題数
+    if (sampleSize > N) sampleSize = N;  // 安全ガード
+
+    if (!confirm(`【${className} 実力テスト】\n\nこのクラスの範囲から現在の実力を測定します。\n範囲内の ${N} 語の中から【 ${sampleSize} 問 】をランダムに選んでテストを行います。挑戦しますか？`)) {
+        return;
+    }
+
+    testLog = [];
+    isReviewMode = true; 
+    isSelfPracticeMode = true;
+    isPracticeModeGlobal = true; 
+
+    // 指定クラスの単語だけをシャッフルして出題プールにセット
+    reviewPool = [...classWords].sort(() => Math.random() - 0.5).slice(0, sampleSize);
+    
+    renderQuestion();
+    showPage("quiz");
 };
     
 // --- キーボード ---

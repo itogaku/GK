@@ -8,17 +8,19 @@
 <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --navy: #182849;
-    --navy-deep: #101b34;
-    --panel: #21335c;
-    --panel-soft: #263a68;
-    --sun: #ffc857;
-    --sun-deep: #ffab2e;
-    --mint: #35d0b8;
-    --coral: #ff7a5c;
-    --text: #eef2ff;
-    --text-dim: #9fb0d6;
-    --line: rgba(255,255,255,0.10);
+    --bg: #faf7f0;
+    --bg-deep: #f1ebdd;
+    --surface: #ffffff;
+    --surface-soft: #f6f1e6;
+    --inset: #f0ead9;
+    --sun: #d98f2b;
+    --sun-deep: #b8741f;
+    --sun-text: #a5661a;
+    --mint: #0c7a64;
+    --coral: #cf4327;
+    --text: #24304a;
+    --text-dim: #6b7385;
+    --line: rgba(36,48,74,0.12);
     --r-lg: 22px;
     --r-md: 14px;
     --r-sm: 9px;
@@ -28,9 +30,9 @@
   body{
     font-family:'Zen Kaku Gothic New', sans-serif;
     background:
-      radial-gradient(circle at 12% -10%, rgba(255,200,87,0.16), transparent 45%),
-      radial-gradient(circle at 100% 0%, rgba(53,208,184,0.10), transparent 40%),
-      linear-gradient(180deg, var(--navy-deep), var(--navy) 60%);
+      radial-gradient(circle at 12% -10%, rgba(217,143,43,0.16), transparent 45%),
+      radial-gradient(circle at 100% 0%, rgba(12,122,100,0.10), transparent 40%),
+      linear-gradient(180deg, var(--bg-deep), var(--bg) 60%);
     color:var(--text);
     min-height:100vh;
     -webkit-font-smoothing:antialiased;
@@ -42,7 +44,7 @@
   .brand-mark{
     width:38px;height:38px;border-radius:50%;
     background:conic-gradient(from -40deg, var(--sun), var(--sun-deep), var(--coral), var(--sun));
-    box-shadow:0 0 22px rgba(255,200,87,0.45);
+    box-shadow:0 0 16px rgba(217,143,43,0.35);
     flex-shrink:0;
   }
   .brand-text{line-height:1.15;}
@@ -50,44 +52,45 @@
   .brand-text .jp{font-size:11px;color:var(--text-dim);letter-spacing:0.05em;}
   .icon-btn{
     width:40px;height:40px;border-radius:50%;border:1px solid var(--line);
-    background:var(--panel);color:var(--text-dim);display:flex;align-items:center;justify-content:center;
+    background:var(--surface);color:var(--text-dim);display:flex;align-items:center;justify-content:center;
     cursor:pointer;transition:.15s;
   }
-  .icon-btn:hover{color:var(--sun);border-color:var(--sun);}
+  .icon-btn:hover{color:var(--sun-text);border-color:var(--sun-text);}
   .icon-btn svg{width:19px;height:19px;}
 
-  .card{ background:var(--panel); border:1px solid var(--line); border-radius:var(--r-lg); padding:20px; margin-bottom:16px; }
+  .card{ background:var(--surface); border:1px solid var(--line); border-radius:var(--r-lg); padding:20px; margin-bottom:16px; }
   .section-label{ font-size:12px; letter-spacing:.12em; color:var(--text-dim); text-transform:uppercase; margin-bottom:10px; font-weight:700; }
 
   .grade-grid{display:grid;grid-template-columns:1fr;gap:12px;}
-  .grade-card{ display:flex; align-items:center; gap:16px; background:var(--panel); border:1px solid var(--line); border-radius:var(--r-lg); padding:18px 20px; cursor:pointer; transition:.15s; text-align:left; }
-  .grade-card:hover{border-color:var(--sun); transform:translateY(-1px);}
-  .grade-num{ font-family:'Zen Maru Gothic'; font-weight:900; font-size:30px; color:var(--navy-deep); width:56px;height:56px;border-radius:50%; display:flex;align-items:center;justify-content:center;flex-shrink:0; background:linear-gradient(135deg,var(--sun),var(--sun-deep)); }
+  .grade-card{ display:flex; align-items:center; gap:16px; background:var(--surface); border:1px solid var(--line); border-radius:var(--r-lg); padding:18px 20px; cursor:pointer; transition:.15s; text-align:left; }
+  .grade-card:hover{border-color:var(--sun-text); transform:translateY(-1px);}
+  .grade-num{ font-family:'Zen Maru Gothic'; font-weight:900; font-size:30px; color:var(--text); width:56px;height:56px;border-radius:50%; display:flex;align-items:center;justify-content:center;flex-shrink:0; background:linear-gradient(135deg,var(--sun),var(--sun-deep)); }
   .grade-info{flex:1;min-width:0;}
   .grade-title{font-family:'Zen Maru Gothic'; font-weight:700; font-size:16px; margin-bottom:6px;}
-  .grade-progress-track{height:7px;border-radius:5px;background:rgba(255,255,255,0.08);overflow:hidden;}
+  .grade-progress-track{height:7px;border-radius:5px;background:rgba(36,48,74,0.08);overflow:hidden;}
   .grade-progress-fill{height:100%;background:linear-gradient(90deg,var(--mint),var(--sun));border-radius:5px;}
   .grade-sub{font-size:11.5px;color:var(--text-dim);margin-top:6px;}
   .chev{color:var(--text-dim);font-size:20px;flex-shrink:0;}
 
   .week-row{ display:flex; align-items:center; gap:14px; padding:14px 4px; border-bottom:1px solid var(--line); }
   .week-row:last-child{border-bottom:none;}
-  .week-badge{ width:34px;height:34px;border-radius:10px;flex-shrink:0; display:flex;align-items:center;justify-content:center;font-family:'Zen Maru Gothic';font-weight:900;font-size:13px; background:var(--panel-soft); color:var(--text-dim); }
-  .week-row.active .week-badge{background:linear-gradient(135deg,var(--sun),var(--sun-deep)); color:var(--navy-deep);}
-  .week-row.done .week-badge{background:rgba(53,208,184,0.18); color:var(--mint);}
+  .week-badge{ width:34px;height:34px;border-radius:10px;flex-shrink:0; display:flex;align-items:center;justify-content:center;font-family:'Zen Maru Gothic';font-weight:900;font-size:13px; background:var(--surface-soft); color:var(--text-dim); }
+  .week-row.active .week-badge{background:linear-gradient(135deg,var(--sun),var(--sun-deep)); color:var(--text);}
+  .week-row.done .week-badge{background:rgba(12,122,100,0.18); color:var(--mint);}
   .week-body{flex:1;min-width:0;}
   .week-name{font-weight:700;font-size:14.5px;}
   .week-meta{font-size:11.5px;color:var(--text-dim);margin-top:2px;}
-  .week-track{height:5px;border-radius:4px;background:rgba(255,255,255,0.08);margin-top:6px;overflow:hidden;}
+  .week-track{height:5px;border-radius:4px;background:rgba(36,48,74,0.08);margin-top:6px;overflow:hidden;}
   .week-fill{height:100%;background:var(--mint);border-radius:4px;}
 
   .btn{ font-family:'Zen Maru Gothic'; font-weight:700; font-size:15px; border:none; border-radius:14px; padding:15px 20px; cursor:pointer; display:flex;align-items:center;justify-content:center;gap:8px; width:100%; transition:.12s; letter-spacing:.01em; }
-  .btn-primary{background:linear-gradient(135deg,var(--sun),var(--sun-deep)); color:var(--navy-deep);}
+  .btn-primary{background:linear-gradient(135deg,var(--sun),var(--sun-deep)); color:var(--text);}
   .btn-primary:hover{filter:brightness(1.05); transform:translateY(-1px);}
-  .btn-primary:active{transform:translateY(0);}
+  .btn-primary:active{transform:scale(0.97);}
   .btn-primary:disabled{opacity:.4; cursor:not-allowed; transform:none;}
   .btn-ghost{background:transparent; border:1px solid var(--line); color:var(--text);}
   .btn-ghost:hover{border-color:var(--text-dim);}
+  .btn-ghost:active{transform:scale(0.97);}
 
   .back-row{display:flex;align-items:center;gap:10px;margin-bottom:16px;cursor:pointer;color:var(--text-dim);font-size:13.5px;}
   .back-row:hover{color:var(--text);}
@@ -96,32 +99,33 @@
   .setting-title{font-family:'Zen Maru Gothic';font-weight:700;font-size:15px;margin-bottom:4px;}
   .setting-desc{font-size:12px;color:var(--text-dim);margin-bottom:12px;line-height:1.5;}
   .chip-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
-  .chip{ padding:10px 18px;border-radius:999px;border:1px solid var(--line);background:var(--panel-soft); color:var(--text); font-weight:700; font-size:14px; cursor:pointer; font-family:'Zen Maru Gothic'; }
-  .chip.selected{background:linear-gradient(135deg,var(--sun),var(--sun-deep)); color:var(--navy-deep); border-color:transparent;}
+  .chip{ padding:10px 18px;border-radius:999px;border:1px solid var(--line);background:var(--surface-soft); color:var(--text); font-weight:700; font-size:14px; cursor:pointer; font-family:'Zen Maru Gothic'; transition:.1s; }
+  .chip:active{transform:scale(0.94);}
+  .chip.selected{background:linear-gradient(135deg,var(--sun),var(--sun-deep)); color:var(--text); border-color:transparent;}
   .chip-custom{display:flex;align-items:center;gap:6px;}
-  .chip-custom input{ width:64px; background:var(--navy-deep); border:1px solid var(--line); border-radius:999px; color:var(--text); font-family:'JetBrains Mono'; text-align:center; padding:9px 6px; font-size:14px; }
+  .chip-custom input{ width:64px; background:var(--inset); border:1px solid var(--line); border-radius:999px; color:var(--text); font-family:'JetBrains Mono'; text-align:center; padding:9px 6px; font-size:14px; }
 
   .stage-tag{ display:inline-block; font-size:11.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; padding:5px 12px; border-radius:999px; margin-bottom:14px; }
   .stage-tag.review{background:rgba(255,122,92,0.16); color:var(--coral);}
-  .stage-tag.study{background:rgba(53,208,184,0.16); color:var(--mint);}
-  .stage-tag.confirm{background:rgba(255,200,87,0.16); color:var(--sun);}
-  .stage-tag.check{background:rgba(53,208,184,0.20); color:var(--mint);}
+  .stage-tag.study{background:rgba(12,122,100,0.16); color:var(--mint);}
+  .stage-tag.confirm{background:rgba(217,143,43,0.16); color:var(--sun-text);}
+  .stage-tag.check{background:rgba(12,122,100,0.20); color:var(--mint);}
   .progress-dots{display:flex;gap:5px;margin-bottom:22px;flex-wrap:wrap;}
-  .dot{flex:1;min-width:5px;height:5px;border-radius:4px;background:rgba(255,255,255,0.10);}
+  .dot{flex:1;min-width:5px;height:5px;border-radius:4px;background:rgba(36,48,74,0.10);}
   .dot.wrong{background:var(--coral);}
   .dot.correct{background:var(--mint);}
 
   .word-stage{ text-align:center; padding:34px 10px 10px; }
   .word-stage .grade-chip{ display:inline-block;font-size:11px;color:var(--text-dim);border:1px solid var(--line); border-radius:999px;padding:3px 10px;margin-bottom:16px;font-weight:700; }
   .big-word{ font-family:'Zen Maru Gothic'; font-weight:900; font-size:40px; word-break:break-word; margin-bottom:6px; letter-spacing:.01em; }
-  .meaning-txt{font-size:19px;color:var(--sun);font-weight:700;margin-bottom:10px;}
-  .example-box{background:var(--navy-deep);border-radius:12px;padding:12px 16px;margin:14px 0 22px;text-align:left;}
+  .meaning-txt{font-size:19px;color:var(--sun-text);font-weight:700;margin-bottom:10px;}
+  .example-box{background:var(--inset);border-radius:12px;padding:12px 16px;margin:14px 0 22px;text-align:left;}
   .example-en{font-family:'JetBrains Mono';font-size:14px;line-height:1.6;color:var(--text);}
   .example-ja{font-size:12.5px;color:var(--text-dim);margin-top:6px;line-height:1.5;}
   .blank-mark{display:inline-block;min-width:64px;height:1.1em;border-bottom:3px solid var(--sun);vertical-align:text-bottom;margin:0 2px;}
 
-  .spell-input{ width:100%; background:var(--navy-deep); border:2px solid var(--line); border-radius:14px; color:var(--text); font-family:'JetBrains Mono'; font-size:22px; text-align:center; letter-spacing:.06em; padding:16px 12px; margin-bottom:16px; }
-  .spell-input:focus{outline:none;border-color:var(--sun);}
+  .spell-input{ width:100%; background:var(--inset); border:2px solid var(--line); border-radius:14px; color:var(--text); font-family:'JetBrains Mono'; font-size:22px; text-align:center; letter-spacing:.06em; padding:16px 12px; margin-bottom:16px; }
+  .spell-input:focus{outline:none;border-color:var(--sun-text);}
   .spell-input.correct{border-color:var(--mint); color:var(--mint);}
   .spell-input.incorrect{border-color:var(--coral); color:var(--coral);}
   .feedback{min-height:26px;font-weight:700;margin-bottom:10px;font-size:14.5px;}
@@ -130,53 +134,66 @@
 
   .summary-icon{font-size:46px;margin-bottom:6px;}
   .summary-stats{display:flex;gap:10px;margin:20px 0;}
-  .stat-box{flex:1;background:var(--panel-soft);border-radius:14px;padding:16px 8px;text-align:center;}
+  .stat-box{flex:1;background:var(--surface-soft);border-radius:14px;padding:16px 8px;text-align:center;}
   .stat-num{font-family:'Zen Maru Gothic';font-weight:900;font-size:26px;}
   .stat-label{font-size:11px;color:var(--text-dim);margin-top:2px;}
 
+  .confetti-wrap{position:relative;height:0;overflow:visible;}
+  .confetti-piece{position:absolute;top:-10px;width:8px;height:8px;border-radius:2px;animation:confetti-fall 1.5s ease-in forwards;}
+  @keyframes confetti-fall{
+    0%{transform:translateY(0) rotate(0deg);opacity:1;}
+    100%{transform:translateY(180px) rotate(420deg);opacity:0;}
+  }
+  @media (prefers-reduced-motion: reduce){ .confetti-piece{animation:none;display:none;} }
+
+  .badge-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+  .badge-pill{display:flex;align-items:center;gap:6px;background:var(--surface-soft);border:1px solid var(--line);border-radius:999px;padding:8px 14px;font-size:13px;font-weight:700;font-family:'Zen Maru Gothic';}
+  .badge-pill.streak{color:var(--coral);}
+  .badge-pill.level{color:var(--sun-text);}
+
   .empty-state{text-align:center;padding:30px 10px;color:var(--text-dim);font-size:13.5px;line-height:1.7;}
-  .toast{ position:fixed; bottom:22px; left:50%; transform:translateX(-50%); background:var(--panel-soft); border:1px solid var(--line); color:var(--text); padding:10px 18px; border-radius:999px; font-size:13px; z-index:50; opacity:0; transition:.25s; pointer-events:none; }
+  .toast{ position:fixed; bottom:22px; left:50%; transform:translateX(-50%); background:var(--surface-soft); border:1px solid var(--line); color:var(--text); padding:10px 18px; border-radius:999px; font-size:13px; z-index:50; opacity:0; transition:.25s; pointer-events:none; }
   .toast.show{opacity:1;}
 
   .study-list{display:flex;flex-direction:column;gap:10px;}
   .study-list.compact{gap:0;}
-  .study-item{background:var(--panel-soft);border-radius:14px;padding:14px 16px;}
+  .study-item{background:var(--surface-soft);border-radius:14px;padding:14px 16px;}
   .study-item .w{font-family:'Zen Maru Gothic';font-weight:900;font-size:19px;}
-  .study-item .m{color:var(--sun);font-size:14.5px;font-weight:700;margin-top:2px;}
+  .study-item .m{color:var(--sun-text);font-size:14.5px;font-weight:700;margin-top:2px;}
   .study-item .ex{font-family:'JetBrains Mono';font-size:12px;color:var(--text-dim);margin-top:6px;line-height:1.5;}
   .study-item .exja{font-size:11.5px;color:var(--text-dim);margin-top:3px;opacity:.85;}
   .study-item.pending .m,.study-item.pending .ex,.study-item.pending .exja{color:var(--text-dim); opacity:.5;}
   .study-item-compact{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:7px 4px;border-bottom:1px solid var(--line);}
   .study-item-compact:last-child{border-bottom:none;}
   .study-item-compact .w{font-family:'Zen Maru Gothic';font-weight:800;font-size:14.5px;flex-shrink:0;}
-  .study-item-compact .m{color:var(--sun);font-size:12.5px;font-weight:700;text-align:right;flex:1;}
+  .study-item-compact .m{color:var(--sun-text);font-size:12.5px;font-weight:700;text-align:right;flex:1;}
   .wl-exclude-btn{flex-shrink:0;color:var(--text-dim);font-size:11px;padding:4px 7px;cursor:pointer;border-radius:6px;border:1px solid var(--line);white-space:nowrap;}
-  .wl-exclude-btn:hover{color:var(--coral);border-color:var(--coral);background:rgba(255,107,107,0.12);}
-  .wl-exclude-btn.known:hover{color:var(--mint);border-color:var(--mint);background:rgba(126,224,178,0.12);}
+  .wl-exclude-btn:hover{color:var(--coral);border-color:var(--coral);background:rgba(207,67,39,0.12);}
+  .wl-exclude-btn.known:hover{color:var(--mint);border-color:var(--mint);background:rgba(12,122,100,0.12);}
   .study-item-compact.excluded-row{opacity:0.5;}
   .study-item-compact.excluded-row .m{color:var(--text-dim);}
-  .spinner{ width:34px;height:34px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--sun); animation:spin 0.8s linear infinite; margin:0 auto 16px; }
+  .spinner{ width:34px;height:34px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--sun-text); animation:spin 0.8s linear infinite; margin:0 auto 16px; }
   @keyframes spin{to{transform:rotate(360deg);}}
   .week-row.selectable{cursor:pointer;}
-  .week-row.selected{background:rgba(255,200,87,0.10); border-radius:12px; margin:0 -8px; padding:14px 8px;}
+  .week-row.selected{background:rgba(217,143,43,0.10); border-radius:12px; margin:0 -8px; padding:14px 8px;}
   .week-row.selected .week-badge{box-shadow:0 0 0 2px var(--sun);}
-  .prog-check{width:24px;height:24px;border-radius:8px;border:2px solid var(--line);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--navy-deep);}
-  .week-row.selected .prog-check{background:linear-gradient(135deg,var(--sun),var(--sun-deep));border-color:var(--sun);}
-  .prog-check.partial{background:rgba(255,200,87,0.35);border-color:var(--sun);color:var(--sun);}
+  .prog-check{width:24px;height:24px;border-radius:8px;border:2px solid var(--line);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--text);}
+  .week-row.selected .prog-check{background:linear-gradient(135deg,var(--sun),var(--sun-deep));border-color:var(--sun-text);}
+  .prog-check.partial{background:rgba(217,143,43,0.35);border-color:var(--sun-text);color:var(--sun-text);}
   .expand-btn{font-size:11px;color:var(--text-dim);padding:6px 10px;cursor:pointer;flex-shrink:0;white-space:nowrap;}
-  .expand-btn:hover{color:var(--sun);}
+  .expand-btn:hover{color:var(--sun-text);}
   .sec-row{display:flex;align-items:center;gap:12px;padding:10px 4px;border-bottom:1px solid var(--line);cursor:pointer;}
   .sec-row:last-child{border-bottom:none;}
-  .sec-row.selected{background:rgba(255,200,87,0.10);border-radius:10px;margin:0 -6px;padding:10px 6px;}
-  .sec-row.selected .prog-check{background:linear-gradient(135deg,var(--sun),var(--sun-deep));border-color:var(--sun);}
+  .sec-row.selected{background:rgba(217,143,43,0.10);border-radius:10px;margin:0 -6px;padding:10px 6px;}
+  .sec-row.selected .prog-check{background:linear-gradient(135deg,var(--sun),var(--sun-deep));border-color:var(--sun-text);}
   .sec-name{font-weight:700;font-size:13.5px;flex:1;}
   .sec-count{font-size:11.5px;color:var(--text-dim);}
-  .search-input{ width:100%; background:var(--navy-deep); border:2px solid var(--line); border-radius:14px; color:var(--text); font-family:'Zen Kaku Gothic New'; font-size:15px; padding:13px 16px; margin-bottom:14px; }
-  .search-input:focus{outline:none;border-color:var(--sun);}
-  .wl-item{background:var(--panel-soft);border-radius:14px;padding:12px 16px;margin-bottom:8px;}
+  .search-input{ width:100%; background:var(--inset); border:2px solid var(--line); border-radius:14px; color:var(--text); font-family:'Zen Kaku Gothic New'; font-size:15px; padding:13px 16px; margin-bottom:14px; }
+  .search-input:focus{outline:none;border-color:var(--sun-text);}
+  .wl-item{background:var(--surface-soft);border-radius:14px;padding:12px 16px;margin-bottom:8px;}
   .wl-item.excluded-row{opacity:0.55;}
   .wl-item .w{font-family:'Zen Maru Gothic';font-weight:900;font-size:16px;}
-  .wl-item .m{color:var(--sun);font-size:13.5px;font-weight:700;margin-top:2px;}
+  .wl-item .m{color:var(--sun-text);font-size:13.5px;font-weight:700;margin-top:2px;}
   .wl-item .tag{font-size:10.5px;color:var(--text-dim);margin-top:3px;}
   .wl-exclude-toggle{display:inline-block;margin-top:8px;font-size:11.5px;color:var(--text-dim);border:1px solid var(--line);border-radius:8px;padding:5px 10px;cursor:pointer;}
   .wl-exclude-toggle:hover{color:var(--coral);border-color:var(--coral);}
@@ -186,17 +203,17 @@
 
   .progress-container{position:relative;width:180px;height:180px;margin:16px auto 10px;}
   .progress-ring{width:100%;height:100%;transform:rotate(-90deg);}
-  .ring-bg{fill:none;stroke:rgba(255,255,255,0.08);stroke-width:14;}
+  .ring-bg{fill:none;stroke:rgba(36,48,74,0.08);stroke-width:14;}
   .ring-bar{fill:none;stroke:var(--sun);stroke-width:14;stroke-linecap:round;stroke-dasharray:565.5;transition:stroke-dashoffset 1s ease-out;}
   .progress-info{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;}
-  .pct-num{font-family:'Zen Maru Gothic';font-weight:900;font-size:32px;color:var(--sun);}
+  .pct-num{font-family:'Zen Maru Gothic';font-weight:900;font-size:32px;color:var(--sun-text);}
   .pct-label{font-size:11px;color:var(--text-dim);margin-top:2px;}
-  .star-badge{color:var(--sun);margin-left:5px;font-size:13px;}
-  .kb-toggle{font-size:12px;color:var(--sun);text-align:center;cursor:pointer;margin:2px 0 10px;font-weight:700;}
+  .star-badge{color:var(--sun-text);margin-left:5px;font-size:13px;}
+  .kb-toggle{font-size:12px;color:var(--sun-text);text-align:center;cursor:pointer;margin:2px 0 10px;font-weight:700;}
   .kb-row{display:flex;justify-content:center;gap:4px;margin-bottom:5px;}
-  .kb-key{min-width:28px;height:38px;padding:0 4px;border-radius:7px;border:1px solid var(--line);background:var(--panel-soft);color:var(--text);font-family:'JetBrains Mono';font-size:13px;}
-  .kb-key:active{background:var(--sun);color:var(--navy-deep);}
-  #onKeyboard{background:var(--navy-deep);border-radius:12px;padding:10px 6px;margin-bottom:16px;}
+  .kb-key{min-width:28px;height:38px;padding:0 4px;border-radius:7px;border:1px solid var(--line);background:var(--surface-soft);color:var(--text);font-family:'JetBrains Mono';font-size:13px;}
+  .kb-key:active{background:var(--sun);color:var(--text);}
+  #onKeyboard{background:var(--inset);border-radius:12px;padding:10px 6px;margin-bottom:16px;}
 </style>
 </head>
 <body>
@@ -239,6 +256,8 @@ async function saveStudentRecord(){
       excludedWords: [...currentStudent.excludedWords],
       excludeReasons: currentStudent.excludeReasons || {},
       studyCount: currentStudent.studyCount,
+      streak: currentStudent.streak || 0,
+      lastStudyDate: currentStudent.lastStudyDate || null,
       lastRange: currentStudent.lastRange || null
     }), true);
   }catch(e){ showToast('保存に失敗しました。通信環境を確認してください'); }
@@ -266,6 +285,74 @@ function restoreRangeFromSaved(saved){
 }
 
 function showToast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2400); }
+
+// ---------- motivation helpers ----------
+function sunriseProgressSvg(pct){
+  const cy = 96 - (Math.max(0,Math.min(100,pct))/100)*74;
+  const glow = 0.18 + (pct/100)*0.35;
+  return `<svg viewBox="0 0 300 118" style="width:100%;max-width:300px;display:block;margin:0 auto;">
+    <defs>
+      <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#101b34"/>
+        <stop offset="55%" stop-color="#21335c"/>
+        <stop offset="100%" stop-color="#3d3468"/>
+      </linearGradient>
+      <radialGradient id="sunGrad" cx="50%" cy="45%" r="55%">
+        <stop offset="0%" stop-color="#fff3d6"/>
+        <stop offset="55%" stop-color="#ffc857"/>
+        <stop offset="100%" stop-color="#ffab2e"/>
+      </radialGradient>
+    </defs>
+    <rect x="0" y="0" width="300" height="92" fill="url(#skyGrad)"/>
+    <circle cx="150" cy="${cy}" r="42" fill="url(#sunGrad)" opacity="${glow}"/>
+    <circle cx="150" cy="${cy}" r="21" fill="url(#sunGrad)"/>
+    <rect x="0" y="92" width="300" height="26" fill="#182849"/>
+    <rect x="0" y="90" width="300" height="3" fill="#35d0b8" opacity="0.5"/>
+  </svg>`;
+}
+
+const LEVEL_TITLES = [
+  {min:0,   title:'🌱 学びはじめ'},
+  {min:20,  title:'🌤 朝もやレベル'},
+  {min:50,  title:'⛅ 夜明け前'},
+  {min:100, title:'☀️ 目覚めの光'},
+  {min:200, title:'🌅 サンライズ見習い'},
+  {min:350, title:'🌇 サンライズマスター'},
+  {min:500, title:'🏆 English Sunrise Legend'},
+];
+function currentLevelTitle(){
+  const n = currentStudent.masteredWords.size;
+  let cur = LEVEL_TITLES[0];
+  for(const lv of LEVEL_TITLES){ if(n>=lv.min) cur=lv; }
+  return cur.title;
+}
+
+function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function yesterdayStr(){ const d=new Date(); d.setDate(d.getDate()-1); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function bumpStreak(){
+  const today = todayStr();
+  if(currentStudent.lastStudyDate === today) return;
+  currentStudent.streak = (currentStudent.lastStudyDate === yesterdayStr()) ? (currentStudent.streak||0) + 1 : 1;
+  currentStudent.lastStudyDate = today;
+}
+
+const PRAISE_MESSAGES = ['正解！','よくできました！','さすが！','ナイス！','完璧！','その調子！','すごい！','よくやった！'];
+function randomPraise(){ return PRAISE_MESSAGES[Math.floor(Math.random()*PRAISE_MESSAGES.length)]; }
+
+function launchConfetti(containerId){
+  const box = document.getElementById(containerId);
+  if(!box) return;
+  const colors = ['#d98f2b','#b8741f','#0c7a64','#cf4327','#24304a'];
+  for(let i=0;i<24;i++){
+    const p = document.createElement('div');
+    p.className = 'confetti-piece';
+    p.style.left = (Math.random()*100)+'%';
+    p.style.background = colors[Math.floor(Math.random()*colors.length)];
+    p.style.animationDelay = (Math.random()*0.3)+'s';
+    p.style.borderRadius = Math.random()>0.5 ? '50%' : '2px';
+    box.appendChild(p);
+  }
+}
 
 let route = {screen:'login'};
 const app = document.getElementById('app');
@@ -322,9 +409,9 @@ function renderLogin(){
         btn.disabled = false; btn.textContent = 'ログインしてはじめる';
         return;
       }
-      currentStudent = { name, password: pass, masteredWords: new Set(existing.masteredWords||[]), excludedWords: new Set(existing.excludedWords||[]), excludeReasons: existing.excludeReasons || {}, studyCount: existing.studyCount||0, lastRange: existing.lastRange || null };
+      currentStudent = { name, password: pass, masteredWords: new Set(existing.masteredWords||[]), excludedWords: new Set(existing.excludedWords||[]), excludeReasons: existing.excludeReasons || {}, studyCount: existing.studyCount||0, streak: existing.streak||0, lastStudyDate: existing.lastStudyDate||null, lastRange: existing.lastRange || null };
     }else{
-      currentStudent = { name, password: pass, masteredWords: new Set(), excludedWords: new Set(), excludeReasons: {}, studyCount: 0, lastRange: null };
+      currentStudent = { name, password: pass, masteredWords: new Set(), excludedWords: new Set(), excludeReasons: {}, studyCount: 0, streak: 0, lastStudyDate: null, lastRange: null };
       await saveStudentRecord();
     }
     await rememberLastName(name);
@@ -738,7 +825,7 @@ function renderTest(){
     answered = true;
     const correct = isCorrectAnswer(input.value, word);
     session.testResults[session.testIdx] = correct;
-    if(correct){ input.classList.add('correct'); fb.textContent='正解！'; fb.className='feedback correct'; }
+    if(correct){ input.classList.add('correct'); fb.textContent=randomPraise(); fb.className='feedback correct'; }
     else{ input.classList.add('incorrect'); fb.textContent=`不正解… 正しいスペル: ${word}`; fb.className='feedback incorrect'; session.testWrongThisRound.push(word); }
     btn.textContent = session.testIdx+1 < total ? '次へ' : '結果を見る';
   }
@@ -794,6 +881,7 @@ async function onStagePass(){
   if(currentStudent){
     session.studyWords.forEach(w=>currentStudent.masteredWords.add(w));
     currentStudent.studyCount++;
+    bumpStreak();
     if(rangeCtx){
       const advance = session.lapAdvance !== undefined ? session.lapAdvance : session.studyWords.length;
       rangeCtx.completedWordsCount += advance;
@@ -814,18 +902,22 @@ function renderSummary(){
   const label = sessionLabel();
   const nextBatch = rangeCtx ? nextStudyBatch() : {words:[], newCount:0};
   const justCompletedLap = rangeCtx && rangeCtx.words.length>0 && (rangeCtx.completedWordsCount % rangeCtx.words.length === 0);
+  const streak = currentStudent ? (currentStudent.streak||0) : 0;
   app.innerHTML = `
+    <div class="confetti-wrap" id="confettiWrap"></div>
     <div class="card" style="text-align:center;">
       <div class="summary-icon">${justCompletedLap ? '🎉' : '🌅'}</div>
       <h2>合格！おつかれさまでした</h2>
       <div class="setting-desc" style="margin-top:6px;">${label}の確認テスト・チェックテストに全問正解しました。${justCompletedLap ? 'この範囲を1周達成しました！' : ''}</div>
       <div class="summary-stats">
-        <div class="stat-box"><div class="stat-num" style="color:var(--sun);">${session.newWordsCount}</div><div class="stat-label">学習した単語</div></div>
+        <div class="stat-box"><div class="stat-num" style="color:var(--sun-text);">${session.newWordsCount}</div><div class="stat-label">学習した単語</div></div>
         <div class="stat-box"><div class="stat-num" style="color:var(--mint);">${session.studyWords.length}</div><div class="stat-label">今回学習した単語</div></div>
       </div>
+      ${streak>=2 ? `<div class="setting-desc" style="margin-top:8px;color:var(--coral);">🔥 ${streak}日連続で学習中！</div>` : ''}
     </div>
     ${nextBatch.words.length ? `<button class="btn btn-primary" id="btnNextBatch">続けて${justCompletedLap ? '次の周を' : `次の${nextBatch.words.length}語を`}学習する</button>` : ''}
     <button class="btn ${nextBatch.words.length ? 'btn-ghost' : 'btn-primary'}" id="btnHome" style="${nextBatch.words.length ? 'margin-top:10px;' : ''}">${rangeCtx ? 'この範囲にもどる' : '範囲選択にもどる'}</button>`;
+  launchConfetti('confettiWrap');
   if(nextBatch.words.length){
     document.getElementById('btnNextBatch').onclick = ()=>startBatchSession(nextBatch);
   }
@@ -936,7 +1028,7 @@ function renderQuizRun(){
     answered = true;
     const correct = isCorrectAnswer(input.value, word);
     session.quizResults[session.quizIdx] = correct;
-    if(correct){ input.classList.add('correct'); fb.textContent='正解！'; fb.className='feedback correct'; }
+    if(correct){ input.classList.add('correct'); fb.textContent=randomPraise(); fb.className='feedback correct'; }
     else{ input.classList.add('incorrect'); fb.textContent=`不正解… 正しいスペル: ${word}`; fb.className='feedback incorrect'; }
     btn.textContent = session.quizIdx+1 < total ? '次へ' : '結果を見る';
   }
@@ -960,7 +1052,7 @@ function renderQuizResult(){
       <h2>実力テスト結果</h2>
       <div class="setting-desc" style="margin-top:6px;">${session.label}・ランダム${total}問</div>
       <div class="summary-stats">
-        <div class="stat-box"><div class="stat-num" style="color:var(--sun);">${correctCount}/${total}</div><div class="stat-label">正解数</div></div>
+        <div class="stat-box"><div class="stat-num" style="color:var(--sun-text);">${correctCount}/${total}</div><div class="stat-label">正解数</div></div>
         <div class="stat-box"><div class="stat-num" style="color:var(--mint);">${pct}%</div><div class="stat-label">正答率</div></div>
       </div>
     </div>
@@ -1035,7 +1127,7 @@ function renderLoginReview(){
     answered = true;
     const correct = isCorrectAnswer(input.value, word);
     s.results[s.idx] = correct;
-    if(correct){ input.classList.add('correct'); fb.textContent='正解！'; fb.className='feedback correct'; }
+    if(correct){ input.classList.add('correct'); fb.textContent=randomPraise(); fb.className='feedback correct'; }
     else{ input.classList.add('incorrect'); fb.textContent=`不正解… 正しいスペル: ${word}`; fb.className='feedback incorrect'; s.wrong.push(word); }
     btn.textContent = s.idx+1 < total ? '次へ' : '範囲ハブへすすむ';
   }
@@ -1072,16 +1164,21 @@ function renderRangeHub(){
   const lapPct = total ? Math.round(posInLap/total*100) : 0;
   const excludedN = excludedCountInRange();
   const batch = nextStudyBatch();
+  const streak = currentStudent.streak || 0;
   app.innerHTML = `
     ${brandbarHtml(true)}
     <div class="back-row" id="back">← 範囲選択にもどる</div>
     <h2 style="margin-bottom:4px;">${ctx.grade}年生・${ctx.rangeLabel}</h2>
-    <div class="setting-desc" style="margin-bottom:16px;">この範囲の中で、進み具合の確認・単語学習・実力テストができます。一回の学習は最大${STUDY_BATCH_SIZE}語ずつ進みます。全部終えると次の周（2周目、3周目…）に進めます。</div>
+    <div class="setting-desc" style="margin-bottom:14px;">この範囲の中で、進み具合の確認・単語学習・実力テストができます。一回の学習は最大${STUDY_BATCH_SIZE}語ずつ進みます。全部終えると次の周（2周目、3周目…）に進めます。</div>
+    <div class="badge-row">
+      <div class="badge-pill level">${currentLevelTitle()}</div>
+      ${streak>=1 ? `<div class="badge-pill streak">🔥 ${streak}日連続</div>` : ''}
+    </div>
     <div class="card" style="text-align:center;">
-      <div class="setting-desc">${lap}周目・この範囲の単語数：${total}語${excludedN ? `（除外中 ${excludedN}語）` : ''}</div>
-      <div class="grade-progress-track" style="margin:12px 0 8px;"><div class="grade-progress-fill" style="width:${lapPct}%"></div></div>
-      <div class="setting-desc">今の周：${posInLap} / ${total} 語 完了（${lapPct}%）</div>
-      <div class="setting-desc" style="margin-top:8px;color:var(--text-dim);">はじめて見た単語：${mastered} / ${total}（${pct}%）</div>
+      <div class="setting-desc" style="margin-bottom:6px;">${lap}周目・この範囲の単語数：${total}語${excludedN ? `（除外中 ${excludedN}語）` : ''}</div>
+      ${sunriseProgressSvg(lapPct)}
+      <div class="setting-desc" style="margin-top:10px;">今の周：${posInLap} / ${total} 語 完了（${lapPct}%）</div>
+      <div class="setting-desc" style="margin-top:4px;color:var(--text-dim);">はじめて見た単語：${mastered} / ${total}（${pct}%）</div>
     </div>
     <button class="btn btn-primary" id="btnRangeStudy" ${batch.words.length ? '' : 'disabled'}>${batch.words.length ? `📘 単語学習をはじめる（${batch.words.length}語）` : '学習できる単語がありません（除外しすぎかも）'}</button>
     <button class="btn btn-ghost" id="btnRangeQuiz" style="margin-top:10px;">🎯 この範囲で実力テスト</button>
